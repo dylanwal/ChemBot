@@ -1,5 +1,3 @@
-# Documentation
+# Home Page
 
-mkdocs serve
-
-mkdocs build
+Hi
