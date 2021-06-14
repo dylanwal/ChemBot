@@ -19,6 +19,12 @@ markdown_extensions:
 - pymdownx.tilde
 
 nav:
-    - Home: README.md
+    - Home:
+        - Home.md
     - PolyBot:
         - test.md
+        - test2.md
+
+
+extra_css:
+  - stylesheets/extra.css
