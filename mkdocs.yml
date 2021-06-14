@@ -1,5 +1,23 @@
 site_name: My Docs
-site_url: https://example.com/
 
 theme:
-  name: material
+    name: material
+    features:
+        - navigation.tabs
+        - navigation.sections
+        - toc.integrate
+
+markdown_extensions:
+- toc:
+    baselevel: 1
+    toc_depth: 3
+    permalink: True
+- pymdownx.highlight
+- pymdownx.superfences
+- pymdownx.caret
+- pymdownx.tilde
+
+nav:
+    - Home:
+          README.md
+    - PolyBot: test.md
