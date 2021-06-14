@@ -20,7 +20,7 @@ markdown_extensions:
 
 nav:
     - Home:
-        - Home.md
+        - README.md
     - PolyBot:
         - test.md
         - test2.md
