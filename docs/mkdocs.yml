@@ -1,4 +1,5 @@
 site_name: My Docs
+site_url: https://dylanwal.github.io/PolyBot/
 
 theme:
     name: material
@@ -18,6 +19,7 @@ markdown_extensions:
 - pymdownx.tilde
 
 nav:
-    - Home:
-          README.md
-    - PolyBot: test.md
+    - Home: README.md
+    - PolyBot:
+        - test.md
+        - test2.md
