@@ -17,5 +17,3 @@ jobs:
           python-version: 3.x
       - run: pip install mkdocs-material
       - run: mkdocs gh-deploy --force
-          echo Add other actions to build,
-          echo test, and deploy your project.
