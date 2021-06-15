@@ -4,17 +4,31 @@ Pumps receive RS-232 serial commands.
 
 """
 from math import sqrt, pi
+import logging
 
-from serial import Serial
+from serial import Serial, STOPBITS_TWO, PARITY_NONE
 
 from main_code.utils.serializable import Serializable
+from main_code.utils.sig_figs import sig_figs
 
 
-class harvard_pumps(Serializable):
+class SerialLine(Serial):
+    """
+    Create serial_communication line
+    """
+    def __init__(self, port):
+        Serial.__init__(self, port=port, stopbits=STOPBITS_TWO, parity=PARITY_NONE, timeout=2)
+        self.flushOutput()
+        self.flushInput()
+        logging.info('serial_communication line created on %s', port)
+
+
+class HarvardPumps(Serializable):
 
     instances = []
 
     def __init__(self,
+                 serial_line,
                  name: str = "pump",
                  address: int = 0,
                  diameter: float = 0,
@@ -22,8 +36,12 @@ class harvard_pumps(Serializable):
                  max_pull: float = 0
                  ):
         self.__class__.instances.append(self)
-        self._name = None
+        self.syringe_count = 0
+        self.syringe_setup = False
+
+        self.serial_line = serial_line
         self.name = name
+        logging.info('%s: infusing', self.name)
         self._address = None  # '{0:02.0f}'.format(address)
         self.address = address
         self._diameter = None
@@ -32,33 +50,23 @@ class harvard_pumps(Serializable):
         self.max_volume = max_volume  # units: ml
         self._max_pull = None
         self.max_pull = max_pull
-        self._syringe_setup = False
 
         self._volume = None  # units: ml
+        self.volume = 0  # units: ml
         self._flow_rate = None  # units: ml/min
-        self._x = None
-        self._state = "Not Ready"
+        self.flow_rate = 0  # units: ml/min
+        self._x = 0
+        self.state = "Not Ready"  # Not Ready, Ready, Running, Error
 
     def __repr__(self):
-        return f"Pump: {self._name} (addr.: {self._address}) \n" + \
-               f"\tdiameter: {self._diameter} cm\n" + \
-               f"\tmax_volume: {self._max_volume} ml\n" + \
-               f"\tmax_pull: {self._max_pull} cm\n" + \
-               f"current state: {self._state} \n" + \
-               f"\tvolume: {self._volume} ml\n" + \
-               f"\tflow_rate: {self._flow_rate} ml/min\n" + \
-               f"\tPosition: {self._x} ml \n"
-
-    @property
-    def name(self):
-        return self._address
-
-    @name.setter
-    def name(self, name):
-        if type(name) is str:
-            self._name = name
-        else:
-            raise TypeError("Name must be an string.")
+        return f"Pump: {self.name} (addr.: {self._address}) \n" + \
+               f"\tdiameter: {sig_figs(self._diameter, 3)} cm\n" + \
+               f"\tmax_volume: {sig_figs(self._max_volume, 3)} ml\n" + \
+               f"\tmax_pull: {sig_figs(self._max_pull, 3)} cm\n" + \
+               f"current state: {self.state} \n" + \
+               f"\tvolume: {sig_figs(self._volume, 3)} ml\n" + \
+               f"\tflow_rate: {sig_figs(self._flow_rate, 3)} ml/min\n" + \
+               f"\tPosition: {sig_figs(self._x, 3)} ml \n"
 
     @property
     def address(self):
@@ -76,8 +84,8 @@ class harvard_pumps(Serializable):
             if type(address) is int:
                 for pump in self.instances:
                     if pump.address == address:
-                        raise ValueError(f"Address {address} already taken by {pump._name}, "
-                                         f"so can't be assigned to {self._name}")
+                        raise ValueError(f"Address {address} already taken by {pump.name}, "
+                                         f"so can't be assigned to {self.name}")
 
                 self._address = address
             else:
@@ -91,11 +99,14 @@ class harvard_pumps(Serializable):
 
     @diameter.setter
     def diameter(self, diameter):
-        if 0 <= diameter <= 3:
-            self._diameter = diameter
-            self.syringe_check()
+        if type(diameter) in [float, int]:
+            if 0 <= diameter <= 3:
+                self._diameter = diameter
+                self.syringe_check()
+            else:
+                raise ValueError("Acceptable addresses are from [0, 3] cm.")
         else:
-            raise ValueError("Acceptable addresses are from [0, 3] cm.")
+            raise TypeError("diameter needs to be a float or int value.")
 
     @property
     def max_volume(self):
@@ -103,7 +114,14 @@ class harvard_pumps(Serializable):
 
     @max_volume.setter
     def max_volume(self, max_volume):
-        self._max_volume = max_volume
+        if type(max_volume) in [float, int]:
+            if 0 <= max_volume <= 55:
+                self._max_volume = max_volume
+                self.syringe_check()
+            else:
+                raise ValueError("Acceptable addresses are from [0, 55] ml.")
+        else:
+            raise TypeError("max_volume needs to be a float or int value.")
 
     @property
     def max_pull(self):
@@ -111,33 +129,43 @@ class harvard_pumps(Serializable):
 
     @max_pull.setter
     def max_pull(self, max_pull):
-        self._max_pull = max_pull
+        if type(max_pull) in [float, int]:
+            if 0 <= max_pull <= 15:
+                self._max_pull = max_pull
+                self.syringe_check()
+            else:
+                raise ValueError("Acceptable addresses are from [0, 15] cm.")
+        else:
+            raise TypeError("max_pull needs to be a float or int value.")
 
     def syringe_check(self):
         """
         This function completes the syringe calculation as only 2 of 3 values are needed.
         V = pi * r**2 * L
-        or changes _syringe_setup to TRUE if everyting is good
+        or changes syringe_setup to TRUE if everyting is good
         """
-        trio = [self.diameter, self.max_volume, self.max_pull]
-        if not self._syringe_setup:
-            if trio.count(0) == 1:
-                if trio[0] == 0:
-                    self.diameter = 2 * sqrt(self.max_volume / (pi*self.max_pull))
-                elif trio[1] == 0:
-                    self.max_volume = pi * (self.diameter/2)**2 * self.max_pull
-                elif trio[2] == 0:
-                    self.max_pull = self.max_volume / (pi * (self.diameter/2)**2)
 
-                self._syringe_setup = True
+        if not self.syringe_setup:
+            if self.syringe_count == 2:
+                prop = [self.diameter, self.max_volume, self.max_pull]
+                if prop.count(0) == 1:
+                    if prop[0] == 0:
+                        self.diameter = 2 * sqrt(self.max_volume / (pi*self.max_pull))
+                    elif prop[1] == 0:
+                        self.max_volume = pi * (self.diameter/2)**2 * self.max_pull
+                    elif prop[2] == 0:
+                        self.max_pull = self.max_volume / (pi * (self.diameter/2)**2)
 
-            elif trio.count(0) == 0:
-                diameter = 2 * sqrt(self.max_volume / (pi*self.max_pull))
-                if abs(self.diameter-diameter) == 0.01:
-                    self._syringe_setup = True
-                else:
-                    raise ValueError("Syringe diameter, max_volume, max_pull don't match.")
+                    self.syringe_setup = True
 
+                elif prop.count(0) == 0:
+                    diameter = 2 * sqrt(self.max_volume / (pi*self.max_pull))
+                    if abs(self.diameter-diameter) <= 0.01:
+                        self.syringe_setup = True
+                    else:
+                        raise ValueError("Syringe diameter, max_volume, max_pull don't match.")
+            else:
+                self.syringe_count += 1
 
     @property
     def volume(self):
@@ -148,13 +176,20 @@ class harvard_pumps(Serializable):
         self._volume = volume
 
     @property
+    def flow_rate(self):
+        return self._flow_rate
+
+    @flow_rate.setter
+    def flow_rate(self, flow_rate):
+        self._flow_rate = flow_rate
+
+    @property
     def x(self):
         return self._x
 
-    @property
-    def state(self):
-        return self._state
-
+    @flow_rate.setter
+    def flow_rate(self, flow_rate):
+        self._flow_rate = flow_rate
 
 
     def zero(self):
@@ -167,6 +202,18 @@ class harvard_pumps(Serializable):
 
     def stop(self):
         pass
+
+
+    def write(self, command):
+        self.serialcon.write(self.address + command + '\r')
+
+    def read(self, bytes=5):
+        response = self.serialcon.read(bytes)
+
+        if len(response) == 0:
+            raise #PumpError('%s: no response to command' % self.name)
+        else:
+            return response
 
 # def timeout_read(_uart, timeout_ms=20):
 #     now = ticks_ms()
@@ -228,8 +275,10 @@ if __name__ == "__main__":
     # uart.write(message)
     # responce = timeout_read(uart, timeout_ms=200)
     # print("recieved message: " + str(responce))
-    a = harvard_pumps(name="syr_pump_rxn1", address=0, diameter=1, max_volume=10)
-    b = harvard_pumps(name="syr_pump_rxn2", address=1, diameter=1, max_volume=10)
+    serial = SerialLine(port="COM3")
+    a = HarvardPumps(serial_line=serial, name="syr_pump_rxn1", address=0, diameter=1, max_volume=10)
+    b = HarvardPumps(serial_line=serial, name="syr_pump_rxn2", address=1, max_pull=6, max_volume=1)
 
     print(a)
-    #print(a.as_dict())
+    print(b)
+    print(a.as_dict())
