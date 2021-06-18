@@ -137,7 +137,9 @@ class reflect_ir_array:
 
 def stop_interrupt(pin):
     global state
-    state = "standby"
+
+    if state != "standby":
+        state = "standby"
 
 
 def main():
@@ -145,13 +147,15 @@ def main():
     pins = [16, 17, 18, 19]
     sen_array = reflect_ir_array(pins)
 
-    # Initialize interrupt
-    stop_interrupt = Pin(2, machine.Pin.IN)
-    stop_interrupt.irq(trigger=machine.Pin.IRQ_RISING, handler=interput_handler)
-
     # Initialize UART
     uart = UART(0, baudrate=19200, bits=8, parity=0, stop=1)
+    global state
     state = "standby"
+    print("standby")
+
+    # Initialize interrupt
+    pin_interrupt = Pin(2, machine.Pin.IN)
+    pin_interrupt.irq(trigger=machine.Pin.IRQ_RISING, handler=stop_interrupt)
 
     while True:
 
@@ -161,6 +165,7 @@ def main():
             if message != "":
                 if message == "run":
                     state = "run"
+                    print("running")
                     raise
                 else:
                     uart.write("Invald message sent" + str(message) + "\n")
@@ -173,6 +178,7 @@ def main():
             uart.write(str(time.time()) + "+" + str(data) + "\n")
 
         # When interrupt received
+        print("standby")
         sen_array.deactivate()
 
 
@@ -190,4 +196,5 @@ def main_no_comm():
 
 if __name__ == '__main__':
     main()
+
 
