@@ -5,8 +5,6 @@
 
 
 In Lab:
-* Email - Exhaust
-* attach Knob
 * solder LED driver
     Violet (425+-10 nm, 2.75 V (3.5 V_max), 1200 mA_max)
     Blue (475+-20 nm, 2.84 V (3.5 V_max), 1000 mA_max)
@@ -24,7 +22,6 @@ In Lab:
   * 200 oC pre-heat (1 min)  
   * 260 oC max (20 sec)
 
-* Get N2 into pump
 * Valves
 * Build light setup   
 * UV Vis CTA/Cat
