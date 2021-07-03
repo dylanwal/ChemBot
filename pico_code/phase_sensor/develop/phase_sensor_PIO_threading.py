@@ -9,22 +9,24 @@ The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when 
 reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of light reflected will change
 which will change the resistance of the phototransistor.
 
-Operation:
+Sensor Operation:
 The sensor works by charging the capacitor (10nF) to 3.3V through the OUT connection, then measuring the time it takes the
 capacitor to drain as electricity from the capacitor leaves through the phototransistor.
 
 PIO states machines were used to get accurate timing of capacitor draining, as it is quite quick. Additionally, state machines
 provides the ability to simultaneous measure 8 sensors at once, given that the pico has 8 state machines.
-The state machines run at 125 MHz (8 ns per cycle) and the time loop is two cycles so (16 ns accuracy is expected).
+The state machines run at 125 MHz (8 ns per cycle) and the time loop is two cycles so (16 ns timing accuracy is expected).
+Max sample rate is ~300 Hz
 
-
-High steps of code:
+High level steps of code:
 1) define PIO states machines
 2) define UART connection to master computer
-3) define interrupt (master computer can stop measurement)
-3) wait for "run" message from master computer
-4) when "run" message received: run state machines and start sending data over UART
-4*) if interrupt received from master computer, stop measurements and go into "standby" state. (wait for "run" to be sent again)
+3) start infinite loop:
+    3-1) Read from UART
+    3-2-1) if None: do nothing
+    3-2-2) if "r": take measurement, and send data back over UART
+    3-2-3) if "s": send "s" back over UART - just used to check the PICO/communication is running correctly
+
 
 Wiring
     **Pico**        **Line sensor**
@@ -32,30 +34,33 @@ Wiring
     GND             GND
     Any GPIO Pin    OUT
 
-
     **FT232R**      **Pico**
     RX              TX (GPIO_0, UART0)
     TX              RX (GPIO_1, UART0)
     GND             GND
     VCC             (don't connect, can kill Pico if 5 V)
-    DTR/RTS         Any GPIO (GPIO_2)    RTS: Request to send (1:no request, 0: request - not sure)
+    DTR/RTS         (not used currently)  RTS: Request to send (1:no request, 0: request - not sure)
     CTS             (not used currently)  CTS: Clear to send (1: ready, 0: not ready - not sure)
 
 Parameters:
     * Pins for sensors: provide the set of pins in main() to the
     * UART object ID
-    * Pin for interrupt
 
 """
 
-from time import time, sleep
+from time import time, sleep, ticks_ms, ticks_us
 from rp2 import PIO, asm_pio
 from machine import Pin, UART
+from ucollections import deque
+import _thread
 
 # Too short of a charge_time wont charge the capacitor enough
 # Too long is fine but it slows down measurement rate.
 charge_time = int(125_000_000 * 0.001)
-count_down = 1_000_000 # Don't change
+count_down = 1_000_000  # Don't change
+
+# queue
+queue = deque((), 3)
 
 
 @asm_pio(set_init=rp2.PIO.OUT_LOW)
@@ -126,7 +131,7 @@ class reflect_ir_array:
 
         # read data out
         for i, sensor in enumerate(self.sensors):
-            data[i] = sensor._read() # read is blocking (will wait till measurement done)
+            data[i] = sensor._read()  # read is blocking (will wait till measurement done)
 
         return data
 
@@ -135,66 +140,109 @@ class reflect_ir_array:
             sensor.deactivate()
 
 
-def stop_interrupt(pin):
-    global state
-
-    if state != "standby":
-        state = "standby"
-
-
-def main():
+def sensor():
+    global queue
     # Initialize state machines
     pins = [16, 17, 18, 19]
     sen_array = reflect_ir_array(pins)
+    while True:
+        queue.append(sen_array.measure())
 
+
+def comm():
+    global queue
     # Initialize UART
-    uart = UART(0, baudrate=19200, bits=8, parity=0, stop=1)
-    global state
-    state = "standby"
-    print("standby")
+    uart = UART(0, baudrate=57600, bits=8, parity=0, stop=1)
+    print("Running")
 
-    # Initialize interrupt
-    pin_interrupt = Pin(2, machine.Pin.IN)
-    pin_interrupt.irq(trigger=machine.Pin.IRQ_RISING, handler=stop_interrupt)
+    # Calculate mean value
+    sleep(0.2)
+    mean = queue.popleft()
+    num_sensors = len(mean)
+    for i in range(50):
+        data = queue.popleft()
+        for i in range(num_sensors):
+            mean[i] = mean[i] + data[i]
+        sleep(0.01)
+    for i in range(num_sensors):
+        mean[i] = int(mean[i] / 51)
 
     while True:
+        # communication
+        sleep(0.0001)
+        message = uart.read(1)
+        print("message: " + str(message) + "  " + str(time()))
 
-        # wait for command "run"
-        while state == "standby":
-            message = uart.read()
-            if message != "":
-                if message == "run":
-                    state = "run"
-                    print("running")
-                    raise
-                else:
-                    uart.write("Invald message sent" + str(message) + "\n")
+        if message is not None:
+            # taking data
+            if message == b"r":
+                for _ in range(100):
+                    try:
+                        data = queue.popleft()
+                        break
+                    except IndexError:
+                        sleep(0.00002)
+                        continue
+                for i in range(num_sensors):
+                    data[i] = int(data[i] / mean[i] * 1000)
+                # print("data out: " + str(data))
+                uart.write("d" + str(ticks_us()) + "+" + str(data) + "\n")
+                continue
 
-            sleep(1)
+            # Not nessacary but, provides a way to check the phase sensor is working correctly
+            if message == b"s":
+                uart.write("s" + "\n")
+                continue
 
-        # start taking data
-        while state == "run":
-            data = sen_array.measure()
-            uart.write(str(time.time()) + "+" + str(data) + "\n")
 
-        # When interrupt received
-        print("standby")
-        sen_array.deactivate()
+def no_comm():
+    global queue
+    sleep(0.2)
+
+    # Calculate mean value
+    mean = queue.popleft()
+    num_sensors = len(mean)
+    for i in range(50):
+        data = queue.popleft()
+        for i in range(num_sensors):
+            mean[i] = mean[i] + data[i]
+        sleep(0.01)
+    for i in range(num_sensors):
+        mean[i] = int(mean[i] / 51)
+
+    start = ticks_us()
+    for _ in range(100):
+        for _ in range(100):
+            try:
+                data = queue.popleft()
+                break
+            except IndexError:
+                sleep(0.00002)
+                continue
+        for i in range(num_sensors):
+            data[i] = int(data[i] / mean[i] * 1000)
+        print("data out: " + str(data))
+        sleep(0.001)
+    print(100 / (ticks_us() - start) * 1_000_000)
+    _thread.exit()
+
+
+def main():
+    _thread.start_new_thread(comm, ())
+    sensor()
 
 
 def main_no_comm():
     """
     No UART communication
     """
-    pins = [16, 17, 18, 19]
-    sen_array = reflect_ir_array(pins)
-
-    while True:
-        data = sen_array.measure()
-        print(data)
+    _thread.start_new_thread(no_comm, ())
+    sensor()
 
 
 if __name__ == '__main__':
     main()
+    # main_no_comm()
+
 
 

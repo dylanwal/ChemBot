@@ -8,7 +8,7 @@ The code expects to receive a list of data to be plotted.
 
 import time
 import sys
-from PyQt5 import QtWidgets, QtCore
+from PyQt5 import QtWidgets, QtCore, Qt
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from pyqtgraph.dockarea import *
 import pyqtgraph as pg
@@ -16,126 +16,131 @@ import numpy as np
 import math
 
 
+# fixes scaling issues across monitors
+import os
+os.environ["QT_ENABLE_HIGHDPI_SCALING"] = "1"
+
+color_list = [
+    [10, 36, 204],  # blue
+    [172, 24, 25],  # red
+    [6, 127, 16],  # green
+    [251, 118, 35],  # orange
+    [145, 0, 184],  # purple
+    [255, 192, 0]  # yellow
+]
+
+
 class MyWindow(QMainWindow):
     def __init__(self, app):
         super(MyWindow, self).__init__()
         self.app = app
-        self.initUI()
-
-    def initUI(self):
         # Generate window
         self.area = DockArea()
         self.setCentralWidget(self.area)
-        self.resize(2400, 1200)
+        self.resize(1200, 800)
         self.setWindowTitle('Plotting data from serial connection.')
+        # pg.setConfigOptions(antialias=True)    # nicer plots but slower code
+
+        # Drop down menu
+        bar = self.menuBar()
+        file = bar.addMenu("File")
+        file.addAction("New")
+        file.addAction("save")
+        file.addAction("quit")
 
         # Generate docks
-        self.d2 = Dock("Dock2", size=(2400, 1200))
+        self.d2 = Dock("Dock2", size=(1200, 600), hideTitle=True)
+        self.d3 = Dock("Dock3", size=(1200, 200), hideTitle=True)
+        self.area.addDock(self.d2)  ## place d1 at left edge of dock area (it will fill the whole space since there are no other docks yet)
+        self.area.addDock(self.d3, 'bottom', self.d2)  # place d3 at bottom edge of d1
 
 
-        # Dock 2 - Distance plot
-        self.d2.hideTitleBar()
-        self.w2 = pg.PlotWidget(title="Distance sensors")
-        self.d2.addWidget(self.w2)
-        self.w2.setLabel('left', 'Distance', units='cm')
-        self.w2.setLabel('bottom', 'Time', units='sec')
+        # Dock 2 - plots
+        self.w1 = pg.PlotWidget(title="Plot")
+        self.d2.addWidget(self.w1)
+        self.w1.setLabel('left', 'Signal', units='abs')
+        self.w1.setLabel('bottom', 'Time', units='sec')
+
+        self.num_lines = 4
         self.plot_points = 100
-        self.w2_xdata = np.zeros([self.plot_points])
-        self.w2_ydata = np.zeros([self.plot_points])
-        pen_w2_1 = pg.mkPen(color=(0, 0, 255), width=5)
-        self.w2_plot = self.w2.plot(self.w2_xdata, self.w2_ydata, pen=pen_w2_1)
-        # pen_w2_2 = pg.mkPen(color=(255, 0, 0), width=5)
-        # self.w2_plot2 = self.w2.plot(self.w2_xdata, self.w2_ydata, pen=pen_w2_2)
-        # pen_w2_3 = pg.mkPen(color=(0, 255, 0), width=5)
-        # self.w2_plot3 = self.w2.plot(self.w2_xdata, self.w2_ydata, pen=pen_w2_3)
+        self.w1_xdata = np.zeros(self.plot_points)
+        self.w1_ydata = np.zeros([self.num_lines, self.plot_points])
+        for i in range(self.num_lines):
+            pen = pg.mkPen(color=color_list[i], width=3)
+            exec(f"self.w1_plot_{i} = self.w1.plot(self.w1_xdata, self.w1_ydata[{i}, :], pen=pen)")
 
 
         # Dock 3 - Bottons
-        # self.d3.hideTitleBar()
-        # self.w3 = pg.LayoutWidget()
-        # self.d3.addWidget(self.w3)
-        # self.b1 = QtWidgets.QPushButton('Start')
-        # # self.b1.clicked.connect(self.clicked)
-        # self.b2 = QtWidgets.QPushButton('Stop')
-        # # self.b1.clicked.connect(self.clicked)
-        # self.w3.addWidget(self.b1, row=0, col=0)
-        # self.w3.addWidget(self.b2, row=0, col=1)
-        #
-        # self.l1 = pg.ValueLabel(siPrefix=True, suffix='fps')
-        # self.l2 = pg.ValueLabel(siPrefix=True, suffix='count')
-        # self.w3.addWidget(self.l1, row=1, col=0)
-        # self.w3.addWidget(self.l2, row=1, col=1)
-        # self.fps_time = time.time()
+        self.w3 = pg.LayoutWidget()
+        self.d3.addWidget(self.w3)
+        self.b1 = QtWidgets.QPushButton('Start')
+        # self.b1.clicked.connect(self.clicked)
+        self.b2 = QtWidgets.QPushButton('Stop')
+        # self.b1.clicked.connect(self.clicked)
+        self.w3.addWidget(self.b1, row=0, col=0)
+        self.w3.addWidget(self.b2, row=0, col=1)
+
+
+        # Frames per second counter
+        self.l1 = pg.ValueLabel(siPrefix=True, suffix='fps')
+        self.l2 = pg.ValueLabel(siPrefix=True, suffix='count')
+        self.w3.addWidget(self.l1, row=1, col=0)
+        self.w3.addWidget(self.l2, row=1, col=1)
+        self.fps_time = time.time()
+        self.fps = 0
+
 
 
         # Update everything
+        self.w1_timer = pg.QtCore.QTimer()
+        self.w1_timer.timeout.connect(self.update_all)
+        self.w1_timer.start(0)
         self.counter = 0
-        self.w2_timer = pg.QtCore.QTimer()
-        self.w2_timer.timeout.connect(self.update_all)
-        self.w2_timer.start(0)
 
     def update_all(self):
-        global connection, data
-        data.add(connection.receive_data())
-        connection.send_data()
-        print('hi')
         self.update_plots()
         if self.counter % 10 == 0:   # run every 10 loop
             self.update_labels()
         self.app.processEvents()
         self.counter += 1
 
-
     def update_plots(self):
-        global data
+        self.w1_xdata = np.roll(self.w1_xdata, -1)
+        self.w1_ydata = np.roll(self.w1_ydata, -1)
 
-        if self.counter < self.plot_points:
-            xdata = data.df[:data.data_size, 0]
-            ydata1 = data.df[:data.data_size, 1]
-            ydata2 = data.df[:data.data_size, 2]
-            ydata3 = data.df[:data.data_size, 3]
-            ydata4 = data.df[:data.data_size, 4]
-            #ydata5 = data.df[:data.data_size, 5]
-            #ydata6 = data.df[:data.data_size, 6]
-        else:
-            xdata = data.df[data.data_size - self.plot_points:data.data_size, 0]
-            ydata1 = data.df[data.data_size - self.plot_points:data.data_size, 1]
-            ydata2 = data.df[data.data_size - self.plot_points:data.data_size, 2]
-            ydata3 = data.df[data.data_size - self.plot_points:data.data_size, 3]
-            ydata4 = data.df[data.data_size - self.plot_points:data.data_size, 4]
-            #ydata5 = data.df[data.data_size - self.plot_points:data.data_size, 5]
-            #ydata6 = data.df[data.data_size - self.plot_points:data.data_size, 6]
+        global in_phase_sensor
+        new_data = in_phase_sensor.measure_mean(smooth=False)
+        print(new_data)
+        self.w1_xdata[-1] = new_data[0]
+        self.w1_ydata[:, -1] = new_data[1:]
 
-        self.w2_plot.setData(xdata, ydata1)
-        #self.w2_plot2.setData(xdata, ydata5)
-        #self.w2_plot3.setData(xdata, ydata6)
-        self.w4_plot.setData(xdata, ydata2)
-        self.w4_plot2.setData(xdata, ydata3)
-        self.w4_plot3.setData(xdata, ydata4)
-
+        for i in range(self.num_lines):
+            exec(f"self.w1_plot_{i}.setData(self.w1_xdata, self.w1_ydata[{i}, :])")
 
     def update_labels(self):
         now = time.time()
         dt = time.time() - self.fps_time
         self.fps_time = now
-        self.fps = 10 / dt
+        a = 0.8
+        self.fps = a*(10 / dt) + (1-a) * self.fps  # exponential smoothing
         self.l1.setValue(self.fps)
         self.l2.setValue(self.counter)
 
-
+def main():
+    from main_code.hardware_code.phase_sensor import phase_sensor
+    global in_phase_sensor
+    in_phase_sensor = phase_sensor.PhaseSensor(name="in_phase_sensor", number_sensors=4)
+    in_phase_sensor.get_mean()
 
 
 def window():
-    app = QApplication([])
+    app = QApplication(sys.argv)
     win = MyWindow(app)
     win.show()
     sys.exit(app.exec_())
 
 
 if __name__ == '__main__':
-    #global connection, data
-    connection = serial.intialize_comm()
-    connection.receive_data_labels()
-    data = everything_data_numpy.intialize_dataframe(connection.num_data_points)
+    main()
     window()
 
