@@ -61,7 +61,7 @@ class MyWindow(QMainWindow):
         self.w1.setLabel('left', 'Signal', units='abs')
         self.w1.setLabel('bottom', 'Time', units='sec')
 
-        self.num_lines = 4
+        self.num_lines = 6
         self.plot_points = 100
         self.w1_xdata = np.zeros(self.plot_points)
         self.w1_ydata = np.zeros([self.num_lines, self.plot_points])
@@ -110,7 +110,7 @@ class MyWindow(QMainWindow):
 
         global in_phase_sensor
         new_data = in_phase_sensor.measure_mean(smooth=False)
-        print(new_data)
+        #print(new_data)
         self.w1_xdata[-1] = new_data[0]
         self.w1_ydata[:, -1] = new_data[1:]
 
@@ -129,7 +129,7 @@ class MyWindow(QMainWindow):
 def main():
     from main_code.hardware_code.phase_sensor import phase_sensor
     global in_phase_sensor
-    in_phase_sensor = phase_sensor.PhaseSensor(name="in_phase_sensor", number_sensors=4)
+    in_phase_sensor = phase_sensor.PhaseSensor(name="in_phase_sensor",port="COM7", number_sensors=6)
     in_phase_sensor.get_mean()
 
 

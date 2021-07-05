@@ -3,6 +3,12 @@ import numpy as np
 
 
 def sig_figs(number: float, significant_figures: int = 3) -> str:
+    """
+    Given a number return a string rounded to the desired significant digits.
+    :param number:
+    :param significant_figures:
+    :return:
+    """
     try:
         return '{:g}'.format(float('{:.{p}g}'.format(number, p=significant_figures)))
     except Exception:
@@ -10,6 +16,12 @@ def sig_figs(number: float, significant_figures: int = 3) -> str:
 
 
 def sig_figs_array(array: np.ndarray, significant_figures: int = 3) -> str:
+    """
+    Given a array return a string rounded to the desired significant digits.
+    :param array:
+    :param significant_figures:
+    :return:
+    """
     try:
         out = ""
         for number in array:

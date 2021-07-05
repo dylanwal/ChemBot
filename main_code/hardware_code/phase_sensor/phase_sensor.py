@@ -38,7 +38,7 @@ class PhaseSensor:
         self.port = port
 
         # Setup communication
-        self.serial_comm = Serial(port=port, baudrate=57600, parity=PARITY_EVEN, stopbits=STOPBITS_ONE, timeout=0.1)
+        self.serial_comm = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE, timeout=0.1)
 
         self.state = "standby"
         if name is None:
@@ -49,7 +49,7 @@ class PhaseSensor:
         # data
         self.number_sensors = number_sensors
         self.buffer_level = 0
-        self.buffer_max = 10_000
+        self.buffer_max = 1_000
         self.data_buffer = np.empty([self.buffer_max, number_sensors+1])  # "+1" is for time
 
         # data to determine phase
@@ -235,6 +235,7 @@ class PhaseSensor:
 
         self.mean = np.sum(mean, axis=0)/num
 
+
     @staticmethod
     def data_decode(message: str) -> np.array:
         message = message.replace("d", "").replace("\n", "")
@@ -299,13 +300,13 @@ if __name__ == '__main__':
     from main_code.utils import sig_figs
     gas = np.array([75204.32, 69611.18, 85343.46, 73813.6])
     liq = np.array([80279.38, 75647.18, 89400.96, 78617.64])
-    in_phase_sensor = PhaseSensor(name="in_phase_sensor", number_sensors=4)
+    in_phase_sensor = PhaseSensor(name="in_phase_sensor", port="COM7", number_sensors=6)
     # in_phase_sensor.zero(manual=True)
     # in_phase_sensor.get_mean()
     start = time()
     k = 0
     np.set_printoptions(precision=3)
-    for _ in range(100):
+    for _ in range(1000):
         k += 1
         data = in_phase_sensor.measure()
         print(data[1:])
