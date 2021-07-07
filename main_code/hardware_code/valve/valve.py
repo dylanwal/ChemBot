@@ -153,30 +153,34 @@ if __name__ == '__main__':
     """
     from time import sleep
 
-    # Logging stuff
-    logging.basicConfig(filename=r'.\testing.log',
-                        level=logging.DEBUG,
-                        format='%(asctime)s %(message)s',
-                        datefmt='%m/%d/%Y %I:%M:%S %p')
-    logging.info("\n\n")
-    logging.info("---------------------------------------------------")
-    logging.info("---------------------------------------------------")
-
-    positions = [
-        ["P1", 545],
-        ["P2", 1190],
-        ["P3", 1820],
-        ["P4", 2480]
-    ]
-
-    # Connect to valve
-    V1 = Valve(port="COM8", positions=positions)
-
-    # Cycle through positions
-    print(V1)
-    for pos in V1.pos_keys:
-        V1.move(pos)
-        print(f"Moving to position {pos}.")
-        sleep(1)
-
-    print("Done")
+    # # Logging stuff
+    # logging.basicConfig(filename=r'.\testing.log',
+    #                     level=logging.DEBUG,
+    #                     format='%(asctime)s %(message)s',
+    #                     datefmt='%m/%d/%Y %I:%M:%S %p')
+    # logging.info("\n\n")
+    # logging.info("---------------------------------------------------")
+    # logging.info("---------------------------------------------------")
+    #
+    # positions = [
+    #     ["P1", 545],
+    #     ["P2", 1190],
+    #     ["P3", 1820],
+    #     ["P4", 2480]
+    # ]
+    #
+    # # Connect to valve
+    # V1 = Valve(port="COM8", positions=positions)
+    #
+    # # Cycle through positions
+    # print(V1)
+    # for pos in V1.pos_keys:
+    #     V1.move(pos)
+    #     print(f"Moving to position {pos}.")
+    #     sleep(1)
+    #
+    # print("Done")
+    serial_comm = Serial(port="COM9", baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE, timeout=0.1)
+    serial_comm.write("v15_0545\r".encode())
+    print(serial_comm.read_until())
+    serial_comm.read_until()

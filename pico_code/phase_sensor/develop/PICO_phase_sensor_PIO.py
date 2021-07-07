@@ -1,7 +1,3 @@
-NO CURRENTLY IN USE
-
-
-
 """
 Phase sensor code:
 
