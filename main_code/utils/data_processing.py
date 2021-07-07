@@ -30,3 +30,8 @@ def savitzky_golay(y, window_size, order, deriv=0, rate=1):
     y = np.concatenate((firstvals, y, lastvals))
 
     return np.convolve(m[::-1], y, mode='valid')
+
+
+def exponetial_averaging():
+    a = 0.8
+    data = a * data + (1 - a) * self.data_buffer[self.buffer_level - 1, :]

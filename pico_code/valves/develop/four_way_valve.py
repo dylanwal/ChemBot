@@ -23,6 +23,4 @@ off = Pin(15, Pin.OUT)
 off.value(0)
 
 
-
-
 pwm.deinit()

@@ -38,7 +38,7 @@ Wiring
     usb            usb
 
 Parameters:
-    * Pins: in main() default: [14, 15, 16, 17, 18, 19, 20, 21]
+    * Pins: in main() default: [12, 13, 14, 15, 16, 17, 18, 19]
 
 """
 
@@ -122,7 +122,7 @@ class reflect_ir_array:
 
         # read data out
         for i, sensor in enumerate(self.sensors):
-            data[i] = sensor._read() # read is blocking (will wait till measurement done)
+            data[i] = sensor._read()  # read is blocking (will wait till measurement done)
 
         return data
 
@@ -133,10 +133,8 @@ class reflect_ir_array:
 
 def main():
     # Initialize state machines
-    pins = [14, 15, 16, 17, 18, 19, 20, 21]
+    pins = [12, 13, 14, 15, 16, 17, 18, 19]
     sen_array = reflect_ir_array(pins)
-
-    print("Running")
 
     # Get mean
     n = 50
@@ -150,7 +148,7 @@ def main():
     for i in range(num):
         mean[i] = int(mean[i]/n)
 
-    # main loop (infinate loop)
+    # main loop (infinite loop)
     while True:
         while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
             message = sys.stdin.read(1)
@@ -162,7 +160,6 @@ def main():
                     data[i] = int(data[i]/mean[i]*1000)
 
                 # send data
-                # print(data)
                 print("d" + str(ticks_us()) + "+" + str(data))
                 continue
 
@@ -173,14 +170,15 @@ def main():
 
             sleep(0.0005)
 
-@micropython.native
+
 def main_no_comm():
     """
-    No communication
+    No communication; Just for testing/development
     """
-    pins = [16, 17, 18, 19, 20, 21]
+    pins = [12, 13, 14, 15, 16, 17, 18, 19]
     sen_array = reflect_ir_array(pins)
 
+    # Get max data rate
     n = 100
     start = ticks_us()
     for _ in range(n):
@@ -190,7 +188,8 @@ def main_no_comm():
     print("data rate:")
     print(n/(end-start)*1_000_000)
 
-    num =len(pins)
+    # Get mean
+    num = len(pins)
     mean = [0] * num
     for _ in range(n):
         data = sen_array.measure()
@@ -200,6 +199,7 @@ def main_no_comm():
     for i in range(num):
         mean[i] = mean[i]/n
 
+    # Get max data rate with mean calculation
     n = 100
     start = ticks_us()
     for _ in range(n):
@@ -211,6 +211,7 @@ def main_no_comm():
     print("data rate(with mean):")
     print(n/(end-start)*1_000_000)
 
+    # Continually just take data
     sleep(1)
     std = [0]*num
     for _ in range(1_000):
@@ -223,8 +224,4 @@ def main_no_comm():
 if __name__ == '__main__':
     main()
     # main_no_comm()
-
-
-
-
 
