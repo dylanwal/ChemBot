@@ -45,7 +45,7 @@ def main():
             if message[0] == "v":
                 try:
                     _pin = int(message[1:3])  # GPIO pins: 0 - 28
-                    duty = int(message[4:8])  # in milli-seconds or micro-seconds
+                    duty = int(message[3:7])  # in milli-seconds or micro-seconds
                     servo(_pin=_pin, duty=duty)
                     print("v")
                     continue

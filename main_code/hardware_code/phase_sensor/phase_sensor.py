@@ -46,8 +46,8 @@ class PhaseSensor:
         # Check to see if serial port taken
         for sensor in self.instances:
             if sensor.port == port:
-                warnings.warn(f"Phase sensor(name: {self.name}; port:{self.port}) Serial port already taken.")
-                logging.warning(f"Phase sensor(name: {self.name}; port:{self.port}) Serial port already taken.")
+                warnings.warn(f"Phase sensor || ({self.name, self.port}) Serial port already taken.")
+                logging.warning(f"Phase sensor || ({self.name, self.port}) Serial port already taken.")
         self.port = port
 
         # Setup communication
@@ -58,7 +58,7 @@ class PhaseSensor:
             if isinstance(serial, Serial):
                 self.serial_comm = serial
             else:
-                raise ValueError(f"Phase sensor(name: {self.name}; port:{self.port}); Provide serial is not the right"
+                raise ValueError(f"Phase sensor || ({self.name, self.port}) Provide serial is not the right"
                                  f"type. (Use serial from Serial module.)")
 
         self.state = "standby"
@@ -81,7 +81,7 @@ class PhaseSensor:
                 self.gas = gas
             else:
                 raise ValueError(
-                    f"Phase sensor(name: {self.name}; port:{self.port}) {gas.size} values for gas calibration, but there are {number_sensors} "
+                    f"Phase sensor || ({self.name, self.port}) {gas.size} values for gas calibration, but there are {number_sensors} "
                     f"number of sensors! (change PhaseSensor.number_sensors or PhaseSensor.gas)")
         if liq is None:
             self.liq = None
@@ -90,7 +90,7 @@ class PhaseSensor:
                 self.liq = liq
             else:
                 raise ValueError(
-                    f"Phase sensor(name: {self.name}; port:{self.port}) {liq.size} values for liquid calibration, but there are "
+                    f"Phase sensor || ({self.name, self.port}) {liq.size} values for liquid calibration, but there are "
                     f"{number_sensors} number of sensors!"
                     f"(change PhaseSensor.number_sensors or PhaseSensor.liq)")
 
@@ -100,7 +100,7 @@ class PhaseSensor:
 
         # Extra stuff
         self.__class__.instances.append(self)
-        logging.info(f'Phase Sensor Initiated:\n\t port: {self.port}')
+        logging.info(f'Phase sensor || ({self.name, self.port}) Initiated')
 
     def __repr__(self):
         return f"Phase Sensor\n\tname: {self.name}\n\tport: {self.port}\n\tstate: {self.state}"
@@ -114,9 +114,9 @@ class PhaseSensor:
         if raw_data is None:
             return None
         if self.liq is None or self.gas is None:
-            warnings.warn(f"Phase sensor(name: {self.name}; port:{self.port}) has not yet been calibrated. (Run zero "
+            warnings.warn(f"Phase sensor || ({self.name, self.port}) has not yet been calibrated. (Run zero "
                           f"method.)")
-            logging.warning(f"Phase sensor(name: {self.name}; port:{self.port}) has not yet been calibrated. (Run "
+            logging.warning(f"Phase sensor || ({self.name, self.port}) has not yet been calibrated. (Run "
                             f"zero method.)")
             return None
 
@@ -134,9 +134,9 @@ class PhaseSensor:
         if raw_data is None:
             return None
         if self.mean is None:
-            warnings.warn(f"Phase sensor(name: {self.name}; port:{self.port}) has not yet had mean calculated yet."
+            warnings.warn(f"Phase sensor || ({self.name, self.port}) has not yet had mean calculated yet."
                           "(Run get_mean method.)")
-            logging.warning(f"Phase sensor(name: {self.name}; port:{self.port}) has not yet had mean calculated yet."
+            logging.warning(f"Phase sensor || ({self.name, self.port}) has not yet had mean calculated yet."
                             "(Run get_mean method.)")
             return None
         raw_data[1:] = np.divide(np.multiply(raw_data[1:], 1000), self.mean)
@@ -171,13 +171,13 @@ class PhaseSensor:
                             self.add_data(data)
                         return data
         except UnicodeDecodeError:
-            warnings.warn(f"Phase sensor(name: {self.name}; port:{self.port}) not responding correctly; reset Pico.")
-            logging.warning(f"Phase sensor(name: {self.name}; port:{self.port}) not responding; reset Pico.")
+            warnings.warn(f"Phase sensor || ({self.name, self.port}) not responding correctly; reset Pico.")
+            logging.warning(f"Phase sensor || ({self.name, self.port}) not responding; reset Pico.")
             return None
 
         # if the sensor doesn't respond after 10 calls, stop and report warning
-        warnings.warn(f"Phase sensor(name: {self.name}; port:{self.port}) not responding.")
-        logging.warning(f"Phase sensor(name: {self.name}; port:{self.port}) not responding.")
+        warnings.warn(f"Phase sensor || ({self.name, self.port}) not responding.")
+        logging.warning(f"Phase sensor || ({self.name, self.port}) not responding.")
         return None
 
     def add_data(self, data: np.array):
@@ -197,7 +197,7 @@ class PhaseSensor:
         Save data in buffer to csv file.
         :return: None
         """
-        logging.info(f"{self.name}: dataset saved.")
+        logging.info(f"Phase sensor || ({self.name, self.port}) dataset saved.")
         np.savetxt(file_loc + str(self.name) + "_" + str(time()) + ".csv",
                    self.data_buffer[:self.buffer_level, :],
                    delimiter=",")
@@ -244,7 +244,7 @@ class PhaseSensor:
         print(f"calibration values:")
         print(f"mean: \t{self.liq}")
         print(f"std:  \t{std}")
-        logging.info(f"PhaseSensor: Manual calibration done on {self.name}." + "\n" +
+        logging.info(f"Phase sensor || ({self.name, self.port}) Manual calibration done." + "\n" +
                      f"Gas values: {self.gas}" + "\n"
                                                  f"Liquid values: {self.liq}"
                      )
