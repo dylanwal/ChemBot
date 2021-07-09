@@ -8,13 +8,11 @@ The code expects to receive a list of data to be plotted.
 
 import time
 import sys
-from PyQt5 import QtWidgets, QtCore, Qt
+from PyQt5 import QtWidgets
 from PyQt5.QtWidgets import QApplication, QMainWindow
 from pyqtgraph.dockarea import *
 import pyqtgraph as pg
 import numpy as np
-import math
-
 
 # fixes scaling issues across monitors
 import os
@@ -127,7 +125,7 @@ class MyWindow(QMainWindow):
         self.l2.setValue(self.counter)
 
 def main():
-    from main_code.hardware_code.phase_sensor import phase_sensor
+    from main_code import phase_sensor
     global in_phase_sensor
     in_phase_sensor = phase_sensor.PhaseSensor(name="in_phase_sensor",port="COM7", number_sensors=6)
     in_phase_sensor.get_mean()

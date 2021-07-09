@@ -3,8 +3,8 @@ import matplotlib.pyplot as plt
 import os
 import re
 
-from main_code.utils.plotting import color_list_norm
-from main_code.hardware_code.phase_sensor.phase_sensor import PhaseSensor
+from main_code import color_list_norm
+from main_code import PhaseSensor
 
 
 # Loading data
