@@ -5,6 +5,7 @@ This contains dictionaries of the active components on the system.
 (Un)comment or add/delete to add or remove a component from the robot.
 
 Components:
+* Reactor
 * Valves
 * Phase sensors
 * Temperature probes
@@ -14,6 +15,28 @@ Components:
 
 
 """
+
+"""
+Reactor:
+
+
+"""
+reactor = {
+    "len": 1,
+    "radius": 0.01,
+    "sensors": [
+        temp1
+        temp2
+        temp3
+    ],
+    "max_pres": 50,
+    "max_temp": 100
+}
+
+
+
+
+
 
 
 """
@@ -65,4 +88,12 @@ valves = {
         ]
     }
 
+}
+
+"""
+Sensors:
+
+"""
+sensors = {
+    "phase_sensor":
 }
