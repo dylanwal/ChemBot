@@ -1,5 +1,5 @@
 """
-This code is for the Harvard Apparatus PHD 2000 syringe pumps.
+This code is for the Harvard Apparatus PHD 2000 syringe pump.
 Pumps receive RS-232 serial commands.
 
 """
@@ -234,7 +234,7 @@ class HarvardPumps(Serializable):
 #     return: active: list with active pump ids
 #     """
 #     active = []
-#     for i in range(2):  # looping over pumps
+#     for i in range(2):  # looping over pump
 #         responce = 0
 #         for ii in range(3):  # giving each pump 3 attempts to reply
 #             message = str(i + 1) + "R"  # destination + acknowledgement

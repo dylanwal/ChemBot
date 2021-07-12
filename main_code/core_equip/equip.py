@@ -6,7 +6,7 @@ The abc module prevents instantiation.
 The leading underscores in the class name is to communicate that objects of that class should not be created by the user.
 """
 
-from abc import ABC, abstractmethod
+from abc import ABC
 import pint
 
 u = pint.UnitRegistry()
@@ -22,7 +22,7 @@ class _Equip(ABC):
                  max_pres: u.Quantity = 150 * u("kPa")
                  ):
         """
-        hi
+
         :param name: any unique name for equipment
         :param min_temp: minimum safe operating temperature (safety check)
         :param max_temp: maximum safe operating temperature (safety check)

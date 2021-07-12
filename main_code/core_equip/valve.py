@@ -27,9 +27,8 @@ config:
 """
 from abc import ABC, abstractmethod
 import re
-import warnings
 
-from general_equip import _Equip
+from main_code.core_equip.equip import _Equip
 
 
 valve_config_options = {
@@ -59,20 +58,21 @@ valve_config_options = {
 
 class _Valve(_Equip, ABC):
 
-    def __init__(self, config: str, ports: dict[int:dict[str: any]], start_pos: int = 1, *args, **kwargs):
+    def __init__(self, config: str, ports: dict[int:dict[str: any]], start_pos: int = 1, **kwargs):
         """
         Core ChemBot Class: Valve
-        :param name: any unique name for valve
         :param config: see above for options
-        :param ports:
-        :param kwargs:
-                        * custom valve config: valve_options
+        :param ports: dictionary with {port_number(int): {"name": str, "link": ""}}
+            name: any unique name for the port; Ex. into_reactor, gas_in, benzene_bottle
+            link: name of equipment that is connected to the port
+
+        If valve configuration not in provide ones use **kwargs to provide custom valve config: valve_options.
         """
 
         # Initialization
-        super().__init__(*args, **kwargs)
+        super().__init__(**kwargs)
 
-        # Will be all set in _config_check and port check
+        # Will be all set in _config_check and _port_check
         self.config = None
         self.positions = None
         self.num_positions = None
@@ -99,7 +99,7 @@ class _Valve(_Equip, ABC):
         self.state = "standby"
 
     @abstractmethod
-    def execute(self, position):
+    def execute(self, position: int):
         """Needs to be defined in subclass."""
         pass
 
@@ -109,8 +109,11 @@ class _Valve(_Equip, ABC):
         :param position: position
         :return:
         """
-        self.execute(position)
-        self.current_position = position
+        if 1 <= position <= self.num_positions:
+            self.execute(position)
+            self.current_position = position
+        else:
+            raise ValueError(f"Position outside valid range: [1, {self.num_positions}]")
 
     def move_next(self):
         """
@@ -136,13 +139,13 @@ class _Valve(_Equip, ABC):
 
     def _config_check(self, config, valve_options=None):
         # users can provide custom valve configurations if not supported in the list above
-        if valve_config_options is None:
+        if valve_options is None:
             valve_options = valve_config_options
 
         # Check if config is string
         if type(config) == str:
             # Check if valid valve option
-            if config in valve_config_options.keys():
+            if config in valve_options.keys():
 
                 # setting config
                 self.config = config
@@ -150,7 +153,7 @@ class _Valve(_Equip, ABC):
                 if config[-1] == "S":
                     self.positions = self._selector_valve(config)
                 else:
-                    self.positions = valve_config_options[config]
+                    self.positions = valve_options[config]
                 # setting num_positions
                 self.num_positions = len(self.positions)
                 return None
@@ -182,7 +185,7 @@ class _Valve(_Equip, ABC):
     def _port_check(self, ports):
         """
         Checks user provided port to make sure its in the right format before setting
-        :param port:
+        :param ports:
         :return:
         """
         # setting num of ports
@@ -234,4 +237,3 @@ if __name__ == '__main__':
 
     valve = ValveVis(name=name, config=config, ports=ports)
     print(valve)
-

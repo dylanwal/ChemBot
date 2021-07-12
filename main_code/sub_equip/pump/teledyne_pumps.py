@@ -1,5 +1,5 @@
 """
-This code is for the Teledyne Isco pumps syringe pumps.
+This code is for the Teledyne Isco pump syringe pump.
 
 
 """
@@ -52,7 +52,7 @@ def polling(_uart):
     return: active: list with active pump ids
     """
     active = []
-    for i in range(2):  # looping over pumps
+    for i in range(2):  # looping over pump
         responce = 0
         for ii in range(3):  # giving each pump 3 attempts to reply
             message = str(i + 1) + "R"  # destination + acknowledgement
@@ -123,7 +123,7 @@ def main():
     uart = UART(0, 9600, bits=8, parity=None, stop=0)
     led = Pin(25, Pin.OUT)
 
-    # polling connected pumps
+    # polling connected pump
     pump_id = polling(uart)
     print(pump_id)
     if pump_id:
