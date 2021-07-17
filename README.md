@@ -14,17 +14,14 @@ In Lab:
     * Mint (550+80-40 nm, 2.75 V (3.5 V_max), 1200 mA_max)
     * Deep Red (665+-20 nm, 2.05 V (2.3 V_max), 700 mA_max)
   
-    Take off bother 0.3 resistors
+    Take off both 0.3 resistors
     * 300 mA  ()= 0
-    * 600 mA () = 2 boards
-    * 770 mA (0.13 ohm) = 1 board (most here) 
-    * 1 A (0.1 ohm) = 1 board
-* solder small LED
-  * 200 oC pre-heat (1 min)  
-  * 260 oC max (20 sec)
+    * 600 mA () = 7
+    * 770 mA (0.13 ohm) = 28
+    * 1 A (0.1 ohm) = 7
 
-* Valves
-* Build light setup 
+
+
 * phase sensors
 * UV Vis CTA/Cat
 

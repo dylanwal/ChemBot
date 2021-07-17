@@ -8,8 +8,7 @@ import logging
 
 from serial import Serial, STOPBITS_TWO, PARITY_NONE
 
-from main_code import Serializable
-from main_code import sig_figs
+#from main_code import sig_figs
 
 
 class SerialLine(Serial):
@@ -23,7 +22,7 @@ class SerialLine(Serial):
         logging.info('serial_communication line created on %s', port)
 
 
-class HarvardPumps(Serializable):
+class HarvardPumps:
 
     instances = []
 

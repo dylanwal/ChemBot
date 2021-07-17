@@ -2,6 +2,7 @@
 Entry Point for robot
 """
 import main_code.con_fig as con_fig
+from main_code.sub_equip import *
 
 #
 # logging.basicConfig(filename=r'C:\Users\nicep\Desktop\log.txt', encoding='utf-8', level=logging.DEBUG)
@@ -41,9 +42,8 @@ import main_code.con_fig as con_fig
 def dict_to_equip(equip_dict: dict):
     for equip in equip_dict.keys():
         name = equip
-        for
-        equip_dict[equip]
-
+        params = ', '.join(f"{k}={v}" for k, v in equip_dict[equip].items() if k != 'class')
+        exec(f"{equip_dict[equip]['class']}(name=" + name + ", " + params + ")")
 
 if __name__ == '__main__':
     equip = dict_to_equip(con_fig.valves)
