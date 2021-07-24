@@ -16,7 +16,7 @@ import sys
 import machine
 
 # Available functions
-from valve import servo
+from PICO_valve import servo
 
 
 def main():

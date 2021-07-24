@@ -25,6 +25,6 @@ def connect_serial(comm_port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOP
 
 
 if __name__ == '__main__':
-    test_serial = connect_serial('COM9')
+    test_serial = connect_serial('COM4')
     test_serial2 = connect_serial('COM9')
     print(test_serial)
