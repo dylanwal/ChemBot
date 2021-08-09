@@ -1,6 +1,21 @@
 """
 This is for quick manual testing of an LED array.
 
+for linux
+for sysdevpath in $(find /sys/bus/usb/devices/usb*/ -name dev); do
+>     (
+>         syspath="${sysdevpath%/dev}"
+>         devname="$(udevadm info -q name -p $syspath)"
+>         [[ "$devname" == "bus/"* ]] && exit
+>         eval "$(udevadm info -q property --export -p $syspath)"
+>         [[ -z "$ID_SERIAL" ]] && exit
+>         echo "/dev/$devname - $ID_SERIAL"
+>     )
+> done
+
+
+
+
 """
 
 from serial import Serial, PARITY_EVEN, STOPBITS_ONE
@@ -23,18 +38,21 @@ def connect_serial(comm_port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOP
 
 
 if __name__ == '__main__':
-    test_serial = connect_serial('COM4')
-    red_pin = 10
-    mint_pin = 11
-    green_pin = 12
-    cyan_pin = 13
-    blue_pin = 14
-    violet_pin = 15
-    power_pin = 16
+    test_serial = connect_serial('/dev/ttyACM0')
+    red_pin = 0
+    mint_pin = 1
+    green_pin = 2
+    cyan_pin = 3
+    blue_pin = 4
+    violet_pin = 5
+    power_pin = 15
+    power_pin2 = 14
     freq = 300
 
     print("\nType 'e1' then 'enter' to exit.")
     mes = "r" + str(power_pin).zfill(2) + "1" + "\r"
+    test_serial.write(mes.encode())
+    mes = "r" + str(power_pin2).zfill(2) + "1" + "\r"
     test_serial.write(mes.encode())
     print(test_serial.read_until())
     print("")
