@@ -20,6 +20,20 @@ In Lab:
     * 770 mA (0.13 ohm) = 28
     * 1 A (0.1 ohm) = 7
 
+Recorded data:
+red (6 leds)
+* 14.54V at 0.6 Amp
+mint (6 leds)
+* 18.6 V at 1 Amp
+green (6 leds)
+* 20 v at 0.7 Amp
+Cyan (6 leds)
+* 21 V at 0.7 Amp
+Blue  (6 leds)
+* 18.1 V at 0.75 Amp
+Violet (6 leds)
+* 18.75 V at 0.95 Amp
+
 
 
 * phase sensors
