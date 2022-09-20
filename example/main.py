@@ -1,8 +1,8 @@
 """
 Entry Point for robot
 """
-import main_code.con_fig as con_fig
-from main_code.sub_equip import *
+import example.con_fig as con_fig
+
 
 #
 # logging.basicConfig(filename=r'C:\Users\nicep\Desktop\log.txt', encoding='utf-8', level=logging.DEBUG)

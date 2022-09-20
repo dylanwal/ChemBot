@@ -7,19 +7,15 @@ The leading underscores in the class name is to communicate that objects of that
 """
 
 from abc import ABC
-import pint
-
-u = pint.UnitRegistry()
-uq = u.Quantity
 
 
 class _Equip(ABC):
     def __init__(self,
-                 name: str = None,
-                 min_temp: u.Quantity = uq(-100, "degC"),
-                 max_temp: u.Quantity = uq(30, "degC"),
-                 min_pres: u.Quantity = 0 * u("kPa"),
-                 max_pres: u.Quantity = 150 * u("kPa")
+                 name,
+                 min_temp,
+                 max_temp,
+                 min_pres,
+                 max_pres
                  ):
         """
 
