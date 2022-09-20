@@ -3,8 +3,8 @@ import abc
 
 
 class Communication(abc.ABC):
-    def write(self):
+    def write(self, message: str):
         ...
 
-    def read(self):
+    def read(self, bytes_):
         ...

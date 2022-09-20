@@ -4,15 +4,60 @@ import enum
 from chembot import configuration, logger
 import chembot.core_equip.communication as communication
 import chembot.utils.sig_figs as sig_figs
-from chembot.errors import PumpError
+from chembot.errors import PumpError, PumpFlowRateError
 
 
 class PumpFlowProfile:
-    def __init__(self):
-        pass
 
+    def __init__(self, flow_rate: list | tuple):
+        """
+        Parameters
+        ----------
+        flow_rate: list[tuple[float, float]]
+            flow rate profile
+            [
+                [time (min), flow_rate (ml/min)],
+                [time (min), flow_rate (ml/min)],
+            ]
 
+            * time must start at 0
+            * time is absolute
 
+        """
+        if not isinstance(flow_rate, (list, tuple)) or not isinstance(flow_rate[0], (list, tuple)) or \
+                not len(flow_rate[0]) == 2:
+            raise PumpFlowRateError("'flow_rate' must have the following structure:"
+                                    "\n[\n\t[time (min), flow_rate (ml/min)],\n\t[time (min), "
+                                    "flow_rate (ml/min)],\n\t...\n]")
+
+        if flow_rate[0][0] != 0:
+            raise PumpFlowRateError("First 'flow_rate' time must be zero.")
+
+        self.flow_rate = flow_rate
+
+    def __repr__(self) -> str:
+        return f"steps: {self.number_steps} | volume_added: {self.total_volume} | total_time: {self.total_time}"
+
+    @property
+    def number_steps(self):
+        return len(self.flow_rate)
+
+    @property
+    def total_volume(self):
+        """ volume in ml """
+        volume = 0
+        for point, i in self.flow_rate:
+            if i == 0:
+                pass
+            volume += (self.flow_rate[i][1] - self.flow_rate[i - 1][1]) * (
+                        self.flow_rate[i][0] - self.flow_rate[i - 1][0])
+
+        return volume
+
+    @property
+    def total_time(self) -> float:
+        """ time in minutes """
+        return self.flow_rate[-1][0]
 
 
 def get_syringe_parameters(diameter: float | None, max_volume: float | None, max_pull: float | None) \
@@ -43,11 +88,11 @@ def get_syringe_parameters(diameter: float | None, max_volume: float | None, max
 
         if isinstance(max_volume, float):
             check_max_volume(max_volume)
-            max_pull = max_volume / (math.pi * (diameter/2)**2)
+            max_pull = max_volume / (math.pi * (diameter / 2) ** 2)
             return diameter, max_volume, max_pull
         elif isinstance(max_pull, float):
             check_max_pull(max_pull)
-            max_volume = math.pi * (diameter/2)**2 * max_pull
+            max_volume = math.pi * (diameter / 2) ** 2 * max_pull
             return diameter, max_volume, max_pull
 
     elif isinstance(max_volume, float):
@@ -55,7 +100,7 @@ def get_syringe_parameters(diameter: float | None, max_volume: float | None, max
 
         if isinstance(max_pull, float):
             check_max_pull(max_pull)
-            diameter = 2 * math.sqrt(max_volume / (math.pi*max_pull))
+            diameter = 2 * math.sqrt(max_volume / (math.pi * max_pull))
             return diameter, max_volume, max_pull
 
     text_insufficient = "In"
@@ -77,21 +122,21 @@ def check_max_pull(max_pull: float):
         raise PumpError("max volume can't be negative")
 
 
-class States(enum.Enum):
+class PumpState(enum.Enum):
     offline = 0
     standby = 1
     running = 2
 
 
-class ControlMethod(enum.Enum):
+class PumpControlMethod(enum.Enum):
     flow_rate = 0
     pressure = 1
 
 
 class Pump:
     instances = []
-    states = States
-    control_method = ControlMethod
+    states = PumpState
+    control_method = PumpControlMethod
 
     def __init__(
             self,
@@ -101,7 +146,7 @@ class Pump:
             max_volume: float = None,  # units: ml
             max_pull: float = None,  # units: cm
             number_syringe: int = 1,
-            control_method: ControlMethod = ControlMethod.flow_rate
+            control_method: PumpControlMethod = PumpControlMethod.flow_rate
     ):
         self._add_instance_()
 

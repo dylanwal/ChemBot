@@ -5,7 +5,7 @@ import chembot.core_equip.communication as communication
 import errors as errors
 
 
-class CommSerial(communication.Communication):
+class CommSerial(communication.Communication, Serial):
     # ports that the computer sense there is a device connected
     available_ports = [port.device for port in comports()]
     # ports actively being used
@@ -19,9 +19,12 @@ class CommSerial(communication.Communication):
             raise errors.CommunicationError("Port is not connected to computer")
 
         # create new port
-        self.serial = Serial(port=comm_port, baudrate=baudrate, stopbits=stopbits, parity=parity, timeout=timeout)
+        self.serial = Serial.__init__(self, port=comm_port, baudrate=baudrate, stopbits=stopbits, parity=parity,
+                                      timeout=timeout)
         self.active_ports[comm_port] = self.serial
         self.comm_port = comm_port
+        self.flushOutput()
+        self.flushInput()
 
 
 if __name__ == '__main__':
