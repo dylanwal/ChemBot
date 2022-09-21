@@ -51,9 +51,11 @@ class Serial(communication.Communication, serial.Serial):
                f"{self.bytesize}, parity = {self.parity}, stop bits = {self.stopbits}, time out = {self.timeout}"
         return text
 
-    def write(self, message: str, encoding: str = configuration.encoding):
-        serial.Serial.write(self, message.encode())
-        logger.debug(f"{type(self).__name__} (id: {self.id_}) || Write: " + message)
+    def write(self, message: str | bytes, encoding: str = configuration.encoding):
+        if not isinstance(message, bytes):
+            message = message.encode()
+        serial.Serial.write(self, message)
+        logger.debug(f"{type(self).__name__} (id: {self.id_}) || Write: " + str(message))
 
     def read(self, bytes_: int, decoding: str = configuration.encoding) -> str:
         message = serial.Serial.read(self, bytes_).decode(decoding)
@@ -62,5 +64,5 @@ class Serial(communication.Communication, serial.Serial):
 
 
 if __name__ == '__main__':
-    test_serial = Serial('COM5')
-    test_serial.write("fish")
+    test_serial = Serial('COM5', baud_rate=100)
+    test_serial.write(b"110"*500)

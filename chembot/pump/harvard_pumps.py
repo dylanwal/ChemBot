@@ -147,13 +147,14 @@ class PumpHarvard(Pump):
             raise EquipmentError(self, f'Unknown response to set diameter')
 
     def run(self):
-        check for fl
+        pass
+
 
 def local_run():
     from chembot.communication import Serial
 
     pump = PumpHarvard(
-        serial_line=Serial("COM6", baud_rate=9600, parity=Serial.ParityOptions.none.value, stop_bits=2, bytes_=8,
+        serial_line=Serial("COM5", baud_rate=9600, parity=Serial.ParityOptions.none.value, stop_bits=2, bytes_=8,
                            timeout=1),
         address=0,
         diameter=1,
