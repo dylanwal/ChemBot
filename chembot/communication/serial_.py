@@ -1,4 +1,5 @@
 import enum
+import threading
 
 import serial
 from serial.tools.list_ports import comports
@@ -37,12 +38,18 @@ class Serial(communication.Communication, serial.Serial):
             # check for duplicates
             raise errors.EquipmentError(self, f"CommSerial (id: {self.id_}): Port ({port}) is used by another equipment")
 
+        # process parity options
+        if isinstance(parity, Serial.ParityOptions):
+            parity = parity.value
+
         # create new port
-        self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits,
+        self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytes_=bytes_,
                                              parity=parity, timeout=timeout)
         self.active_ports[port] = self.serial
         self.flushOutput()
         self.flushInput()
+
+        self.lock = threading.Lock()
 
         logger.info(repr(self) + "\n\t\tConnection established.")
 

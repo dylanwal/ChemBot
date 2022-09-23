@@ -3,7 +3,6 @@ import math
 import enum
 
 from chembot import configuration, logger, global_ids
-import chembot.communication.base as communication
 import chembot.utils.sig_figs as sig_figs
 from chembot.errors import EquipmentError
 from chembot.pump.flow_profile import PumpFlowProfile
@@ -42,7 +41,6 @@ class Pump(abc.ABC):
 
     def __init__(
             self,
-            serial_line: communication.Communication,
             name: str = None,
             diameter: float | int = None,  # units: cm
             max_volume: float | int = None,  # units: ml
@@ -52,7 +50,6 @@ class Pump(abc.ABC):
         self._add_instance_()
         self.id_ = global_ids.get_id(self)
 
-        self.serial_line = serial_line
         self.name = name if name is not None else f"pump_{len(self.instances)}"
 
         # setup everything
