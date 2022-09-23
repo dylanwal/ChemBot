@@ -2,7 +2,7 @@ import abc
 import math
 import enum
 
-from chembot import configuration, logger, global_ids
+from chembot import configuration, logger, global_ids, EquipmentState
 import chembot.utils.sig_figs as sig_figs
 from chembot.errors import EquipmentError
 from chembot.pump.flow_profile import PumpFlowProfile
@@ -20,15 +20,6 @@ def calc_diameter(volume: float, pull: float) -> float:
     return 2 * math.sqrt(volume / (math.pi * pull))
 
 
-class PumpState(enum.Enum):
-    offline = 0
-    standby = 1
-    running_infuse = 2
-    running_withdraw = 3
-    stalled = 4
-    error = 5
-
-
 class PumpControlMethod(enum.Enum):
     flow_rate = 0
     pressure = 1
@@ -36,7 +27,7 @@ class PumpControlMethod(enum.Enum):
 
 class Pump(abc.ABC):
     instances = []
-    states = PumpState
+    states = EquipmentState
     control_methods = PumpControlMethod
 
     def __init__(
@@ -58,9 +49,11 @@ class Pump(abc.ABC):
         self._max_pull = None
         self._volume = 0
         self._flow_rate = 0
+        self._flow_rate_profile = None
+        self._target_volume = 0
         self._pull = 0
         self._set_syringe_settings(diameter, max_volume, max_pull)
-        self._state = PumpState.standby
+        self._state = None
         self._control_method = None
         self.control_method = control_method
 
@@ -118,14 +111,6 @@ class Pump(abc.ABC):
 
         raise EquipmentError(self, "Insufficient information provided for setup. 2 of 3 need: [diameter, max_volume, "
                                    "max_pull]")
-
-    @property
-    def state(self):
-        return self._state
-
-    @state.setter
-    def state(self, state: PumpState):
-        self._state = state
 
     @property
     def diameter(self):
@@ -190,10 +175,20 @@ class Pump(abc.ABC):
 
     @property
     def volume(self):
+        """ Current volume in syringe"""
         return self._volume
 
     @volume.setter
     def volume(self, volume: float):
+        """
+        Only should be used during setting up the pump.
+
+        Parameters
+        ----------
+        volume: int | float
+            current pump volume
+
+        """
         self._check_volume(volume)
         pull = calc_pull(self.diameter, volume)
         self._check_pull(pull)
@@ -210,10 +205,19 @@ class Pump(abc.ABC):
 
     @property
     def pull(self):
+        """ Current pull """
         return self._pull
 
     @pull.setter
     def pull(self, pull: int | float):
+        """
+        Only should be used during setting up the pump.
+
+        Parameters
+        ----------
+        pull: int | float
+            current pump pull
+        """
         self._check_pull(pull)
         volume = calc_volume(self.diameter, pull)
         self._check_volume(volume)
@@ -229,25 +233,34 @@ class Pump(abc.ABC):
                                        f"range: [0, {self.max_pull}], requested: {pull}")
 
     @property
-    def flow_rate(self):
+    def state(self):
+        return self._state
+
+    @property
+    def flow_rate(self) -> int | float:
         return self._flow_rate
 
-    def empty(self):
+    @property
+    def target_volume(self) -> int | float:
+        return self.target_volume
+
+    @property
+    def flow_rate_profile(self) -> PumpFlowProfile:
+        return self._flow_rate_profile
+
+    def zero(self):
         """"""
-        pass
-        self._pull = 0
-        self._volume = 0
+        raise NotImplementedError
+        # self._pull = 0
+        # self._volume = 0
 
     def fill(self):
-        pass
-        self._pull = self.max_pull
-        self._volume = self._max_volume
+        raise NotImplementedError
+        # self._pull = self.max_pull
+        # self._volume = self._max_volume
 
-    def setup_flow(self, flow_profile: PumpFlowProfile):
-        pass
-
-    def run(self):
-        pass
+    def run(self, flow_profile: PumpFlowProfile, start_time: int | float = None):
+        raise NotImplementedError
 
     def stop(self):
-        pass
+        raise NotImplementedError

@@ -1,13 +1,14 @@
+
 from chembot.errors import PumpFlowRateError
 
 
 class PumpFlowProfile:
 
-    def __init__(self, flow_rate: list | tuple):
+    def __init__(self, flow_rate_profile: list | tuple):
         """
         Parameters
         ----------
-        flow_rate: list[tuple[float, float]]
+        flow_rate_profile: list[tuple[float, float]]
             flow rate profile
             [
                 [time (min), flow_rate (ml/min)],
@@ -18,40 +19,47 @@ class PumpFlowProfile:
             * time is absolute
 
         """
-        if not isinstance(flow_rate, (list, tuple)) or not isinstance(flow_rate[0], (list, tuple)) or \
-                not len(flow_rate[0]) == 2:
-            raise PumpFlowRateError("'flow_rate' must have the following structure:"
-                                    "\n[\n\t[time (min), flow_rate (ml/min)],\n\t[time (min), "
-                                    "flow_rate (ml/min)],\n\t...\n]")
-
-        if flow_rate[0][0] != 0:
-            raise PumpFlowRateError("First 'flow_rate' time must be zero.")
-
-        self.flow_rate = flow_rate
+        self._flow_rate_profile = None
+        self.flow_rate_profile = flow_rate_profile
 
     def __repr__(self) -> str:
         return f"steps: {self.number_steps} | volume_added: {self.total_volume} ml | total_time: {self.total_time} min"
 
     @property
+    def flow_rate_profile(self):
+        return self._flow_rate_profile
+
+    @flow_rate_profile.setter
+    def flow_rate_profile(self, flow_rate_profile: list | tuple):
+        if not isinstance(flow_rate_profile, (list, tuple)) or not isinstance(flow_rate_profile[0], (list, tuple)) or \
+                not len(flow_rate_profile[0]) == 2:
+            raise PumpFlowRateError("'flow_rate' must have the following structure:"
+                                    "\n[\n\t[time (min), flow_rate (ml/min)],\n\t[time (min), "
+                                    "flow_rate (ml/min)],\n\t...\n]")
+
+        if flow_rate_profile[0][0] != 0:
+            raise PumpFlowRateError("First 'flow_rate' time must be zero.")
+
+        self._flow_rate_profile = flow_rate_profile
+
+    @property
     def number_steps(self):
-        return len(self.flow_rate)
+        return len(self.flow_rate_profile)
 
     @property
     def total_volume(self):
         """ volume in ml """
         volume = 0
-        for i in range(1, len(self.flow_rate)):
-            volume += 0.5 * (self.flow_rate[i][1] + self.flow_rate[i - 1][1]) * \
-                      (self.flow_rate[i][0] - self.flow_rate[i - 1][0])
+        for i in range(1, len(self.flow_rate_profile)):
+            volume += 0.5 * (self.flow_rate_profile[i][1] + self.flow_rate_profile[i - 1][1]) * \
+                      (self.flow_rate_profile[i][0] - self.flow_rate_profile[i - 1][0])
 
         return volume
-
 
     @property
     def total_time(self) -> float:
         """ time in minutes """
-        return self.flow_rate[-1][0]
-
+        return self.flow_rate_profile[-1][0]
 
     def plot(self):
         try:
@@ -69,12 +77,11 @@ class PumpFlowProfile:
         raise ImportError("Install plotly or matplotlib to view plots. "
                           "('pip install plotly' or 'pip install matplotlib'")
 
-
     def _plot_plotly(self):
         import numpy as np
         import plotly.graph_objs as go
 
-        data = np.array(self.flow_rate)
+        data = np.array(self.flow_rate_profile)
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 1]))
         fig.update_layout(autosize=False, width=800, height=600, font=dict(family="Arial", size=18, color="black"),

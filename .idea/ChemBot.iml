@@ -5,7 +5,7 @@
       <sourceFolder url="file://$MODULE_DIR$/chembot" isTestSource="false" />
       <excludeFolder url="file://$MODULE_DIR$/venv" />
     </content>
-    <orderEntry type="jdk" jdkName="Python 3.10 (ChemBot)" jdkType="Python SDK" />
+    <orderEntry type="jdk" jdkName="Python 3.10 (chembot)" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
   </component>
   <component name="PyDocumentationSettings">

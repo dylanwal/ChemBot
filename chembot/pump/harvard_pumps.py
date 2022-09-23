@@ -1,6 +1,8 @@
 import enum
+import math
+import time
 
-from chembot import logger
+from chembot import event_scheduler, logger
 from chembot.pump.base import Pump
 from chembot.pump.flow_profile import PumpFlowProfile
 from chembot.communication.serial_ import Serial
@@ -60,21 +62,32 @@ class PumpHarvard(Pump):
 
     _address_in_use = set()
 
-    def __init__(self,
-                 serial_line: Serial,
-                 name: str = None,
-                 address: int = 0,
-                 diameter: float = 0,
-                 max_volume: float = 0,
-                 max_pull: float = 0,
-                 ):
+    def __init__(
+            self,
+            serial_line: Serial,
+            address: int,
+            diameter: int | float,  # units: cm
+            name: str = None,
+            max_volume: float = None,  # units: ml
+            max_pull: float = None,  # units: cm
+    ):
         super().__init__(name, diameter, max_volume, max_pull,
                          control_method=Pump.control_methods.flow_rate)
         self.serial_line = serial_line
         self._address = None
         self.address = address
 
-        self._ping_pump()
+        self.ping_pump()
+
+    @property
+    def max_flow_rate(self) -> float:
+        """ ml/min """
+        return math.pi * (self.diameter / 2)**2 * self.pull_rate_max
+
+    @property
+    def min_flow_rate(self) -> float:
+        """ ml/min """
+        return math.pi * (self.diameter / 2)**2 * self.pull_rate_min
 
     @property
     def address(self) -> str:
@@ -158,7 +171,7 @@ class PumpHarvard(Pump):
         self.serial_line.lock.release()
         return response
 
-    def _ping_pump(self):
+    def ping_pump(self):
         """Query model and version number of firmware to check pump is
         OK. Responds with a load of stuff, but the last three characters
         are XXY, where XX is the address and Y is pump status. :, > or <
@@ -214,6 +227,10 @@ class PumpHarvard(Pump):
         The pump will tell you if the specified flow rate is out of
         range. This depends on the syringe diameter. See Pump 11 manual.
         """
+        if not (self.min_flow_rate <= flow_rate <= self.max_flow_rate):
+            raise EquipmentError(self, f"Flow rate outside of valid range. Requested: {flow_rate}, "
+                                       f"Valid Range: {self.min_flow_rate} -> {self.max_flow_rate}")
+
         response = self._write_read('ULM' + _format_flow_rate(self, flow_rate), 5)
 
         # check response
@@ -222,25 +239,71 @@ class PumpHarvard(Pump):
 
         # Flow rate was sent, check it was set correctly
         if returned_flow_rate := self.check_flow_rate() != flow_rate:
-            raise EquipmentError(self, f"set flowrate ({flow_rate} uL/min) does not match"
-                                       f'flowrate returned by pump ({returned_flow_rate} uL/min)')
+            raise EquipmentError(self, f"set flow rate ({flow_rate} uL/min) does not match"
+                                       f'flow rate returned by pump ({returned_flow_rate} uL/min)')
 
         self._flow_rate = flow_rate
         logger.info(f"{self.name}: flow rate set to {flow_rate} uL/min")
 
     def check_flow_rate(self) -> float:
-        response = self._write_read('RAT', 150)
+        response = self._write_read('RAT', 15)
         try:
             return float(remove_crud(response[2:8]))
         except ValueError:
             if 'OOR' in response:
                 raise EquipmentError(self, 'Flow rate is out of range')
 
-            raise EquipmentError(self, f'Unknown response to check flow rate.')
+            raise EquipmentError(self, f"Unknown response to 'check flow rate'.")
 
-    def infuse(self, flow_rate: int | float, volume: int | float):
-        """Start infusing pump."""
+    def _set_target_volume(self, target_volume: int | float):
+        """Set the target volume to infuse or withdraw (microlitres)."""
+        response = self._write_read('MLT' + str(target_volume), 5)
+
+        # response should be CRLFXX:, CRLFXX>, CRLFXX< where XX is address
+        # Pump11 replies with leading zeros, e.g. 03, but PHD2000 misbehaves and
+        # returns without and gives an extra CR. Use int() to deal with
+        if not (response[-1] == ':' or response[-1] == '<' or response[-1] == '>'):
+            raise EquipmentError(self, f'Unknown response to set flow rate.')
+
+        self._target_volume = float(target_volume)
+        logger.info(f"{self.name}: target volume set to {target_volume} uL")
+
+    def check_target_volume(self) -> float:
+        response = self._write_read('TAR', 15)
+        try:
+            return float(remove_crud(response[2:8]))
+        except ValueError:
+            raise EquipmentError(self, f"Unknown response to 'check target volume'.")
+
+    def check_infused_volume(self) -> float:
+        response = self._write_read('VOL', 15)
+        try:
+            return float(remove_crud(response[2:8]))
+        except ValueError:
+            raise EquipmentError(self, f"Unknown response to 'check target volume'.")
+
+    def infuse(self, flow_rate: int | float, volume: int | float = None):
+        """
+        Start infusing pump.
+
+        Parameters
+        ----------
+        flow_rate: int | float
+            flow rate (microlitres per minute)
+        volume: int | float
+            volume to be added (microlitres)
+
+        """
+        # set up everything
         self._set_flow_rate(flow_rate)
+        if volume is None:
+            if self.max_volume is not None:
+                volume = self.max_volume
+            else:
+                volume = 1_000_000  # large number to ensure it adds everything
+        self._set_target_volume(volume)
+
+        # start run
         response = self._write_read('RUN', 5)
         if response[-1] == '<':  # wrong direction
             response = self._write_read('REV', 5)
@@ -250,8 +313,29 @@ class PumpHarvard(Pump):
 
         logger.info(f"{self.name}: infusing")
 
-    def withdraw(self, flow_rate: int | float):
-        """Start withdrawing pump."""
+    def withdraw(self, flow_rate: int | float, volume: int | float = None):
+        """
+        Start withdrawing pump.
+
+        Parameters
+        ----------
+        flow_rate: int | float
+            flow rate (microlitres per minute)
+        volume: int | float
+            volume to be added (microlitres)
+
+        """
+        # set up everything
+        self._set_flow_rate(flow_rate)
+        if volume is None:
+            if self.max_volume is not None:
+                volume = self.max_volume - self.volume
+            else:
+                logger.warning(f"withdraw started on pump {self.id_} with no stop.")
+                volume = 1_000_000  # large number to ensure it adds everything
+        self._set_target_volume(volume)
+
+        # start run
         self._set_flow_rate(flow_rate)
         response = self._write_read('RUN', 5)
         if response[-1] == '>':  # wrong direction
@@ -263,64 +347,27 @@ class PumpHarvard(Pump):
         logger.info(f"{self.name}: withdrawing")
 
     def stop(self):
-        """Stop pump."""
+        """ Stop pump. """
         response = self._write_read('STP', 5)
         if response[-1] != ':':
             raise EquipmentError(self, "Unknown response to 'stop'.")
 
         logger.info(f'{self.name}: stopped')
 
-    def set_target_volume(self, target_volume: int | float):
-        """Set the target volume to infuse or withdraw (microlitres)."""
+    def zero(self):
+        self.infuse(flow_rate=self.max_flow_rate * 0.5)
 
-        self.write('MLT' + str(target_volume))
-        resp = self.read(5)
+    def fill(self):
+        self.withdraw(flow_rate=self.max_flow_rate * 0.5)
 
-        # response should be CRLFXX:, CRLFXX>, CRLFXX< where XX is address
-        # Pump11 replies with leading zeros, e.g. 03, but PHD2000 misbehaves and
-        # returns without and gives an extra CR. Use int() to deal with
-        if resp[-1] == ':' or resp[-1] == '>' or resp[-1] == '<':
-            self.targetvolume = float(targetvolume)
-            logging.info('%s: target volume set to %s uL', self.name,
-                         self.targetvolume)
-        else:
-            raise PumpError('%s: target volume not set' % self.name)
+    def run(self, flow_profile: PumpFlowProfile, start_time: int | float = 0):
+        if start_time is None:
+            start_time = time.time()
 
-    def waituntiltarget(self):
-        """Wait until the pump has reached its target volume."""
-        logging.info('%s: waiting until target reached',self.name)
-        # counter - need it to check if it's the first loop
-        i = 0
-
-        while True:
-            # Read once
-            self.serialcon.write(self.address + 'VOL\r')
-            resp1 = self.read(15)
-
-            if ':' in resp1 and i == 0:
-                raise PumpError('%s: not infusing/withdrawing - infuse or '
-                                'withdraw first', self.name)
-            elif ':' in resp1 and i != 0:
-                # pump has already come to a halt
-                logging.info('%s: target volume reached, stopped',self.name)
-                break
-
-            # Read again
-            self.serialcon.write(self.address + 'VOL\r')
-            resp2 = self.read(15)
-
-            # Check if they're the same - if they are, break, otherwise continue
-            if resp1 == resp2:
-                logging.info('%s: target volume reached, stopped',self.name)
-                break
-
-            i = i+1
-
-    def run(self):
-        pass
+        # first event
 
 
-def local_run():
+def local_run_two_pumps():
     from chembot.communication import Serial
     serial_line = Serial("COM5", baud_rate=9600, parity=Serial.ParityOptions.none, stop_bits=2, bytes_=8, timeout=1)
 
@@ -347,9 +394,46 @@ def local_run():
         )
     )
 
-    pump.set_flow_profile(flow_profile)
-    pump.run()
+    pump.run(flow_profile)
+    pump2.run(flow_profile)
+
+
+def local_flow_profile():
+    from chembot.communication import Serial
+    serial_line = Serial("COM5", baud_rate=9600, parity=Serial.ParityOptions.none, stop_bits=2, bytes_=8, timeout=1)
+
+    pump = PumpHarvard(
+        serial_line,
+        address=0,
+        diameter=1,
+        max_volume=10,
+    )
+    flow_profile = PumpFlowProfile(
+        (
+            (0, 0),
+            (1, 1),
+            (2, 1),
+            (3, 2),
+            (4, 0)
+        )
+    )
+    pump.run(flow_profile)
+
+
+def local_run_single():
+    from chembot.communication import Serial
+    serial_line = Serial("COM5", baud_rate=9600, parity=Serial.ParityOptions.none, stop_bits=2, bytes_=8, timeout=1)
+
+    pump = PumpHarvard(
+        serial_line,
+        address=0,
+        diameter=1,
+        max_volume=10,
+    )
+    pump.zero()
+    pump.withdraw(1000, 1000)
+    pump.infuse(1000, 1000)
 
 
 if __name__ == '__main__':
-    local_run()
+    local_run_single()
