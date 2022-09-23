@@ -18,9 +18,9 @@ def run(protocol: protocol_api.ProtocolContext):
     pipette_300.flow_rate.aspirate = 4
     pipette_300.flow_rate.dispense = 20
 
-    plate = protocol.load_labware('greiner_384_wellplate_110ul', 1)
-    gpc_vials = protocol.load_labware("custom_40_tuberack_1500ul", 5)
-    # gpc_vials2 = protocol.load_labware("custom_40_tuberack_1500ul", 4)
+    plate = protocol.load_labware('corning_96_wellplate_360ul_flat', 1)
+    gpc_vials = protocol.load_labware("custom_40_tuberack_1500ul", 4)
+    # gpc_vials2 = protocol.load_labware("custom_40_tuberack_1500ul", 5)
 
     # for well in wells:
     sample_vial_wells = gpc_vials.wells()   # gpc_vials.wells() +

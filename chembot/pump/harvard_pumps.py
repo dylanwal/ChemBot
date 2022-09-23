@@ -238,41 +238,42 @@ class PumpHarvard(Pump):
 
             raise EquipmentError(self, f'Unknown response to check flow rate.')
 
-    def infuse(self):
+    def infuse(self, flow_rate: int | float, volume: int | float):
         """Start infusing pump."""
+        self._set_flow_rate(flow_rate)
         response = self._write_read('RUN', 5)
         if response[-1] == '<':  # wrong direction
             response = self._write_read('REV', 5)
 
         if response[-1] != '>':
-            raise EquipmentError(self, "unknown response to to infuse")
+            raise EquipmentError(self, "unknown response to 'infuse'")
 
         logger.info(f"{self.name}: infusing")
 
-    def withdraw(self):
+    def withdraw(self, flow_rate: int | float):
         """Start withdrawing pump."""
+        self._set_flow_rate(flow_rate)
         response = self._write_read('RUN', 5)
         if response[-1] == '>':  # wrong direction
             response = self._write_read('REV', 5)
 
         if response[-1] != '<':
-            raise EquipmentError(self, "unknown response to to infuse")
+            raise EquipmentError(self, "Unknown response to 'withdraw'.")
 
         logger.info(f"{self.name}: withdrawing")
 
     def stop(self):
         """Stop pump."""
-        self.write('STP')
-        resp = self.read(5)
+        response = self._write_read('STP', 5)
+        if response[-1] != ':':
+            raise EquipmentError(self, "Unknown response to 'stop'.")
 
-        if resp[-1] != ':':
-            raise PumpError('%s: unexpected response to stop' % self.name)
-        else:
-            logging.info('%s: stopped',self.name)
+        logger.info(f'{self.name}: stopped')
 
-    def settargetvolume(self, targetvolume):
+    def set_target_volume(self, target_volume: int | float):
         """Set the target volume to infuse or withdraw (microlitres)."""
-        self.write('MLT' + str(targetvolume))
+
+        self.write('MLT' + str(target_volume))
         resp = self.read(5)
 
         # response should be CRLFXX:, CRLFXX>, CRLFXX< where XX is address
