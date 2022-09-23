@@ -60,7 +60,7 @@ class Pump(abc.ABC):
         # additional attributes
         self._flow_profile = None
 
-        logger.info(repr(self))
+        logger.info(self.name + "\n\t\tSetup complete.")
 
     def __repr__(self):
         text = f"Pump: {self.name} \n"
@@ -149,7 +149,7 @@ class Pump(abc.ABC):
     @max_volume.setter
     def max_volume(self, max_volume: float | int):
         self._check_max_volume(max_volume)
-        logger.warning("Changing 'max_volume' after initialization can cause mismatch with max_pull and diameter.")
+        logger.warning(self.name + "Changing 'max_volume' after initialization can cause mismatch with max_pull and diameter.")
         self._max_volume = max_volume
 
     def _check_max_volume(self, max_volume: float | int):

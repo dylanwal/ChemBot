@@ -50,6 +50,10 @@ def _format_flow_rate(pump: Pump, flow_rate: int | float) -> str:
     return remove_crud(flow_rate)
 
 
+def remove_string_formatting_char(string: str) -> str:
+    return ''.join(s for s in string if 31 < ord(s) < 126)
+
+
 class PumpHarvard(Pump):
     """
     This code is for the Harvard Apparatus PHD 2000 syringe pump.
@@ -66,18 +70,21 @@ class PumpHarvard(Pump):
             self,
             serial_line: Serial,
             address: int,
-            diameter: int | float,  # units: cm
+            diameter: int | float,  # units: mm
             name: str = None,
             max_volume: float = None,  # units: ml
             max_pull: float = None,  # units: cm
     ):
         super().__init__(name, diameter, max_volume, max_pull,
                          control_method=Pump.control_methods.flow_rate)
+        if name is None:
+            self.name = f"{type(self).__name__} (id: {self.id_})"
         self.serial_line = serial_line
         self._address = None
         self.address = address
 
         self.ping_pump()
+        self.diameter = diameter
 
     @property
     def max_flow_rate(self) -> float:
@@ -142,13 +149,12 @@ class PumpHarvard(Pump):
 
         """
         response = self.serial_line.read(bytes_)
-        print(response)
         if response is None or len(response) == 0:
             raise EquipmentError(self, 'No response to command.')
         else:
             return response
 
-    def _write_read(self, message: str, bytes_: int = 5) -> str:
+    def _write_read(self, message: str, bytes_: int = 5) -> list:
         """
         The pump operates in a 'write' 'response' format; so methods are combined.
         Multiple pumps can use the same serial line so threading lock is acquired and released.
@@ -169,7 +175,8 @@ class PumpHarvard(Pump):
         self._write(message)
         response = self._read(bytes_)
         self.serial_line.lock.release()
-        return response
+
+        return response.replace('\n', " ").replace('\r', " ").split()
 
     def ping_pump(self):
         """Query model and version number of firmware to check pump is
@@ -181,7 +188,7 @@ class PumpHarvard(Pump):
         response = self._write_read('VER', 17)
 
         # check response
-        if int(response[-3:-1]) != int(self.address):
+        if int(response[1][:-1]) != int(self.address):
             self.serial_line.close()
             raise EquipmentError(self, f'No response from pump at address {self.address}\n Check the following: '
                                        f'\n\t1. All pumps have unique addresses\n\t2. All pumps have the same '
@@ -201,7 +208,7 @@ class PumpHarvard(Pump):
         response = self._write_read('MMD' + _format_diameter(self, diameter), 5)
 
         # check response
-        if not (response[-1] == ':' or response[-1] == '<' or response[-1] == '>'):
+        if not (response[0][-1] == ':' or response[0][-1] == '<' or response[0][-1] == '>'):
             raise EquipmentError(self, f'Unknown response to set diameter.')
 
         # Check diameter was set accurately
@@ -215,7 +222,7 @@ class PumpHarvard(Pump):
     def check_diameter(self) -> float:
         response = self._write_read('DIA', 15)
         try:
-            return float(remove_crud(response[3:9]))
+            return float(response[0])
         except ValueError:
             raise EquipmentError(self, f'Unknown response to check diameter')
 
@@ -231,24 +238,25 @@ class PumpHarvard(Pump):
             raise EquipmentError(self, f"Flow rate outside of valid range. Requested: {flow_rate}, "
                                        f"Valid Range: {self.min_flow_rate} -> {self.max_flow_rate}")
 
-        response = self._write_read('ULM' + _format_flow_rate(self, flow_rate), 5)
+        formatted_flow_rate = _format_flow_rate(self, flow_rate)
+        response = self._write_read('ULM' + formatted_flow_rate, 5)
 
         # check response
-        if not (response[-1] == ':' or response[-1] == '<' or response[-1] == '>'):
+        if not (response[0][-1] == ':' or response[0][-1] == '<' or response[0][-1] == '>'):
             raise EquipmentError(self, f'Unknown response to set flow rate.')
 
         # Flow rate was sent, check it was set correctly
-        if returned_flow_rate := self.check_flow_rate() != flow_rate:
+        if returned_flow_rate := self.check_flow_rate() != float(formatted_flow_rate):
             raise EquipmentError(self, f"set flow rate ({flow_rate} uL/min) does not match"
                                        f'flow rate returned by pump ({returned_flow_rate} uL/min)')
 
         self._flow_rate = flow_rate
-        logger.info(f"{self.name}: flow rate set to {flow_rate} uL/min")
+        logger.info(f"{self.name}: flow rate set to {formatted_flow_rate} uL/min")
 
     def check_flow_rate(self) -> float:
         response = self._write_read('RAT', 15)
         try:
-            return float(remove_crud(response[2:8]))
+            return float(response[0])
         except ValueError:
             if 'OOR' in response:
                 raise EquipmentError(self, 'Flow rate is out of range')
@@ -262,7 +270,7 @@ class PumpHarvard(Pump):
         # response should be CRLFXX:, CRLFXX>, CRLFXX< where XX is address
         # Pump11 replies with leading zeros, e.g. 03, but PHD2000 misbehaves and
         # returns without and gives an extra CR. Use int() to deal with
-        if not (response[-1] == ':' or response[-1] == '<' or response[-1] == '>'):
+        if not (response[0][-1] == ':' or response[0][-1] == '<' or response[0][-1] == '>'):
             raise EquipmentError(self, f'Unknown response to set flow rate.')
 
         self._target_volume = float(target_volume)
@@ -271,14 +279,14 @@ class PumpHarvard(Pump):
     def check_target_volume(self) -> float:
         response = self._write_read('TAR', 15)
         try:
-            return float(remove_crud(response[2:8]))
+            return float(response[0])
         except ValueError:
             raise EquipmentError(self, f"Unknown response to 'check target volume'.")
 
     def check_infused_volume(self) -> float:
         response = self._write_read('VOL', 15)
         try:
-            return float(remove_crud(response[2:8]))
+            return float(response[0])
         except ValueError:
             raise EquipmentError(self, f"Unknown response to 'check target volume'.")
 
@@ -305,11 +313,11 @@ class PumpHarvard(Pump):
 
         # start run
         response = self._write_read('RUN', 5)
-        if response[-1] == '<':  # wrong direction
+        if response[1][-1] == '<':  # wrong direction
             response = self._write_read('REV', 5)
 
-        if response[-1] != '>':
-            raise EquipmentError(self, "unknown response to 'infuse'")
+        if response[1][-1] != '>':
+            raise EquipmentError(self, "Unknown response to 'infuse'")
 
         logger.info(f"{self.name}: infusing")
 
@@ -338,10 +346,10 @@ class PumpHarvard(Pump):
         # start run
         self._set_flow_rate(flow_rate)
         response = self._write_read('RUN', 5)
-        if response[-1] == '>':  # wrong direction
+        if response[1][-1] == '>':  # wrong direction
             response = self._write_read('REV', 5)
 
-        if response[-1] != '<':
+        if response[1][-1] != '<':
             raise EquipmentError(self, "Unknown response to 'withdraw'.")
 
         logger.info(f"{self.name}: withdrawing")
@@ -349,7 +357,7 @@ class PumpHarvard(Pump):
     def stop(self):
         """ Stop pump. """
         response = self._write_read('STP', 5)
-        if response[-1] != ':':
+        if response[0][-1] != ':':
             raise EquipmentError(self, "Unknown response to 'stop'.")
 
         logger.info(f'{self.name}: stopped')
@@ -427,12 +435,12 @@ def local_run_single():
     pump = PumpHarvard(
         serial_line,
         address=0,
-        diameter=1,
-        max_volume=10,
+        diameter=14.2,
+        max_volume=10000,
     )
     pump.zero()
-    pump.withdraw(1000, 1000)
-    pump.infuse(1000, 1000)
+    # pump.withdraw(1, 1)
+    # pump.infuse(1, 1)
 
 
 if __name__ == '__main__':

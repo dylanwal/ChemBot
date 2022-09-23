@@ -26,7 +26,8 @@ class Serial(communication.Communication, serial.Serial):
                  parity=serial.PARITY_NONE,
                  stop_bits: int = 1,
                  bytes_: int = 8,
-                 timeout=0.1
+                 timeout: float = 0.1,
+                 name: str = None
                  ):
         self.id_ = global_ids.get_id(self)
 
@@ -43,18 +44,20 @@ class Serial(communication.Communication, serial.Serial):
             parity = parity.value
 
         # create new port
-        self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytes_=bytes_,
+        self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
                                              parity=parity, timeout=timeout)
         self.active_ports[port] = self.serial
         self.flushOutput()
         self.flushInput()
 
         self.lock = threading.Lock()
+        if name is None:
+            self.name = f"{type(self).__name__} (id: {self.id_})"
 
         logger.info(repr(self) + "\n\t\tConnection established.")
 
     def __repr__(self):
-        text = f"{type(self).__name__} (id: {self.id_}) || port: {self.port}, baud rate: {self.baudrate}, byte size= " \
+        text = self.name + f" || port: {self.port}, baud rate: {self.baudrate}, byte size= " \
                f"{self.bytesize}, parity = {self.parity}, stop bits = {self.stopbits}, time out = {self.timeout}"
         return text
 
@@ -62,11 +65,11 @@ class Serial(communication.Communication, serial.Serial):
         if not isinstance(message, bytes):
             message = message.encode()
         serial.Serial.write(self, message)
-        logger.debug(f"{type(self).__name__} (id: {self.id_}) || Write: " + str(message))
+        logger.debug(f"{type(self).__name__} (id: {self.id_}) || Write: " + repr(message))
 
     def read(self, bytes_: int, decoding: str = configuration.encoding) -> str:
         message = serial.Serial.read(self, bytes_).decode(decoding)
-        logger.debug(f"{type(self).__name__} (id: {self.id_}) || Read: " + str(message))
+        logger.debug(f"{type(self).__name__} (id: {self.id_}) || Read: " + repr(message))
         return message
 
 
