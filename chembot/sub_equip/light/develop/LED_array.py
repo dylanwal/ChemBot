@@ -38,7 +38,7 @@ def connect_serial(comm_port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOP
 
 
 if __name__ == '__main__':
-    test_serial = connect_serial('/dev/ttyACM0')
+    test_serial = connect_serial('COM4')
     red_pin = 0
     mint_pin = 1
     green_pin = 2

@@ -84,7 +84,7 @@ class Pump:
         return string
 
     def write(self, command):
-        self.serialcon.write(self.address + command + '\r')
+        self.serialcon.write((self.address + command + '\r').encode())
 
     def read(self, bytes=5):
         response = self.serialcon.read(bytes)
@@ -109,9 +109,9 @@ class Pump:
 
         # Pump only considers 2 d.p. - anymore are ignored
         if len(diameter) > 5:
-            if diameter[2] is '.':  # e.g. 30.2222222
+            if diameter[2] == '.':  # e.g. 30.2222222
                 diameter = diameter[0:5]
-            elif diameter[1] is '.':  # e.g. 3.222222
+            elif diameter[1] == '.':  # e.g. 3.222222
                 diameter = diameter[0:4]
 
             diameter = remove_crud(diameter)
@@ -312,7 +312,7 @@ class PHD2000(Pump):
 
 def run_local():
     chain = Chain("COM5")
-    pump = Pump(chain)
+    pump = Pump(chain, address=1)
 
 
 if __name__ == '__main__':

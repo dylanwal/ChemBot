@@ -174,11 +174,8 @@ class PumpHarvard(Pump):
                                        f'\n\t1. All pumps have unique addresses\n\t2. All pumps have the same '
                                        f'baud rates.')
 
-    def _command_prompt_check(self):
-
-    @Pump.diameter.setter
-    def diameter(self, diameter: int | float):
-        Pump.diameter = diameter
+    def _diameter_setter(self, diameter: int | float):
+        super()._diameter_setter(diameter)
         self._set_diameter(diameter)
 
     def _set_diameter(self, diameter: float):

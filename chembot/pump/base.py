@@ -132,7 +132,21 @@ class Pump(abc.ABC):
         return self._diameter
 
     @diameter.setter
-    def diameter(self, diameter: float):
+    def diameter(self, diameter: int | float):
+        self._diameter_setter(diameter)
+
+    def _diameter_setter(self, diameter: int | float):
+        """
+        This was broken out to allow overloading.
+
+        Parameters
+        ----------
+        diameter
+
+        Returns
+        -------
+
+        """
         self._check_diameter(diameter)
         max_volume = calc_volume(diameter, self.max_pull)
         self._check_max_volume(max_volume)
