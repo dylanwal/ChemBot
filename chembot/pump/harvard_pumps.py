@@ -220,7 +220,7 @@ class PumpHarvard(Pump):
             raise EquipmentError(self, f'Unknown response to check diameter')
 
     def _set_flow_rate(self, flow_rate: float | int):
-        """Set flow rate (microlitres per minute).
+        """Set flow rate (milliliter per minute).
         Flow rate is converted to a string. Pump 11 requires it to have
         a maximum field width of 5, e.g. "XXXX." or "X.XXX". Greater
         precision will be truncated.
@@ -256,7 +256,7 @@ class PumpHarvard(Pump):
             raise EquipmentError(self, f"Unknown response to 'check flow rate'.")
 
     def _set_target_volume(self, target_volume: int | float):
-        """Set the target volume to infuse or withdraw (microlitres)."""
+        """Set the target volume to infuse or withdraw (milliliter)."""
         response = self._write_read('MLT' + str(target_volume), 5)
 
         # response should be CRLFXX:, CRLFXX>, CRLFXX< where XX is address
@@ -289,9 +289,9 @@ class PumpHarvard(Pump):
         Parameters
         ----------
         flow_rate: int | float
-            flow rate (microlitres per minute)
+            flow rate (milliliter per minute)
         volume: int | float
-            volume to be added (microlitres)
+            volume to be added (milliliter)
 
         """
         # set up everything
@@ -320,9 +320,9 @@ class PumpHarvard(Pump):
         Parameters
         ----------
         flow_rate: int | float
-            flow rate (microlitres per minute)
+            flow rate (milliliter per minute)
         volume: int | float
-            volume to be added (microlitres)
+            volume to be added (milliliter)
 
         """
         # set up everything
@@ -431,8 +431,8 @@ def local_run_single():
         max_volume=10,
     )
     pump.zero()
-    pump.withdraw(1000, 1000)
-    pump.infuse(1000, 1000)
+    pump.withdraw(1, 1)
+    pump.infuse(1, 1)
 
 
 if __name__ == '__main__':
