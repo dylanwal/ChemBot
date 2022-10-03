@@ -209,8 +209,7 @@ class PumpHarvard(Pump):
 
         # check response
         if not (response[0][-1] == ':' or response[0][-1] == '<' or response[0][-1] == '>'):
-            raise EquipmentError(self, f'Unknown response to set diameter.')
-
+            raise EquipmentError(self, f'Unknown response to set diameter.')  # TODO: NA
         # Check diameter was set accurately
         if returned_diameter := self.check_diameter() != diameter:
             raise EquipmentError(self, f'Set diameter ({diameter} mm) does not match diameter'
@@ -265,7 +264,7 @@ class PumpHarvard(Pump):
 
     def _set_target_volume(self, target_volume: int | float):
         """Set the target volume to infuse or withdraw (microlitres)."""
-        response = self._write_read('MLT' + str(target_volume), 5)
+        response = self._write_read('MLT' + str(target_volume/1000), 5)   # micro-liter -> milli-liter
 
         # response should be CRLFXX:, CRLFXX>, CRLFXX< where XX is address
         # Pump11 replies with leading zeros, e.g. 03, but PHD2000 misbehaves and
@@ -313,11 +312,16 @@ class PumpHarvard(Pump):
 
         # start run
         response = self._write_read('RUN', 5)
-        if response[1][-1] == '<':  # wrong direction
+        for i in range(10):
+            if response[0][1] != ":":
+                break
+            response = self._write_read('RUN', 5)
+
+        if response[0][-1] == '<':  # wrong direction
             response = self._write_read('REV', 5)
 
-        if response[1][-1] != '>':
-            raise EquipmentError(self, "Unknown response to 'infuse'")
+        # if response[0][-1] != '>':
+        #     raise EquipmentError(self, "Unknown response to 'infuse'")
 
         logger.info(f"{self.name}: infusing")
 
@@ -346,11 +350,16 @@ class PumpHarvard(Pump):
         # start run
         self._set_flow_rate(flow_rate)
         response = self._write_read('RUN', 5)
-        if response[1][-1] == '>':  # wrong direction
+        for i in range(10):
+            if response[0][1] != ":":
+                break
+            response = self._write_read('RUN', 5)
+
+        if response[0][-1] == '>':  # wrong direction
             response = self._write_read('REV', 5)
 
-        if response[1][-1] != '<':
-            raise EquipmentError(self, "Unknown response to 'withdraw'.")
+        # if response[0][-1] != '<':
+        #     raise EquipmentError(self, "Unknown response to 'withdraw'.")
 
         logger.info(f"{self.name}: withdrawing")
 
@@ -430,7 +439,7 @@ def local_flow_profile():
 
 def local_run_single():
     from chembot.communication import Serial
-    serial_line = Serial("COM5", baud_rate=9600, parity=Serial.ParityOptions.none, stop_bits=2, bytes_=8, timeout=1)
+    serial_line = Serial("COM5", baud_rate=19200, parity=Serial.ParityOptions.none, stop_bits=2, bytes_=8, timeout=1)
 
     pump = PumpHarvard(
         serial_line,
@@ -438,9 +447,10 @@ def local_run_single():
         diameter=14.2,
         max_volume=10000,
     )
-    pump.zero()
+    # pump.zero()
     # pump.withdraw(1, 1)
     # pump.infuse(1, 1)
+    pump.stop()
 
 
 if __name__ == '__main__':

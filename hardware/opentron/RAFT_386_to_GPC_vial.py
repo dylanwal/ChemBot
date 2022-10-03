@@ -7,7 +7,8 @@ metadata = {
     'author': 'Me'
 }
 
-wells = [f"C{num}" for num in range(4, 10)] + [f"D{num}" for num in range(1, 13)] + [f"E{num}" for num in range(1, 13)]
+wells = [f"{chr(64+num)}12" for num in range(1, 17)] + [f"H{num}" for num in range(1, 25)] \
+        + ["A1", "A2", "B1", "B2", "A24", "P1", "P24"]
 
 
 def run(protocol: protocol_api.ProtocolContext):
@@ -16,14 +17,14 @@ def run(protocol: protocol_api.ProtocolContext):
     pipette_300 = protocol.load_instrument('p300_single_gen2', mount='right', tip_racks=[tips_300])
 
     pipette_300.flow_rate.aspirate = 4
-    pipette_300.flow_rate.dispense = 20
+    pipette_300.flow_rate.dispense = 50
 
-    plate = protocol.load_labware('corning_96_wellplate_360ul_flat', 1)
+    plate = protocol.load_labware('greiner_384_wellplate_110ul', 1)
     gpc_vials = protocol.load_labware("custom_40_tuberack_1500ul", 4)
-    # gpc_vials2 = protocol.load_labware("custom_40_tuberack_1500ul", 5)
+    gpc_vials2 = protocol.load_labware("custom_40_tuberack_1500ul", 5)
 
     # for well in wells:
-    sample_vial_wells = gpc_vials.wells()   # gpc_vials.wells() +
+    sample_vial_wells = gpc_vials.wells() + gpc_vials2.wells()
     for i, well in enumerate(wells):
         pipette_300.transfer(20, plate[well],
                           sample_vial_wells[i],

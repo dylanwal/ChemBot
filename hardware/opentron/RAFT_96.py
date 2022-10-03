@@ -7,7 +7,13 @@ metadata = {
     'author': 'Me'
     }
 
-wells = [f"C{num}" for num in range(4, 10)] + [f"D{num}" for num in range(1, 13)] + [f"E{num}" for num in range(1, 13)]
+# wells = [f"C{num}" for num in range(4, 10)] + [f"D{num}" for num in range(1, 13)] + [f"E{num}" for num in range(1, 13)]
+wells = [f"B{num}" for num in [2,4,6,8,10]] + \
+        [f"C{num}" for num in [3,5,7,9,11]] + \
+        [f"D{num}" for num in [2,4,6,8,10]] + \
+        [f"E{num}" for num in [3,5,7,9,11]] + \
+        [f"F{num}" for num in [2,4,6,8,10]] + \
+        ["G5", "G7"]
 
 
 def run(protocol: protocol_api.ProtocolContext):
@@ -21,16 +27,16 @@ def run(protocol: protocol_api.ProtocolContext):
 
     # for well in wells:
     pipette_300.transfer(150, gpc_vials['A1'],
-                         [plate[well] for well in wells[:9]],
+                         [plate[well] for well in wells[:8]],
                          blow_out=True, blowout_location="destination well")
     pipette_300.transfer(150, gpc_vials['A2'],
-                         [plate[well] for well in wells[9:17]],
+                         [plate[well] for well in wells[8:16]],
                          blow_out=True, blowout_location="destination well")
     pipette_300.transfer(150, gpc_vials['A3'],
-                         [plate[well] for well in wells[17:25]],
+                         [plate[well] for well in wells[16:24]],
                          blow_out=True, blowout_location="destination well")
     pipette_300.transfer(150, gpc_vials['A4'],
-                         [plate[well] for well in wells[25:]],
+                         [plate[well] for well in wells[24:]],
                          blow_out=True, blowout_location="destination well")
     protocol.set_rail_lights(False)
 
