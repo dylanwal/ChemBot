@@ -9,7 +9,7 @@ from main_code.sub_equip.phase_sensor.phase_sensor import PhaseSensor
 
 # Loading data
 file_prefix = "in_phase_sensor_"
-files = [f for f in os.listdir(".") if re.match(fr'^({file_prefix})[0-9]+.*\.(csv)$', f)]
+files = [f for f in os.listdir("") if re.match(fr'^({file_prefix})[0-9]+.*\.(csv)$', f)]
 
 
 for file in files:

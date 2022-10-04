@@ -1,8 +1,6 @@
 """This code covers everything"""
 
 import board
-import busio
-import digitalio
 import pulseio
 import Thermistor_class
 import Thermocouple_class
