@@ -17,13 +17,13 @@ def run(protocol: protocol_api.ProtocolContext):
 
     reservoir = protocol.load_labware("agilent_1_reservoir_290ml", 7)
     gpc_vials = protocol.load_labware("custom_40_tuberack_1500ul", 4)
-    # gpc_vials2 = protocol.load_labware("custom_40_tuberack_1500ul", 5)
+    gpc_vials2 = protocol.load_labware("custom_40_tuberack_1500ul", 5)
 
-    pipette_1000.transfer(1400, reservoir['A1'],
-                          gpc_vials.wells()[:30],
-                          blow_out=True, blowout_location="destination well")
     # pipette_1000.transfer(1400, reservoir['A1'],
-    #                       gpc_vials2.wells()[:25],
+    #                       gpc_vials.wells()[:30],
     #                       blow_out=True, blowout_location="destination well")
+    pipette_1000.transfer(1400, reservoir['A1'],
+                          gpc_vials2.wells()[:10],
+                          blow_out=True, blowout_location="destination well")
 
     protocol.set_rail_lights(False)
