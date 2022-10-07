@@ -14,7 +14,7 @@ that is the main bottleneck in data collection.
 
 import warnings
 import logging
-from time import time
+import time
 
 from serial import Serial, PARITY_EVEN, STOPBITS_ONE
 import numpy as np
@@ -96,7 +96,7 @@ class PhaseSensor:
 
         self.mean = None
         self.pico_start_time = int(self.measure())
-        self.cpu_start_time = time()
+        self.cpu_start_time = time.time()
 
         # Extra stuff
         self.__class__.instances.append(self)
@@ -198,7 +198,7 @@ class PhaseSensor:
         :return: None
         """
         logging.info(f"Phase sensor || ({self.name, self.port}) dataset saved.")
-        np.savetxt(file_loc + str(self.name) + "_" + str(time()) + ".csv",
+        np.savetxt(file_loc + str(self.name) + "_" + str(time.time()) + ".csv",
                    self.data_buffer[:self.buffer_level, :],
                    delimiter=",")
         self.buffer_level = 0
@@ -290,39 +290,31 @@ class PhaseSensor:
         return liq_diff > gas_diff
 
 
-if __name__ == '__main__':
+def main():
     """
-    Example code for a single phase sensor.
-    You will likely need to change the COM port to match your devices.
-    
-    Output: Prints to screen data and every 50 datapoint, the data rate in Hz. 
-    """
-    from time import time
+        Example code for a single phase sensor.
+        You will likely need to change the COM port to match your devices.
 
-    # Logging stuff
-    logging.basicConfig(filename=r'.\testing.log',
-                        level=logging.DEBUG,
-                        format='%(asctime)s %(message)s',
-                        datefmt='%m/%d/%Y %I:%M:%S %p')
-    logging.info("\n\n")
-    logging.info("---------------------------------------------------")
-    logging.info("---------------------------------------------------")
-
-    # Connect to phase sensor
-    PS1 = PhaseSensor(name="in_phase_sensor", port="COM8")
-
-    # Taking 1000 data points
-    start = time()
-    k = 0
+        Output: Prints to screen data and every 50 datapoint, the data rate in Hz.
+        """
+    PS1 = PhaseSensor(name="in_phase_sensor", port="COM7")
+    n = 8000
+    start = time.time()
+    data_save = np.zeros((n, 9))
     np.set_printoptions(precision=3)
-    for _ in range(1000):
-        k += 1
-        data = PS1.measure()
-        print(data[1:])
-        if k == 50:
-            k = 0
-            end = time()
-            print(f"data rate: {50 / (end - start)}")
-            start = end
+    try:
+        for i in range(n):
+            data = PS1.measure()
+            time.sleep(.05)
+
+            data_save[i, :] = data
+            print(data)
+
+    finally:
+        np.savetxt("data3.csv", data_save, delimiter=",")
 
     print("Done")
+
+
+if __name__ == '__main__':
+    main()
