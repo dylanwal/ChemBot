@@ -5,7 +5,6 @@ Valve Class
 
 config:
       Key       description                          port connections (zero is closed or no port)
-    * "2"       on/off valve                        (1,2) or (0,0)
     * "3L"      3 way L or selector valve           (1,2) or (2,3)
     * "3LZ"     3 way L valve                       (1,2) or (2,3) or (3,0) or (0,1)
     * "3Z"      3 way L or selector valve           (1,2) or (2,0) or (2,3)
@@ -28,16 +27,30 @@ config:
 from abc import ABC, abstractmethod
 import re
 
-from main_code.core_equip.equip import _Equip
+from chembot import configuration, logger, global_ids, EquipmentState
+import chembot.utils.sig_figs as sig_figs
+from chembot.errors import EquipmentError
 
 
 valve_config_options = {
-    "2": [(0, 0), (1, 2)],
-    "3L": [(1, 2), (2, 3)],
-    "3LZ": [(1, 2), (2, 3), (3, 0), (0, 1)],
+    "2": {
+        "name": "on-off valve",
+        "positions": [(0, 0), (1, 2)],
+    },
+    "3L": {
+        "name": "3 way valve with two positions",
+        "positions": [(1, 2), (2, 3)],
+    },
+    "3LZ": {
+        "name": "3 way L valve with 4 positions",
+        "positions": [(1, 2), (2, 3), (3, 0), (0, 1)],
+    },
     "3TZ": [(0, 1, 2), (1, 2, 3), (2, 3, 0), (1, 0, 3)],
     "3Z": [(1, 2), (2, 0), (2, 3)],
-    "4L": [(1, 2), (2, 3), (3, 4), (4, 1)],
+    "4L":{
+        "name": "3 way L valve with 4 positions",
+        "positions": [(1, 2), (2, 3), (3, 4), (4, 1)],
+    },
     "4LL": [((1, 2), (3, 4)), ((4, 1), (2, 3)), ((2, 1), (4, 3)), ((1, 4), (3, 2))],
     "4T": [(1, 2, 3), (2, 3, 4), (3, 4, 1), (4, 1, 2)],
     "4": [(1, 3), (2, 4), (3, 1), (4, 2)],
@@ -56,19 +69,21 @@ valve_config_options = {
 }
 
 
-class _Valve(_Equip, ABC):
+class _Valve(ABC, _Equip):
 
-    def __init__(self, config: str, ports: dict[int:dict[str: any]], start_pos: int = 1, **kwargs):
+    def __init__(self, config: str, start_position: int = 1, ports: dict[int:dict[str: any]] = None,  **kwargs):
         """
-        Core ChemBot Class: Valve
-        :param config: see above for options
-        :param ports: dictionary with {port_number(int): {"name": str, "link": ""}}
+        Parameters
+        ----------
+        config: str
+            see above for options
+        ports: dictionary with {port_number(int): {"name": str, "link": ""}}
             name: any unique name for the port; Ex. into_reactor, gas_in, benzene_bottle
             link: name of equipment that is connected to the port
-
-        If valve configuration not in provide ones use **kwargs to provide custom valve config: valve_options.
+        start_pos: int
+            s
+        kwargs
         """
-
         # Initialization
         super().__init__(**kwargs)
 
@@ -82,8 +97,8 @@ class _Valve(_Equip, ABC):
         self._port_check(ports)
 
         # Track current state
-        self.initialize(start_pos=start_pos)
-        self.current_position = start_pos
+        self.initialize(start_pos=start_position)
+        self.current_position = start_position
 
     def __repr__(self):
         return f"\nValve: {self.name}\n" \
@@ -217,7 +232,7 @@ class ValveVis(_Valve):
         pass
 
 
-if __name__ == '__main__':
+def main():
     ports = {
         1: {
             "name": "air_source",
@@ -237,3 +252,7 @@ if __name__ == '__main__':
 
     valve = ValveVis(name=name, config=config, ports=ports)
     print(valve)
+
+
+if __name__ == '__main__':
+    main()

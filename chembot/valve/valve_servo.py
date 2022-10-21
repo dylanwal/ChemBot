@@ -16,8 +16,6 @@ from main_code.core_equip import Valve
 from main_code.core_equip import communication
 from main_code.utils.pico_checks import check_GPIO_pins
 
-# file_loc = os.path.join(os.path.dirname(__file__), 'data/')
-
 
 class ValveServo(Valve):
     def __init__(self, servo_timing: list[int], pin: int, comm_port: str, **kwargs):

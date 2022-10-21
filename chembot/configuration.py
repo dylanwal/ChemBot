@@ -1,18 +1,62 @@
+import inspect
+import os
+import sys
 
-class GlobalIDs:
-    objects = dict()
-
-    def __init__(self):
-        self.next_id = 0
-
-    def get_id(self, obj) -> int:
-        id_ = self.next_id
-        self.objects[id_] = obj
-        self.next_id += 1
-        return id_
+from chembot.utils.logger import logger
 
 
-global_ids = GlobalIDs()
+def get_unit_registry():
+    """
+    Gets object from Python stack/globals
+    Stops at first object it finds
+    """
+    stack = inspect.stack()
+    for frame in stack:
+        attrs: dict = frame.frame.f_locals
+        for attr in attrs.values():
+            if hasattr(attr, "_REGISTRY"):
+                return attr._REGISTRY
+    else:
+        mes = "Pint UnitRegistry not found."
+        raise Exception(mes)
+
+
+def check_for_pint():
+    """ Check for Pint
+    Pint's requires a Unit Registry to be defined. However, Unit Registries are not interoperable and will throw
+    errors if a unit from one registry is used in another. So we go looking to see if one has been created,
+    and if it hasn't we will make one!
+    Returns
+    -------
+    UnitRegistry
+    """
+    modules = sys.modules
+    if "pint" in modules:
+        logger.info("'Pint' module found in stack. (you have 'import pint' somewhere in your code).")
+        # get unit registry
+        try:
+            u_ = get_unit_registry()
+            logger.info("\033[32m Unit registry found. :) \033[0m")
+            return u_
+        except Exception:
+            logger.warning("Pint unit registry not found in stack. Loading 'unit_parser' registry. (Note: "
+                           "Pint unit registries are not interoperable. ")
+
+    # if no pint found, load local
+    import pint
+    current_path = os.path.dirname(os.path.realpath(__file__))
+    u_ = pint.UnitRegistry(autoconvert_offset_to_baseunit=True,
+                           filename=os.path.join(current_path, "support_files", "unit_registry.txt"))
+    u_.default_format = "~"
+    return u_
+
+
+# set pint units
+u = check_for_pint()
+U = Unit = u.Unit
+Q = Quantity = u.Quantity
+
+#######################################################################################################################
 
 
 class Configurations:
