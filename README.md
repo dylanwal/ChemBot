@@ -2,4 +2,4 @@
 
 fdgdssdf
 
-[Documentation](https://dylanwal.github.io/PolyBot/)
+[Documentation](https://dylanwal.github.io/ChemBot/)
