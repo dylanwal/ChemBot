@@ -1,3 +1,2 @@
 pyserial~=3.5
 numpy~=1.23.3
-pint~=0.19.2

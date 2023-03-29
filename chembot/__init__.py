@@ -1,10 +1,9 @@
+import logging
 
+logger = logging.getLogger("ChemBot")
+logger.setLevel(logging.WARNING)
 
+from chembot.configuration import config
 
-from chembot.utils.event_scheduler import EventScheduler
+import chembot.pumps as pumps
 
-event_scheduler = EventScheduler()
-
-from chembot.utils.logger import logger
-from chembot.configuration import configuration, U, Q
-from chembot.equipment import global_ids

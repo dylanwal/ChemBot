@@ -3,8 +3,8 @@ import math
 import time
 
 from chembot import event_scheduler, logger
-from chembot.pump.base import Pump
-from chembot.pump.flow_profile import PumpFlowProfile
+from chembot.pumps.base import Pump
+from chembot.pumps.flow_profile import PumpFlowProfile
 from chembot.communication.serial_ import Serial
 from chembot.errors import EquipmentError
 

@@ -1,68 +1,46 @@
-import inspect
+import datetime
 import os
+import pathlib
 import sys
 
-from chembot.utils.logger import logger
+
+def create_folder(folder: str | pathlib.Path):
+    if not os.path.exists(folder):
+        os.makedirs(folder)
 
 
-def get_unit_registry():
-    """
-    Gets object from Python stack/globals
-    Stops at first object it finds
-    """
-    stack = inspect.stack()
-    for frame in stack:
-        attrs: dict = frame.frame.f_locals
-        for attr in attrs.values():
-            if hasattr(attr, "_REGISTRY"):
-                return attr._REGISTRY
-    else:
-        mes = "Pint UnitRegistry not found."
-        raise Exception(mes)
-
-
-def check_for_pint():
-    """ Check for Pint
-    Pint's requires a Unit Registry to be defined. However, Unit Registries are not interoperable and will throw
-    errors if a unit from one registry is used in another. So we go looking to see if one has been created,
-    and if it hasn't we will make one!
-    Returns
-    -------
-    UnitRegistry
-    """
-    modules = sys.modules
-    if "pint" in modules:
-        logger.info("'Pint' module found in stack. (you have 'import pint' somewhere in your code).")
-        # get unit registry
-        try:
-            u_ = get_unit_registry()
-            logger.info("\033[32m Unit registry found. :) \033[0m")
-            return u_
-        except Exception:
-            logger.warning("Pint unit registry not found in stack. Loading 'unit_parser' registry. (Note: "
-                           "Pint unit registries are not interoperable. ")
-
-    # if no pint found, load local
-    import pint
-    current_path = os.path.dirname(os.path.realpath(__file__))
-    u_ = pint.UnitRegistry(autoconvert_offset_to_baseunit=True,
-                           filename=os.path.join(current_path, "support_files", "unit_registry.txt"))
-    u_.default_format = "~"
-    return u_
-
-
-# set pint units
-u = check_for_pint()
-U = Unit = u.Unit
-Q = Quantity = u.Quantity
-
-#######################################################################################################################
+def check_if_folder_exists(path: str) -> bool:
+    return os.path.isdir(path)
 
 
 class Configurations:
     def __init__(self):
         self.encoding = "UTF-8"
-        self.sig_fig_pump = 3
+
+        # logging
+        self.logging = True
+        self.logging_to_file = True
+        self._logging_directory = None
+
+    @property
+    def logging_directory(self):
+        if self._logging_directory is None:
+            # grab file location where main was run
+            main_file = pathlib.Path(sys.argv[0]).parent
+            # create new folder 'logs'
+            path = main_file / pathlib.Path("logs")
+            create_folder(path)
+            # create new folder with data
+            self._logging_directory = path / pathlib.Path(datetime.datetime.now().strftime("log_%Y_%m_%d-%H_%M"))
+
+        return self._logging_directory
+
+    @logging_directory.setter
+    def logging_directory(self, logging_directory: str):
+        if not check_if_folder_exists(logging_directory):
+            raise ValueError("'logging_directory' not found.")
+
+        self._logging_directory = logging_directory
 
 
-configuration = Configurations()
+config = Configurations()

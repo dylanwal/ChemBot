@@ -1,11 +1,28 @@
+"""
+
+syringe pump queues
+    write to:
+    * error
+    * status
+    * communication line (serial line to pump)
+    read from:
+    * SyringePump_i
+
+logger
+
+"""
+
 import abc
 import math
 import enum
+import logging
 
-from chembot import configuration, logger, global_ids, EquipmentState
 import chembot.utils.sig_figs as sig_figs
 from chembot.errors import EquipmentError
-from chembot.pump.flow_profile import PumpFlowProfile
+from chembot.pumps.flow_profile import PumpFlowProfile
+
+
+logger = logging.getLogger("ChemBot.pump")
 
 
 def calc_pull(diameter: float, volume: float) -> float:
@@ -25,23 +42,18 @@ class PumpControlMethod(enum.Enum):
     pressure = 1
 
 
-class Pump(abc.ABC):
-    instances = []
-    states = EquipmentState
+class SyringePump(abc.ABC):
     control_methods = PumpControlMethod
 
     def __init__(
             self,
-            name: str = None,
+            name: str,
             diameter: float | int = None,  # units: cm
             max_volume: float | int = None,  # units: ml
             max_pull: float | int = None,  # units: cm
             control_method: PumpControlMethod = PumpControlMethod.flow_rate,
     ):
-        self._add_instance_()
-        self.id_ = global_ids.get_id(self)
-
-        self.name = name if name is not None else f"pump_{len(self.instances)}"
+        self.name = name
 
         # setup everything
         self._diameter = None
@@ -62,22 +74,20 @@ class Pump(abc.ABC):
 
         logger.info(self.name + "\n\t\tSetup complete.")
 
-    def __repr__(self):
+    def __str__(self):
+        return self.name
+
+    def details(self) -> str:
         text = f"Pump: {self.name} \n"
         text += f"current state: {self.state} \n"
-        text += f"\tdiameter: {sig_figs.sig_figs(self.diameter, configuration.sig_fig_pump)} cm\n"
-        text += f"\tmax_volume: {sig_figs.sig_figs(self.max_volume, configuration.sig_fig_pump)} ml\n"
-        text += f"\tmax_pull: {sig_figs.sig_figs(self.max_pull, configuration.sig_fig_pump)} cm\n"
-        text += f"\tvolume: {sig_figs.sig_figs(self.volume, configuration.sig_fig_pump)} ml\n"
-        text += f"\tflow_rate: {sig_figs.sig_figs(self.flow_rate, configuration.sig_fig_pump)} ml/min\n"
-        text += f"\tposition: {sig_figs.sig_figs(self.pull, configuration.sig_fig_pump)} ml \n"
+        text += f"\tdiameter: {self.diameter} cm\n"
+        text += f"\tmax_volume: {self.max_volume} ml\n"
+        text += f"\tmax_pull: {self.max_pull} cm\n"
+        text += f"\tvolume: {self.volume} ml\n"
+        text += f"\tflow_rate: {self.flow_rate} ml/min\n"
+        text += f"\tposition: {self.pull} ml \n"
 
         return text
-
-    def _add_instance_(self):
-        self.__class__.instances.append(self)
-        self.syringe_count = 0
-        self.syringe_setup = False
 
     def _set_syringe_settings(self,
                               diameter: float | int | None,
@@ -248,19 +258,31 @@ class Pump(abc.ABC):
     def flow_rate_profile(self) -> PumpFlowProfile:
         return self._flow_rate_profile
 
+    ## Actions ##
+    @abc.abstractmethod
     def zero(self):
         """"""
-        raise NotImplementedError
-        # self._pull = 0
-        # self._volume = 0
+        self._pull = 0
+        self._volume = 0
 
-    def fill(self):
-        raise NotImplementedError
-        # self._pull = self.max_pull
-        # self._volume = self._max_volume
+    @abc.abstractmethod
+    def refill(self):
+        self._pull = self.max_pull
+        self._volume = self._max_volume
 
-    def run(self, flow_profile: PumpFlowProfile, start_time: int | float = None):
-        raise NotImplementedError
+    @abc.abstractmethod
+    def start(self):
+        ...
 
+    @abc.abstractmethod
     def stop(self):
-        raise NotImplementedError
+        ...
+
+    def register(self):
+        help_str = ""
+        for name, func in SyringePump.__dict__.items():
+            if callable(func):
+                doc = func.__doc__ if func.__doc__ is not None else "No documentation available."
+                help_str += f"{name}: {doc}\n"
+        self.channel.basic_publish(exchange='', routing_key='pump_cmd', body=help_str)
+        print("Sent help message.")

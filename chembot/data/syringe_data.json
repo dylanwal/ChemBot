@@ -1,0 +1,56 @@
+{
+  "units": {
+    "volume": "ml",
+    "max_pressure": "bar",
+    "min_pressure": "bar",
+    "max_temperature": "degC",
+    "min_temperature": "degC",
+    "diameter": "mm",
+    "vendor": null
+  },
+  "hamilton_1001": {
+    "volume": 1,
+    "max_pressure": 13.8,
+    "min_pressure": 0,
+    "max_temperature": 115,
+    "min_temperature": 10,
+    "diameter": 4.61,
+    "vendor": "hamilton"
+  },
+  "hamilton_1002": {
+    "volume": 2.5,
+    "max_pressure": 13.8,
+    "min_pressure": 0,
+    "max_temperature": 115,
+    "min_temperature": 10,
+    "diameter": 7.29,
+    "vendor": "hamilton"
+  },
+  "hamilton_1005": {
+    "volume": 5,
+    "max_pressure": 13.8,
+    "min_pressure": 0,
+    "max_temperature": 115,
+    "min_temperature": 10,
+    "diameter": 10.3,
+    "vendor": "hamilton"
+  },
+  "hamilton_1010": {
+    "volume": 10,
+    "max_pressure": 13.8,
+    "min_pressure": 0,
+    "max_temperature": 115,
+    "min_temperature": 10,
+    "diameter": 14.6,
+    "vendor": "hamilton"
+  },
+  "hamilton_1025": {
+    "volume": 25,
+    "max_pressure": 6.9,
+    "min_pressure": 0,
+    "max_temperature": 85,
+    "min_temperature": 10,
+    "diameter": 23.0,
+    "vendor": "hamilton"
+  }
+}
