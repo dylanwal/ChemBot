@@ -17,7 +17,6 @@ import math
 import enum
 import logging
 
-import chembot.utils.sig_figs as sig_figs
 from chembot.errors import EquipmentError
 from chembot.pumps.flow_profile import PumpFlowProfile
 
@@ -48,9 +47,9 @@ class SyringePump(abc.ABC):
     def __init__(
             self,
             name: str,
-            diameter: float | int = None,  # units: cm
+            diameter: float | int = None,  # units: mm
             max_volume: float | int = None,  # units: ml
-            max_pull: float | int = None,  # units: cm
+            max_pull: float | int = None,  # units: mm
             control_method: PumpControlMethod = PumpControlMethod.flow_rate,
     ):
         self.name = name
@@ -64,7 +63,6 @@ class SyringePump(abc.ABC):
         self._flow_rate_profile = None
         self._target_volume = 0
         self._pull = 0
-        self._set_syringe_settings(diameter, max_volume, max_pull)
         self._state = None
         self._control_method = None
         self.control_method = control_method
@@ -72,7 +70,8 @@ class SyringePump(abc.ABC):
         # additional attributes
         self._flow_profile = None
 
-        logger.info(self.name + "\n\t\tSetup complete.")
+        self._set_syringe_settings(diameter, max_volume, max_pull)
+        logger.info(f"__init__ of {self.name}: diameter=diameter")
 
     def __str__(self):
         return self.name
@@ -89,10 +88,14 @@ class SyringePump(abc.ABC):
 
         return text
 
+    def activate(self):
+        pass
+
     def _set_syringe_settings(self,
                               diameter: float | int | None,
                               max_volume: float | int | None,
-                              max_pull: float | int | None):
+                              max_pull: float | int | None
+                              ):
 
         if isinstance(diameter, (float, int)):
             self._check_diameter(diameter)

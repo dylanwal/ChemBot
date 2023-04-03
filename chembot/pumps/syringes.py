@@ -1,38 +1,32 @@
-import json
+from __future__ import annotations
+
+import core.equipment
+from unitpy import Unit, Quantity
 
 
-with open("chembot/data/syringe_data.json") as f:
-    syringe_configs = json.load(f)
-
-
-class Syringe:
-    units = syringe_configs["units"]
-
+class Syringe(core.equipment.Equipment):
     def __init__(self,
                  name: str,
-                 volume: float,
-                 diameter: float,
-                 max_pressure: float = None,
-                 min_pressure: float = None,
-                 max_temperature: float = None,
-                 min_temperature: float = None,
+                 volume: Quantity,
+                 diameter: Quantity,
+                 max_pressure: Quantity = None,
+                 min_pressure: Quantity = None,
+                 max_temperature: Quantity = None,
+                 min_temperature: Quantity = None,
                  vendor: str = None,
                  ):
+        super().__init__(max_pressure, min_pressure, max_temperature, min_temperature)
         self.name = name
         self.volume = volume
         self.diameter = diameter
         self.vendor = vendor
-        self.max_pressure = max_pressure
-        self.min_pressure = min_pressure
-        self.max_temperature = max_temperature
-        self.min_temperature = min_temperature
 
     def __str__(self):
         return f"{self.name} || volume: {self.volume}, diameter: {self.diameter}"
 
-
-def get_syringe(name: str):
-    if name in syringe_configs:
-        return Syringe(name=name, **syringe_configs[name])
-
-    raise KeyError(f"'{name}' not within syringe configuration.")
+    @classmethod
+    def get_syringe(cls, name: str) -> Syringe:
+        from chembot.data.syringe_configs import syringe_configs
+        if name in syringe_configs:
+            return Syringe(name=name, **syringe_configs[name])
+        raise KeyError(f"'{name}' not within syringe configuration.")
