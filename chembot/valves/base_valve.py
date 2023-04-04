@@ -1,77 +1,26 @@
 """
 Valve Class
 
-
-
-config:
-      Key       description                          port connections (zero is closed or no port)
-    * "3L"      3 way L or selector valve           (1,2) or (2,3)
-    * "3LZ"     3 way L valve                       (1,2) or (2,3) or (3,0) or (0,1)
-    * "3Z"      3 way L or selector valve           (1,2) or (2,0) or (2,3)
-    * "3TZ"     3 way T valve                       (0,1,2) or (1,2,3) or (2,3,0) or (1,0,3)
-    * "4L"      4 way L valve                       (1,2) or (2,3) or (3,4) or (4,1)
-    * "4LL"     4 way double L valve                ((1,2),(3,4)) or ((4,1),(2,3)) or ((2,1),(4,3)) or ((1,4),(3,2))
-    * "4T"      4 way T valve                       (1,2,3) or (2,3,4) or (3,4,1) or (4,1,2)
-    * "4"       4 way straight valve                (1,3) or (2,4) or (3,1) or (4,2)
-    * "4S"      4 way selector                      (1,2) or (1,3) or (1,4)
-    * "5S"      5 way selector                      (1,2) or (1,3) or (1,4) or (1,5)
-    * "6D"      6 way double path valve             ((1,2),(4,5)) or ((2,3),(5,6)) or ((3,4),(6,1)) or ((4,5),(1,2)) or
-                                                        ((5,6),(2,3)) or ((6,1),(3,4))
-    * "6DL"     6 way double path limited valve     ((1,2),(4,5)) or ((2,3),(5,6))
-    * "6TL"     6 way triple path limited valve     ((1,2),(3,4),(5,6)) or ((1,6),(2,3),(4,5))
-    * "#S"      # selector valve (# can be any integer up to 12)
-
-    Notes: written from the perspective of available rotations for a real valve
-
 """
 from abc import ABC, abstractmethod
 import re
 
-from chembot import configuration, logger, global_ids, EquipmentState
-import chembot.utils.sig_figs as sig_figs
-from chembot.errors import EquipmentError
+from unitpy import Quantity
+
+from chembot.data.valve_configs import valve_configs
+from chembot.core.equipment import Equipment
 
 
-valve_config_options = {
-    "2": {
-        "name": "on-off valve",
-        "positions": [(0, 0), (1, 2)],
-    },
-    "3L": {
-        "name": "3 way valve with two positions",
-        "positions": [(1, 2), (2, 3)],
-    },
-    "3LZ": {
-        "name": "3 way L valve with 4 positions",
-        "positions": [(1, 2), (2, 3), (3, 0), (0, 1)],
-    },
-    "3TZ": [(0, 1, 2), (1, 2, 3), (2, 3, 0), (1, 0, 3)],
-    "3Z": [(1, 2), (2, 0), (2, 3)],
-    "4L":{
-        "name": "3 way L valve with 4 positions",
-        "positions": [(1, 2), (2, 3), (3, 4), (4, 1)],
-    },
-    "4LL": [((1, 2), (3, 4)), ((4, 1), (2, 3)), ((2, 1), (4, 3)), ((1, 4), (3, 2))],
-    "4T": [(1, 2, 3), (2, 3, 4), (3, 4, 1), (4, 1, 2)],
-    "4": [(1, 3), (2, 4), (3, 1), (4, 2)],
-    "4S": [],  # will be calculated with function _selector_valve
-    "5S": [],  # will be calculated with function _selector_valve
-    "6D": [((1, 2), (4, 5)), ((2, 3), (5, 6)), ((3, 4), (6, 1)), ((4, 5), (1, 2)), ((5, 6), (2, 3)), ((6, 1), (3, 4))],
-    "6DL": [((1, 2), (4, 5)), ((2, 3), (5, 6))],
-    "6TL": [((1, 2), (3, 4), (5, 6)), ((1, 6), (2, 3), (4, 5))],
-    "6S": [],  # will be calculated with function _selector_valve
-    "7S": [],  # will be calculated with function _selector_valve
-    "8S": [],  # will be calculated with function _selector_valve
-    "9S": [],  # will be calculated with function _selector_valve
-    "10S": [],  # will be calculated with function _selector_valve
-    "11S": [],  # will be calculated with function _selector_valve
-    "12S": [],  # will be calculated with function _selector_valve
-}
+class Valve(ABC, Equipment):
+    valve_configs = valve_configs
 
-
-class _Valve(ABC, _Equip):
-
-    def __init__(self, config: str, start_position: int = 1, ports: dict[int:dict[str: any]] = None,  **kwargs):
+    def __init__(self,
+                 name: str,
+                 config: str,
+                 start_position: int = 1,
+                 ports: dict[int:dict[str: any]] = None,
+                 **kwargs
+                 ):
         """
         Parameters
         ----------
@@ -80,12 +29,12 @@ class _Valve(ABC, _Equip):
         ports: dictionary with {port_number(int): {"name": str, "link": ""}}
             name: any unique name for the port; Ex. into_reactor, gas_in, benzene_bottle
             link: name of equipment that is connected to the port
-        start_pos: int
+        start_position: int
             s
         kwargs
         """
         # Initialization
-        super().__init__(**kwargs)
+        super().__init__(name=name, **kwargs)
 
         # Will be all set in _config_check and _port_check
         self.config = None
@@ -93,12 +42,9 @@ class _Valve(ABC, _Equip):
         self.num_positions = None
         self.ports = None
         self.num_ports = None
+
         self._config_check(config, kwargs.get("valve_options"))
         self._port_check(ports)
-
-        # Track current state
-        self.initialize(start_pos=start_position)
-        self.current_position = start_position
 
     def __repr__(self):
         return f"\nValve: {self.name}\n" \
@@ -109,7 +55,7 @@ class _Valve(ABC, _Equip):
                f"\tcurrent position: {self.current_position}\n"
 
     @abstractmethod
-    def initialize(self, start_pos: int):
+    def actiavte(self, start_pos: int):
         """Needs to be defined in subclass."""
         self.state = "standby"
 

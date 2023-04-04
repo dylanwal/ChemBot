@@ -1,22 +1,18 @@
 from __future__ import annotations
 
-import core.equipment
+from core.equipment import Equipment
 from unitpy import Unit, Quantity
 
 
-class Syringe(core.equipment.Equipment):
+class Syringe(Equipment):
     def __init__(self,
                  name: str,
                  volume: Quantity,
                  diameter: Quantity,
-                 max_pressure: Quantity = None,
-                 min_pressure: Quantity = None,
-                 max_temperature: Quantity = None,
-                 min_temperature: Quantity = None,
                  vendor: str = None,
+                 **kwargs
                  ):
-        super().__init__(max_pressure, min_pressure, max_temperature, min_temperature)
-        self.name = name
+        super().__init__(name, state=Equipment.states.pre_activation, **kwargs)
         self.volume = volume
         self.diameter = diameter
         self.vendor = vendor
