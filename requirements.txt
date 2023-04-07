@@ -1,3 +1,4 @@
 pyserial~=3.5
 numpy~=1.23.3
 unitpy~=0.0.2
+pika

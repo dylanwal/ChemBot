@@ -1,12 +1,15 @@
 import enum
 import math
 import time
+import logging
 
-from chembot import event_scheduler, logger
-from chembot.pumps.base import Pump
+from chembot.pumps.base import SyringePump
 from chembot.pumps.flow_profile import PumpFlowProfile
 from chembot.communication.serial_ import Serial
 from chembot.errors import EquipmentError
+
+
+logger = logging.getLogger("ChemBot.pump")
 
 
 class PumpHarvardStates(enum.Enum):
@@ -30,8 +33,8 @@ def remove_crud(string: str) -> str:
     return string
 
 
-def _format_diameter(pump: Pump, diameter: float) -> str:
-    # Pump only considers 2 d.p. - anymore are ignored
+def _format_diameter(pump: SyringePump, diameter: float) -> str:
+    # SyringePump only considers 2 d.p. - anymore are ignored
     diameter_str = str(round(diameter, 2))
 
     if diameter != float(diameter_str):
@@ -40,7 +43,7 @@ def _format_diameter(pump: Pump, diameter: float) -> str:
     return diameter_str
 
 
-def _format_flow_rate(pump: Pump, flow_rate: int | float) -> str:
+def _format_flow_rate(pump: SyringePump, flow_rate: int | float) -> str:
     flow_rate = str(flow_rate)
 
     if len(flow_rate) > 5:
@@ -54,7 +57,7 @@ def remove_string_formatting_char(string: str) -> str:
     return ''.join(s for s in string if 31 < ord(s) < 126)
 
 
-class PumpHarvard(Pump):
+class PumpHarvard(SyringePump):
     """
     This code is for the Harvard Apparatus PHD 2000 syringe pump.
     Pumps receive RS-232 serial commands.
@@ -76,7 +79,7 @@ class PumpHarvard(Pump):
             max_pull: float = None,  # units: cm
     ):
         super().__init__(name, diameter, max_volume, max_pull,
-                         control_method=Pump.control_methods.flow_rate)
+                         control_method=SyringePump.control_methods.flow_rate)
         if name is None:
             self.name = f"{type(self).__name__} (id: {self.id_})"
         self.serial_line = serial_line
@@ -200,7 +203,7 @@ class PumpHarvard(Pump):
 
     def _set_diameter(self, diameter: float):
         """Set syringe diameter (millimetres).
-        Pump 11 syringe diameter range is 0.1-35 mm. Note that the pump
+        SyringePump 11 syringe diameter range is 0.1-35 mm. Note that the pump
         ignores precision greater than 2 decimal places. If more d.p.
         are specified the diameter will be truncated.
         """
@@ -227,11 +230,11 @@ class PumpHarvard(Pump):
 
     def _set_flow_rate(self, flow_rate: float | int):
         """Set flow rate (microlitres per minute).
-        Flow rate is converted to a string. Pump 11 requires it to have
+        Flow rate is converted to a string. SyringePump 11 requires it to have
         a maximum field width of 5, e.g. "XXXX." or "X.XXX". Greater
         precision will be truncated.
         The pump will tell you if the specified flow rate is out of
-        range. This depends on the syringe diameter. See Pump 11 manual.
+        range. This depends on the syringe diameter. See SyringePump 11 manual.
         """
         if not (self.min_flow_rate <= flow_rate <= self.max_flow_rate):
             raise EquipmentError(self, f"Flow rate outside of valid range. Requested: {flow_rate}, "
