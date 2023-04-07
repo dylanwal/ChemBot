@@ -55,12 +55,8 @@ class Pump:
         self.rabbit_consumer.activate()
 
     def deactivate(self):
-        self.rabbit_consumer.deactivate()  # will call self._deactivate
-        self.rabbit_producer.deactivate()
-        self._deactivate()
-
-    def _deactivate(self):
         self._deactivate_event.set()
+        self.rabbit_consumer.deactivate()
 
 
 class Controller:
@@ -78,9 +74,6 @@ class Controller:
     def activate(self):
         """ Starts everything """
         self.rabbit_producer.activate()
-
-    def deactivate(self):
-        self.rabbit_producer.deactivate()
 
     def send(self, message: str):
         self.rabbit_producer.send("pump.1", message)

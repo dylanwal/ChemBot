@@ -32,8 +32,11 @@ def main():
     finally:
         pump_1.deactivate()
         pump_2.deactivate()
+        print('deactivate')
+
         t.join()
         t2.join()
+        print("join")
         try:
             sys.exit(0)
         except SystemExit:

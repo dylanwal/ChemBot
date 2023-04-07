@@ -1,6 +1,6 @@
 import logging
 
-logger = logging.getLogger("ChemBot")
+logger = logging.getLogger("chembot")
 logger.setLevel(logging.WARNING)
 
 from chembot.configuration import config

@@ -26,12 +26,12 @@ Password: guest
 
 """
 import logging
-import os
-import sys
 import threading
 from typing import Protocol
 
 import pika
+
+logging.getLogger("pika").setLevel(logging.WARNING)
 
 
 class EquipmentProtocol(Protocol):
@@ -69,32 +69,25 @@ class RabbitMQConsumer:
 
     def activate(self):
         self._connect()
-        self._run()
+
+        try:
+            self._run()
+        except KeyboardInterrupt:
+            print("keyboard")
+            self.parent.deactivate()
 
     def deactivate(self):
-        self._connection.close()
+        self._channel.basic_cancel(self.topic)
 
     def _run(self):
-        try:
-            self._consume()
-        except KeyboardInterrupt:
-            pass
-
-        # catch interrupt or close command and handle it gracefully
-        self.parent.deactivate()
-        try:
-            sys.exit(0)
-        except SystemExit:
-            os._exit(0)  # noqa
-
-    def _consume(self):
         logging.warning("listening")
-        while not self._deactivate_event.is_set():
-            self._channel.basic_consume(
-                queue=self.topic,
-                on_message_callback=self.parent._rabbitmq_callback,
-                auto_ack=True,
-            )
+        self._channel.basic_consume(
+            queue=self.topic,
+            on_message_callback=self.parent._rabbitmq_callback,
+            auto_ack=True,
+            consumer_tag=self.topic
+        )
+        self._channel.start_consuming()
 
     def callback(self, ch, method, properties, body):
         if body == "deactivate":
@@ -129,5 +122,3 @@ class RabbitMQProducer:
 
         self._channel.basic_publish(exchange=self._exchange, routing_key=topic, body=body)
 
-    def deactivate(self):
-        self._connection.close()
