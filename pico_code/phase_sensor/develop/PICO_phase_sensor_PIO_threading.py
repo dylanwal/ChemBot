@@ -5,8 +5,8 @@ This code runs on the Rasberry Pi Pico.
 The phase sensor consists of one or more SparkFun Line Sensor Breakout - QRE1113 (Digital)
 [https://www.sparkfun.com/products/9454] in a line with clear PTFE or PFA tubing running a few millimeters in front of the
 sensor.
-The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when powered the LED emits light which will
-reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of light reflected will change
+The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when powered the LED emits lights which will
+reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of lights reflected will change
 which will change the resistance of the phototransistor.
 
 Sensor Operation:
@@ -24,7 +24,7 @@ High level steps of code:
 3) start infinite loop:
     3-1) Read from UART
     3-2-1) if None: do nothing
-    3-2-2) if "r": take measurement, and send data back over UART
+    3-2-2) if "r": take measurement, and send reference_data back over UART
     3-2-3) if "s": send "s" back over UART - just used to check the PICO/communication is running correctly
 
 
@@ -129,7 +129,7 @@ class reflect_ir_array:
         for sensor in self.sensors:
             sensor._put()
 
-        # read data out
+        # read reference_data out
         for i, sensor in enumerate(self.sensors):
             data[i] = sensor._read()  # read is blocking (will wait till measurement done)
 
@@ -174,7 +174,7 @@ def comm():
         print("message: " + str(message) + "  " + str(time()))
 
         if message is not None:
-            # taking data
+            # taking reference_data
             if message == b"r":
                 for _ in range(100):
                     try:
@@ -185,7 +185,7 @@ def comm():
                         continue
                 for i in range(num_sensors):
                     data[i] = int(data[i] / mean[i] * 1000)
-                # print("data out: " + str(data))
+                # print("reference_data out: " + str(reference_data))
                 uart.write("d" + str(ticks_us()) + "+" + str(data) + "\n")
                 continue
 
@@ -221,7 +221,7 @@ def no_comm():
                 continue
         for i in range(num_sensors):
             data[i] = int(data[i] / mean[i] * 1000)
-        print("data out: " + str(data))
+        print("reference_data out: " + str(data))
         sleep(0.001)
     print(100 / (ticks_us() - start) * 1_000_000)
     _thread.exit()

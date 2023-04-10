@@ -1,4 +1,4 @@
-# recieve data
+# recieve reference_data
 
 import socket
 import json
@@ -19,7 +19,7 @@ class intialize_comm:
         print('Connected to PI.')
 
     def receive_data_labels(self):
-        # Receiving data labels
+        # Receiving reference_data labels
         self.buffer_size = 64
         mess_length = self.s.recv(self.buffer_size)
         data_labels = self.s.recv(int(mess_length.decode(mess_format)))

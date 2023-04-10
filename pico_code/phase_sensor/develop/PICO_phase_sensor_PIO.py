@@ -5,8 +5,8 @@ This code runs on the Rasberry Pi Pico.
 The phase sensor consists of one or more SparkFun Line Sensor Breakout - QRE1113 (Digital)
 [https://www.sparkfun.com/products/9454] in a line with clear PTFE or PFA tubing running a few millimeters in front of the
 sensor.
-The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when powered the LED emits light which will
-reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of light reflected will change
+The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when powered the LED emits lights which will
+reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of lights reflected will change
 which will change the resistance of the phototransistor.
 
 Operation:
@@ -23,7 +23,7 @@ High level steps of code:
 2) define UART connection to master computer
 3) define interrupt (master computer can stop measurement)
 3) wait for "run" message from master computer
-4) when "run" message received: run state machines and start sending data over UART
+4) when "run" message received: run state machines and start sending reference_data over UART
 4*) if interrupt received from master computer, stop measurements and go into "standby" state. (wait for "run" to be sent again)
 
 Wiring
@@ -124,7 +124,7 @@ class reflect_ir_array:
         for sensor in self.sensors:
             sensor._put()
 
-        # read data out
+        # read reference_data out
         for i, sensor in enumerate(self.sensors):
             data[i] = sensor._read() # read is blocking (will wait till measurement done)
 
@@ -175,7 +175,7 @@ def main():
 
             sleep(1)
 
-        # start taking data
+        # start taking reference_data
         while state == "run":
             data = sen_array.measure()
             uart.write(str(time()) + "+" + str(data) + "\n")

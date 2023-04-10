@@ -1,10 +1,10 @@
-import logging
-
-logger = logging.getLogger("chembot")
-logger.setLevel(logging.WARNING)
-
 from chembot.configuration import config
 
-import chembot.pumps as pumps
-import chembot.valves as valves
+import logging
+logger = logging.getLogger(config.root_logger_name)
+logger.setLevel(logging.WARNING)
 
+import chembot.utils as utils
+import chembot.communication as communication
+import chembot.equipment.lights as lights
+import chembot.equipment.pumps as pump

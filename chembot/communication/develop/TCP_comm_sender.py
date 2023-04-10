@@ -1,4 +1,4 @@
-# send data
+# send reference_data
 
 import socket
 import json
@@ -26,7 +26,7 @@ class intialize_comm:
 
 
     def send_labels(self, data_labels):
-        # sending data labels
+        # sending reference_data labels
         self.num_data_points = len(data_labels)
         self.buffer_size = len(json.dumps(data_labels).encode(mess_format))
         self.conn.sendall(str(self.buffer_size).encode(mess_format))

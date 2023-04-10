@@ -1,124 +1,187 @@
-"""
-Installation
-1) Open Powershell as Administrator
-2) Install chocolatey (https://chocolatey.org/install)
-3) Install RabbitMQ `choco install rabbitmq`
-4) Server starts up automatically on install
+from __future__ import annotations
 
-RabbitMQ
-    # Navigate to location of server files
-    'cd C:\Program Files\RabbitMQ Server\rabbitmq_server-3.11.13\sbin'  # version may be different
-
-    # start server
-    `.\rabbitmq-server.bat -detached`
-
-    # stop server
-    `.\rabbitmqctl.bat stop`
-
-    # check server status
-    `.\rabbitmqctl.bat status`
-
-
-# checking server
-http://localhost:15672/
-Username: guest
-Password: guest
-
-"""
+import abc
 import logging
 import threading
-from typing import Protocol
+import queue
+import json
 
 import pika
-
 logging.getLogger("pika").setLevel(logging.WARNING)
 
+from chembot.configuration import config
 
-class EquipmentProtocol(Protocol):
-    _deactivate_event = None
+logger = logging.getLogger(config.root_logger_name + "rabbitmq")
 
-    def _rabbitmq_callback(self, ch, method, properties, body):
-        pass
 
-    def deactivate(self):
-        pass
+def get_rabbit_channel():
+    credentials = pika.PlainCredentials(config.rabbit_username, config.rabbit_password)
+    parameters = pika.ConnectionParameters(config.rabbit_host, config.rabbit_port, '/', credentials)
+    connection = pika.BlockingConnection(parameters)
+    channel = connection.channel()
+    channel.exchange_declare(exchange=config.rabbit_exchange, exchange_type='topic')
+
+    return channel
+
+
+class RabbitMessage:
+    def __init__(self, destination: str, source: str, action: str, value, parameters: dict = None):
+        self.destination = destination
+        self.source = source
+        self.action = action
+        self.value = value
+        self.parameters = parameters
+
+    def to_JSON(self) -> str:  # noqa
+        return json.dumps(self, default=lambda x: x.__dict__)
+
+    def to_str(self) -> str:
+        return f"\n\t{self.source} -> {self.destination} " \
+                 f"\n\taction: {self.action}" \
+                 f"\n\tvalue: {self.value}"
+
+    @classmethod
+    def from_JSON(cls, message: str) -> RabbitMessage:  # noqa
+        message = json.loads(message)
+        return RabbitMessage(**message)
 
 
 class RabbitMQConsumer:
 
-    def __init__(self, topic: str, parent: EquipmentProtocol,
-                 host='localhost', port=5672, username='guest', password='guest', exchange='chembot'):
+    def __init__(self, topic: str):
         self.topic = topic
-        self.parent = parent
-        self._host = host
-        self._port = port
-        self._username = username
-        self._password = password
-        self._exchange = exchange
-        self._connection = None
-        self._channel = None
-        self._deactivate_event: threading.Event = parent._deactivate_event
+        self.channel = get_rabbit_channel()
+        self.channel.queue_declare(self.topic)
 
-    def _connect(self):
-        credentials = pika.PlainCredentials(self._username, self._password)
-        parameters = pika.ConnectionParameters(self._host, self._port, '/', credentials)
-        self._connection = pika.BlockingConnection(parameters)
-        self._channel = self._connection.channel()
-        self._channel.exchange_declare(exchange=self._exchange, exchange_type='topic')
-        self._channel.queue_declare(self.topic)
+        self.thread: threading.Thread = threading.Thread(target=self._run)
+        self.queue: queue.Queue[RabbitMessage] = queue.Queue(maxsize=2)
 
     def activate(self):
-        self._connect()
-
-        try:
-            self._run()
-        except KeyboardInterrupt:
-            print("keyboard")
-            self.parent.deactivate()
-
-    def deactivate(self):
-        self._channel.basic_cancel(self.topic)
+        self.thread.start()
+        logger.info(f"Start listening on: {self.topic}")
 
     def _run(self):
-        logging.warning("listening")
-        self._channel.basic_consume(
+        self.channel.basic_consume(
             queue=self.topic,
-            on_message_callback=self.parent._rabbitmq_callback,
+            on_message_callback=self._callback,
             auto_ack=True,
             consumer_tag=self.topic
         )
-        self._channel.start_consuming()
+        self.channel.start_consuming()
 
-    def callback(self, ch, method, properties, body):
-        if body == "deactivate":
-            self._deactivate_event.set()
+    def _callback(self, ch, method, properties, body):
+        message = RabbitMessage.from_JSON(body)
+        logger.debug("Message received:" + message.to_str())
+        self.queue.put(message)
+
+    def deactivate(self):
+        self.channel.basic_cancel(self.topic)
+        self.thread.join()
 
 
 class RabbitMQProducer:
-    def __init__(self,  host='localhost', port=5672, username='guest', password='guest', exchange='chembot'):
-        self._host = host
-        self._port = port
-        self._username = username
-        self._password = password
-        self._exchange = exchange
-        self._connection = None
+    def __init__(self):
         self._channel = None
 
     def _connect(self):
-        credentials = pika.PlainCredentials(self._username, self._password)
-        parameters = pika.ConnectionParameters(self._host, self._port, '/', credentials)
-        self._connection = pika.BlockingConnection(parameters)
-        self._channel = self._connection.channel()
-        self._channel.exchange_declare(exchange=self._exchange, exchange_type='topic')
+        self._channel = get_rabbit_channel()
 
     def activate(self):
         self._connect()
 
-    def send(self, topic: str, body: str):
-        if not self._channel.queue_declare(topic, passive=True):
+    def send(self, message: RabbitMessage):
+        if not self._channel.queue_declare(message.destination, passive=True):
             # no queue for topic
-            # handle error
             raise ValueError("No Topic")
 
-        self._channel.basic_publish(exchange=self._exchange, routing_key=topic, body=body)
+        logger.debug("Message sent:" + message.to_str())
+        self._channel.basic_publish(
+            exchange=config.rabbit_exchange,
+            routing_key=message.destination,
+            body=message.to_JSON()
+        )
 
+
+class RabbitCommunication:
+
+    def __init__(self, topic: str):
+        self.producer = RabbitMQProducer()
+        self.consumer = RabbitMQConsumer(topic)
+
+    @property
+    def queue(self) -> queue.Queue[RabbitMessage]:
+        return self.consumer.queue
+
+    def activate(self):
+        self.producer.activate()
+        self.consumer.activate()
+
+    def deactivate(self):
+        self.consumer.deactivate()
+
+    def send(self, message: RabbitMessage):
+        self.producer.send(message)
+
+    def send_error(self, action, message: str):
+        message = RabbitMessage("error", self.consumer.topic, action, message)
+        self.producer.send(message)
+
+
+class RabbitEquipment(abc.ABC):
+    def __init__(self, topic: str):
+        self.topic = topic
+        self.rabbit = RabbitCommunication(topic)
+        self.actions = [func for func in dir(self) if callable(getattr(self, func)) and func.startswith("action_")]
+
+    def activate(self):
+        self.rabbit.activate()
+        try:
+            self._run()
+        except KeyboardInterrupt:
+            logger.warning("Keyboard Interrupt")
+        finally:
+            self.action_deactivate()
+
+    def _run(self):
+        # infinite loop
+        while True:
+            try:
+                message = self.rabbit.queue.get(block=True, timeout=5)
+
+                if message.action in self.actions:
+                    try:
+                        func = getattr(self, "action_" + message.action)
+                        func(message)
+                    except Exception as e:
+                        logging.warning("ActionError" + message.to_str())
+                        self.rabbit.send_error("ActionError", message.to_str())
+                else:
+                    logging.warning("Invalid message action!!" + message.to_str())
+                    self.rabbit.send_error("InvalidMessage", message.to_str())
+
+            except queue.Empty:
+                pass
+
+    def action_status(self):
+        message = RabbitMessage("status", self.topic, "update", self.equipment_config.state)
+        self.rabbit.send(message)
+
+    def action_help(self):
+        message = RabbitMessage("help", self.topic, "help", self.__doc__)
+        self.rabbit.send(message)
+
+    def action_actions(self, actions: list[str, ...]):
+        message = RabbitMessage("actions", self.topic, "actions", actions)
+        self.rabbit.send(message)
+
+    def action_details(self):
+        message = RabbitMessage("details", self.topic, "actions", self._get_details())
+        self.rabbit.send(message)
+
+    @abc.abstractmethod
+    def _get_details(self) -> dict:
+        ...
+
+    def action_deactivate(self):
+        self.rabbit.deactivate()
+        logger.info("Shutdown successful.")

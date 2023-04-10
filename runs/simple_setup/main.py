@@ -4,7 +4,7 @@ import chembot
 print(chembot.config.logging_dir)
 
 # comm
-serial1_pumps = chembot.comm.(
+serial1_pumps = chembot.communication.(
 
 )
 

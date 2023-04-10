@@ -1,76 +1,69 @@
 import enum
-import threading
+import logging
 
 import serial
 from serial.tools.list_ports import comports
 
-import chembot.communication.base as communication
-import errors as errors
+from chembot.configuration import config
+from chembot.communication.base import Communication
+
+logger = logging.getLogger(config.root_logger_name + "comm")
 
 
-class Serial(communication.Communication, serial.Serial):
-    # ports that the computer sense there is a device connected
+class ParityOptions(enum.Enum):
+    EVEN = serial.PARITY_EVEN
+    ODD = serial.PARITY_ODD
+    NONE = serial.PARITY_NONE
+
+
+class Serial(Communication):
     available_ports = [port.device for port in comports()]
-    # ports actively being used
-    active_ports = {}
 
-    class ParityOptions(enum.Enum):
-        even = serial.PARITY_EVEN
-        odd = serial.PARITY_ODD
-        none = serial.PARITY_NONE
+    def __init__(self,
+                 name: str,
+                 port: str,
+                 baud_rate: int = 115200,
+                 parity: ParityOptions = ParityOptions.NONE,
+                 stop_bits: int = 1,
+                 bytes_: int = 8,
+                 timeout: float = 0.1,
+                 ):
+        super().__init__(name)
 
-    # def __init__(self,
-    #              port: str,
-    #              baud_rate: int = 115200,
-    #              parity=serial.PARITY_NONE,
-    #              stop_bits: int = 1,
-    #              bytes_: int = 8,
-    #              timeout: float = 0.1,
-    #              name: str = None
-    #              ):
-    #
-    #     if port not in self.available_ports:
-    #         # check if port is available
-    #         raise errors.EquipmentError(self, "Port is not connected to computer")
-    #
-    #     if port in self.active_ports.keys():
-    #         # check for duplicates
-    #         raise errors.EquipmentError(self, f"CommSerial (id: {self.id_}): Port ({port}) is used by another equipment")
-    #
-    #     # process parity options
-    #     if isinstance(parity, Serial.ParityOptions):
-    #         parity = parity.value
-    #
-    #     # create new port
-    #     self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
-    #                                          parity=parity, timeout=timeout)
-    #     self.active_ports[port] = self.serial
-    #     self.flushOutput()
-    #     self.flushInput()
-    #
-    #     self.lock = threading.Lock()
-    #     if name is None:
-    #         self.name = f"{type(self).__name__} (id: {self.id_})"
-    #
-    #     logger.info(repr(self) + "\n\t\tConnection established.")
-    #
-    # def __repr__(self):
-    #     text = self.name + f" || port: {self.port}, baud rate: {self.baudrate}, byte size= " \
-    #            f"{self.bytesize}, parity = {self.parity}, stop bits = {self.stopbits}, time out = {self.timeout}"
-    #     return text
-    #
-    # def write(self, message: str | bytes, encoding: str = configuration.encoding):
-    #     if not isinstance(message, bytes):
-    #         message = message.encode()
-    #     serial.Serial.write(self, message)
-    #     logger.debug(f"{type(self).__name__} (id: {self.id_}) || Write: " + repr(message))
-    #
-    # def read(self, bytes_: int, decoding: str = configuration.encoding) -> str:
-    #     message = serial.Serial.read(self, bytes_).decode(decoding)
-    #     logger.debug(f"{type(self).__name__} (id: {self.id_}) || Read: " + repr(message))
-    #     return message
+        if port not in self.available_ports:
+            # check if port is available
+            raise ValueError(f"Port '{port}' is not connected to computer.")
+        # create new port
+        self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
+                                             parity=parity, timeout=timeout)
 
+    def __repr__(self):
+        return self.name + f" || port: {self.port}"
 
-if __name__ == '__main__':
-    test_serial = Serial('COM5', baud_rate=100)
-    test_serial.write(b"110"*500)
+    def _write(self, message: str):
+        self.serial.write(message.encode(config.encoding))
+
+    def _read(self, read_bytes: int) -> str:
+        return self.serial.read(read_bytes).decode(config.encoding)
+
+    def _read_until(self, symbol: str = "\n") -> str:
+        return self.serial.read_until(symbol.encode(config.encoding)).decode(config.encoding)
+
+    def action_flush_buffer(self):
+        self.serial.flushInput()
+        self.serial.flushOutput()
+
+    def activate(self):
+        self.serial.flushOutput()
+        self.serial.flushInput()
+        super().activate()
+
+    def _get_details(self) -> dict:
+        return {
+            "name": self.name,
+            "port": self.port
+        }
+
+    def action_deactivate(self):
+        self.serial.close()
+        super().action_deactivate()

@@ -5,8 +5,8 @@ This code runs on the Rasberry Pi Pico.
 The phase sensor consists of one or more SparkFun Line Sensor Breakout - QRE1113 (Digital)
 [https://www.sparkfun.com/products/9454] in a line with clear PTFE or PFA tubing running a few millimeters in front of the
 sensor.
-The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when powered the LED emits light which will
-reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of light reflected will change
+The QRE1113 is an IR-LED (12 mW, 940 nm) and IR sensitive phototransistor, when powered the LED emits lights which will
+reflect of the tubing and liquid or gas in the tubing. Depending on the phase, the amount of lights reflected will change
 which will change the resistance of the phototransistor.
 
 Sensor Operation:
@@ -24,7 +24,7 @@ High level steps of code:
 3) start infinite loop:
     3-1) Read from UART
     3-2-1) if None: do nothing
-    3-2-2) if "r": take measurement, and send data back over UART
+    3-2-2) if "r": take measurement, and send reference_data back over UART
     3-2-3) if "s": send "s" back over UART - just used to check the PICO/communication is running correctly
 
 
@@ -124,7 +124,7 @@ class reflect_ir_array:
         for sensor in self.sensors:
             sensor._put()
 
-        # read data out
+        # read reference_data out
         for i, sensor in enumerate(self.sensors):
             data[i] = sensor._read() # read is blocking (will wait till measurement done)
 
@@ -163,13 +163,13 @@ def main():
 
         if message is not None:
             if message == b"r":
-                # taking data
+                # taking reference_data
                 data = sen_array.measure()
                 for i in range(num):
                     data[i] = int(data[i]/mean[i]*1000)
 
-                # send data
-                # print(data)
+                # send reference_data
+                # print(reference_data)
                 uart.write("d" + str(ticks_us()) + "+" + str(data) + "\n")
                 continue
 

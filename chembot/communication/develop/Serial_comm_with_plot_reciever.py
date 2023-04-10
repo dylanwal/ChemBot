@@ -1,6 +1,6 @@
 """
-This code establishes a serial communication to an external devices and plots the data in real time.
-The code expects to receive a list of data to be plotted.
+This code establishes a serial communication to an external devices and plots the reference_data in real time.
+The code expects to receive a list of reference_data to be plotted.
 
 """
 
@@ -36,7 +36,7 @@ class MyWindow(QMainWindow):
         self.area = DockArea()
         self.setCentralWidget(self.area)
         self.resize(1200, 800)
-        self.setWindowTitle('Plotting data from serial connection.')
+        self.setWindowTitle('Plotting reference_data from serial connection.')
         # pg.setConfigOptions(antialias=True)    # nicer plots but slower code
 
         # Drop down menu
