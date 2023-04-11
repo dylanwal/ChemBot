@@ -6,6 +6,7 @@ from serial.tools.list_ports import comports
 
 from chembot.configuration import config
 from chembot.communication.base import Communication
+from chembot.rabbitmq.message import RabbitMessage
 
 logger = logging.getLogger(config.root_logger_name + ".communication" + ".mock")
 
@@ -17,6 +18,8 @@ class ParityOptions(enum.Enum):
 
 
 class MockComm(Communication):
+    """ MockComm """
+
     available_ports = [port.device for port in comports()]
 
     def __init__(self,
@@ -29,26 +32,19 @@ class MockComm(Communication):
         return self.name + f" || port: {self.port}"
 
     def _write(self, message: str):
-        logger.debug(f"{self.name} || write: " + repr(message))
+        logger.debug(config.log_formatter(type(self).__name__, self.name, "MOCK write: " + repr(message)))
 
     def _read(self, read_bytes: int) -> str:
-        return "mock read"
+        return "MOCK read"
 
     def _read_until(self, symbol: str = "\n") -> str:
-        return "mock read_until"
+        return "MOCK read_until"
 
-    def action_flush_buffer(self):
+    def action_flush_buffer(self, message: RabbitMessage):
         logger.debug("buffer flush")
-
-    def activate(self):
-        super().activate()
 
     def _get_details(self) -> dict:
         return {
             "name": self.name,
             "port": self.port
         }
-
-    def action_deactivate(self):
-        logger.debug("MOCK: deactivate")
-        super().action_deactivate()

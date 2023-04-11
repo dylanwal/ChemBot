@@ -22,3 +22,7 @@
 http://localhost:15672/
 Username: guest
 Password: guest
+
+
+# in task manager:
+erlsrv.exe

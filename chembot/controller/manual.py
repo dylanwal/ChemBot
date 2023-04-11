@@ -3,15 +3,18 @@ import queue
 import time
 
 from chembot.configuration import config
-from chembot.rabbitmq.rabbitmq_core import RabbitMQProducer, RabbitMQConsumer, RabbitMessage
+from chembot.rabbitmq.core import RabbitMQProducer, RabbitMQConsumer, RabbitMessage
 
-logger = logging.getLogger(config.root_logger_name + "controller")
+logger = logging.getLogger(config.root_logger_name + ".controller")
 
 
-class Controller:
+class ControllerManual:
+    """ Controller Manual """
+
     def __init__(self):
-        self.producer = RabbitMQProducer()
-        self.consumer = RabbitMQConsumer('controller')
+        self.name = "controller"
+        self.producer = RabbitMQProducer(self.name)
+        self.consumer = RabbitMQConsumer(self.name)
         self.consumer_error = RabbitMQConsumer("error")
         self.consumer_status = RabbitMQConsumer("status")
         self.consumer_help = RabbitMQConsumer("help")
@@ -26,6 +29,7 @@ class Controller:
         self.consumer_help.activate()
         self.consumer_actions.activate()
         self.consumer_details.activate()
+        logger.info(config.log_formatter(type(self).__name__, self.name, "Activated"))
 
     def _deactivate(self):
         self.consumer.deactivate()
@@ -34,9 +38,9 @@ class Controller:
         self.consumer_help.deactivate()
         self.consumer_actions.deactivate()
         self.consumer_details.deactivate()
+        logger.info(config.log_formatter(type(self).__name__, self.name, "Deactivated"))
 
     def activate(self):
-        logger.info(f"Controller activated.")
         self._activate()
         try:
             self._run()
@@ -48,11 +52,10 @@ class Controller:
         while True:
             print()
             print("Send new command: or 'skip':")
-            destination = input("\tdestination: ")
-            if destination == "skip":
-                action = input("\taction: ")
-                value = input("\tvalue: ")
-                message = RabbitMessage(destination, "controller", action, value)
+            input_ = input("\tdestination, action, value").replace(" ", "")
+            values = input_.split(",")
+            if len(values) == 3:
+                message = RabbitMessage(values[0], "controller", values[1], values[2])
                 self.producer.send(message)
 
             time.sleep(0.3)

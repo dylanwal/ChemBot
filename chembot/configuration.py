@@ -23,6 +23,7 @@ class Configurations:
         self._logging_directory = None
         self.root_file = pathlib.Path(sys.argv[0])
         self.root_logger_name = self.root_file.stem
+        self.logger = logging.getLogger(self.root_logger_name)
         self._setup_logger()
 
         # rabbitmq
@@ -39,8 +40,8 @@ class Configurations:
             # create new folder 'logs'
             path = self.root_file.parent / pathlib.Path("logs")
             create_folder(path)
-            # create new folder with reference_data
-            self._logging_directory = str(path / pathlib.Path(datetime.datetime.now().strftime("log_%Y_%m_%d-%H_%M")))
+            # create new folder 'logs.date'
+            self._logging_directory = str(path / pathlib.Path(datetime.datetime.now().strftime("log_%Y_%m_%d")))
             create_folder(self._logging_directory)
 
         return self._logging_directory
@@ -53,16 +54,33 @@ class Configurations:
         self._logging_directory = logging_directory
 
     def _setup_logger(self):
-        logging.basicConfig(level=logging.DEBUG,
-                            format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
-                            datefmt='%m-%d %H:%M',
-                            filename=self.logging_directory + r"\\" + self.root_file.stem + '.log',
-                            filemode='w',
-                            encoding="UTF-8"
-                            )
-        console = logging.StreamHandler()
-        console.setLevel(logging.INFO)
-        logging.getLogger().addHandler(console)
+        self.logger.setLevel(logging.DEBUG)
+
+        # file handler
+        file_handler = logging.FileHandler(self.logging_directory + r"\\" + self.root_file.stem + '.log',
+                                 encoding="UTF-8", mode='a')
+        # file_handler.setLevel(logging.DEBUG)
+
+        # console logger
+        console_handler = logging.StreamHandler()
+        # console_handler.setLevel(logging.DEBUG)
+
+        # formatter
+        formatter = logging.Formatter(
+            '%(asctime)s  %(name)-25s  %(levelname)-8s || %(message)s', datefmt='%m-%d %H:%M')
+        file_handler.setFormatter(formatter)
+        console_handler.setFormatter(formatter)
+
+        self.logger.addHandler(file_handler)
+        self.logger.critical("\n"
+                             "\n#######################################################################################"
+                             "\n#######################################################################################"
+                             "\n")
+        self.logger.addHandler(console_handler)
+
+    @staticmethod
+    def log_formatter(class_: str, name: str, message: str) -> str:
+        return f"{class_:20}: {name:15} || {message}"
 
 
 config = Configurations()

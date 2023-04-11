@@ -1,4 +1,5 @@
 
 import chembot
 
-manual = chembot.co
+manual = chembot.controller.ControllerManual()
+manual.activate()

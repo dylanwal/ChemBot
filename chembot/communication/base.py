@@ -2,24 +2,26 @@ import logging
 import abc
 
 from chembot.configuration import config
-from chembot.rabbitmq.rabbitmq_core import RabbitEquipment, RabbitMessage
+from chembot.equipment.equipment import Equipment
+from chembot.rabbitmq.message import RabbitMessage
 
 logger = logging.getLogger(config.root_logger_name + ".communication")
 
 
-class Communication(RabbitEquipment):
-
+class Communication(Equipment):
+    """ Base Communication """
     def __init__(self, name: str):
         super().__init__(name)
-        self.name = name
+
+    def _activate(self):
+        pass
+
+    def _deactivate(self):
+        pass
 
     def action_write(self, message: RabbitMessage):
-        logger.debug(f"{self.name} || Write: " + repr(message.value))
         self._write(message.value)
-
-        if "reply_action" in message.parameters:
-            message.action = message.parameters["reply_action"]
-            self.action_read(message)
+        logger.debug(config.log_formatter(type(self).__name__, self.name, f"Write: " + repr(message.value)))
 
     def action_read(self, message: RabbitMessage):
         if "read_bytes" in message.parameters:
@@ -28,7 +30,7 @@ class Communication(RabbitEquipment):
             read_bytes = 1
 
         reply = self._read(read_bytes)
-        logger.debug(f"{self.name} || read: " + repr(message))
+        logger.debug(config.log_formatter(type(self).__name__, self.name, f"Read: " + repr(message)))
 
         message = RabbitMessage(message.source, message.destination, "reply", reply)
         self.rabbit.send(message)
@@ -40,13 +42,13 @@ class Communication(RabbitEquipment):
             symbol = '\n'
 
         reply = self._read_until(symbol)
-        logger.debug(f"{self.name} || read_until: " + repr(message))
+        logger.debug(config.log_formatter(type(self).__name__, self.name, f"Read_until: " + repr(message)))
 
         message = RabbitMessage(message.source, message.destination, "reply", reply)
         self.rabbit.send(message)
 
     @abc.abstractmethod
-    def action_flush_buffer(self):
+    def action_flush_buffer(self, message: RabbitMessage):
         ...
 
     @abc.abstractmethod

@@ -4,29 +4,42 @@ import logging
 from unitpy import Quantity
 
 from chembot.configuration import config
-from equipment.equipment import EquipmentConfig
-from chembot.rabbitmq.rabbitmq_core import RabbitEquipment, RabbitMessage
+from chembot.equipment.equipment import Equipment
+from chembot.rabbitmq.message import RabbitMessage
 
 
-logger = logging.getLogger(config.root_logger_name + "lights")
+logger = logging.getLogger(config.root_logger_name + ".lights")
 
 
-class Light(RabbitEquipment):
+class Light(Equipment):
+    """ Base Light"""
+
     def __init__(self, name: str, color: int | Quantity | float | str, communication: str):
         super().__init__(name)
-        self.name = name
         self.color = color
         self.communication = communication  # TODO: check for serial in system
         self.power = 0
 
-        self.equipment_config = EquipmentConfig()
+    def _activate(self):
+        pass
 
-    def activate(self):
-        logger.info(f"{self.name} activated.")
-        self.equipment_config.state = self.equipment_config.states.STANDBY
-        RabbitEquipment.activate(self)
+    def _deactivate(self):
+        pass
 
-    def action_set_power(self, power: int | float | Quantity):
+    def _get_details(self) -> dict:
+        data = {
+            "name": self.name,
+            "color": self.color,
+            "communication": self.communication,
+            "power": self.power
+        }
+        return data
+
+    def set_communication(self, message: RabbitMessage):
+        self.communication = message.value
+
+    def set_power(self, message: RabbitMessage):
+        power = message.value
         if isinstance(power, int) or isinstance(power, float):
             if power > 0:
                 self.equipment_config.state = self.equipment_config.states.RUNNING
@@ -39,19 +52,9 @@ class Light(RabbitEquipment):
                 self.equipment_config.state = self.equipment_config.states.STANDBY
 
         self.power = power
-        self.rabbit.send(self._set_power(power))
-        logger.info(f"Power set to:{power}")
+        self._set_power(power)
+        logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
 
     @abc.abstractmethod
-    def _set_power(self, power: int | float | Quantity) -> RabbitMessage:
-        ...
-
-    def action_deactivate(self):
-        logger.info("Sending shutdown.")
-        self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
-        self._deactivate()
-        RabbitEquipment.action_deactivate(self)
-
-    @abc.abstractmethod
-    def _deactivate(self):
+    def _set_power(self, power: int | float | Quantity):
         ...
