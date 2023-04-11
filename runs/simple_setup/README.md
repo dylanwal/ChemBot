@@ -174,3 +174,46 @@ flowchart LR
     classDef error fill:#9b2226
     classDef output fill:#94d2bd,color:#000000
 ```
+
+
+
+```mermaid
+%%{
+    init: {
+    'theme':'base',
+    'themeVariables': {
+        'background': '#404e4d',
+        'fontFamily': 'arial',
+        'primaryColor': '#005f73',
+        'primaryTextColor': '#ffffff',
+        'primaryBorderColor': '#000000',
+        'lineColor': '#ca6702',
+        'tertiaryColor': '#fdf0d5',
+        'tertiaryTextColor': '#000000'
+    }
+    }
+}%%
+flowchart LR
+
+    rabbitMQ:::rabbit    
+    error:::error <--> rabbitMQ
+    status:::error <--> rabbitMQ
+    controller <--> rabbitMQ
+    pumps <--> rabbitMQ
+    valves <--> rabbitMQ
+    serial_line_pump:::output <--> rabbitMQ
+    serial_line_pico:::output <--> rabbitMQ
+    rabbitMQ <--> LEDS
+    rabbitMQ <--> IR:::output
+    rabbitMQ <--> SEC:::output
+    rabbitMQ <--> fraction_collector
+     
+    rabbitMQ <--> controller
+    rabbitMQ <--> GUI:::GUI
+    
+    classDef rabbit fill:#001219
+    classDef chem fill:#758E4F
+    classDef GUI fill:#758E4F
+    classDef error fill:#9b2226
+    classDef output fill:#94d2bd,color:#000000
+```

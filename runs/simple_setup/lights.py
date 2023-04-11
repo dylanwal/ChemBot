@@ -13,7 +13,7 @@ red = chembot.lights.LightPico(
     pin=0,
     communication="pico_lights"
 )
-
+#  {"source": "controller", "destination": "deep_red", "action": "set_power", "value": 10}
 mint = chembot.lights.LightPico(
     name="mint",
     color=550 * U.nm,
