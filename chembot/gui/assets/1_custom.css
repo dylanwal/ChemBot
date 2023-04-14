@@ -1,0 +1,21 @@
+/* Set background color of tabs */
+.dash-tab {
+    background-color: #f0f0f0;
+}
+
+/* Set border color of tabs */
+.dash-tab.active {
+    border-color: #4d4d4d;
+}
+
+/* Set color of tab labels */
+.dash-tab label {
+    color: #4d4d4d;
+}
+
+/* Set padding and margin of tab content */
+.dash-tab-content {
+    padding: 20px;
+    margin: 10px;
+    border: 1px solid #4d4d4d;
+}
