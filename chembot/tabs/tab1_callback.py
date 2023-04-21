@@ -1,6 +1,6 @@
-from dash import html, dcc
+from dash import html
 
-from chembot.gui.main import app
+from tabs.main import app
 from dash.dependencies import Input, Output, State
 
 

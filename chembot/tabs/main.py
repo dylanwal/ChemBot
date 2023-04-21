@@ -1,5 +1,5 @@
 from dash import Dash, html, dcc
-from dash.dependencies import Input, Output, State
+from dash.dependencies import Input, Output
 
 app = Dash("chembot", assets_folder=r"gui\assets")
 
@@ -15,9 +15,9 @@ app.layout = html.Div([
 ])
 
 # load tab layouts
-from chembot.gui.tabs.tab1_layout import tab1_layout
-from chembot.gui.tabs.tab2_layout import tab2_layout
-from chembot.gui.tabs.tab3_layout import tab3_layout
+from tabs.tab1_layout import tab1_layout
+from tabs.tab2_layout import tab2_layout
+from tabs.tab3_layout import tab3_layout
 
 
 # tab callback
@@ -33,7 +33,6 @@ def render_content(tab):
 
 
 # load callbacks
-from chembot.gui.tabs.tab1_callback import *
 
 
 if __name__ == '__main__':
