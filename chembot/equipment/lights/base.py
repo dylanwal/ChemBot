@@ -5,7 +5,7 @@ from unitpy import Quantity
 
 from chembot.configuration import config
 from chembot.equipment.equipment import Equipment
-from chembot.rabbitmq.message import RabbitMessage
+from chembot.rabbitmq.messages import RabbitMessage
 
 
 logger = logging.getLogger(config.root_logger_name + ".lights")

@@ -156,8 +156,8 @@ flowchart LR
     controller --> IR
     controller --> SEC
     
-    status --> GUI
-    error --> GUI
+    status --> controller
+    error --> controller
     GUI --> scheduler
     GUI <--> data_logger
     

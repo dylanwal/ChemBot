@@ -16,7 +16,7 @@ class Equipment(Protocol):
     def activate(self):
         ...
 
-    def action_deactivate(self):
+    def write_deactivate(self):
         ...
 
 
@@ -27,6 +27,7 @@ def activate_multiple_equipment(equipment: list[Equipment]):
     # start all threads
     for thread in threads:
         thread.start()
+        time.sleep(0.2)
 
     logger.info(config.log_formatter("UTILS", "", "All threads started"))
     # wait for them all to finish
@@ -42,7 +43,7 @@ def activate_multiple_equipment(equipment: list[Equipment]):
         logger.info(config.log_formatter("UTILS", "", "Cleaning up threads"))
         for equip in equipment:
             # if any alive; tell them to deactivate
-            equip.action_deactivate()
+            equip.write_deactivate()
             logger.debug(config.log_formatter("UTILS", "", f"Deactivating thread after: {equip.name}"))
             time.sleep(0.2)
 

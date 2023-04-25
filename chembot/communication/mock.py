@@ -6,7 +6,7 @@ from serial.tools.list_ports import comports
 
 from chembot.configuration import config
 from chembot.communication.base import Communication
-from chembot.rabbitmq.message import RabbitMessage
+from chembot.rabbitmq.messages import RabbitMessage
 
 logger = logging.getLogger(config.root_logger_name + ".communication" + ".mock")
 

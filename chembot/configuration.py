@@ -33,6 +33,7 @@ class Configurations:
         self.rabbit_username = 'guest'
         self.rabbit_password = 'guest'
         self.rabbit_exchange = 'chembot'
+        self.rabbit_queue_timeout = 1  # sec
 
     @property
     def logging_directory(self) -> str:
@@ -79,8 +80,8 @@ class Configurations:
         self.logger.addHandler(console_handler)
 
     @staticmethod
-    def log_formatter(class_: str, name: str, message: str) -> str:
-        return f"{class_:20}: {name:15} || {message}"
+    def log_formatter(class_, name: str, message: str) -> str:
+        return f"{type(class_).__name__:20}: {name:15} || {message}"
 
 
 config = Configurations()
