@@ -33,6 +33,14 @@ def create_queue(channel, topic):
     )
 
 
+def queue_exists(channel, queue_name: str) -> bool:
+    try:
+        queue = channel.queue_declare(queue=queue_name, passive=True)
+        return True
+    except pika.exceptions.ChannelClosed:
+        return False
+
+
 class RabbitMQConsumer:
 
     def __init__(self, topic: str):
@@ -104,10 +112,8 @@ class RabbitMQProducer:
 
     def send(self, message: RabbitMessage):
         # check if queue exists
-        try:
-            self._channel.queue_declare(message.destination, passive=True)
-        except pika.exceptions.ChannelClosedByBroker:
-            logger.error(
+        if not queue_exists(self._channel, message.destination):
+            logger.exception(
                 config.log_formatter(self, self.name, "Queue does not exist yet:" + message.to_str())
             )
             raise ValueError()

@@ -2,7 +2,7 @@ from unitpy import U
 
 import chembot
 
-controller = chembot.Controller()
+controller = chembot.MainController()
 
 gui = chembot.GUI()
 

@@ -35,6 +35,9 @@ class LightPico(Light):
         self.power_quantity_range = (self.conversion(0), self.conversion(100))
         super().__init__(name, color, communication)
 
+    def write_communication(self, message: RabbitMessage):
+        self.communication = message.value
+
     @property
     def pin(self) -> int:
         return self._pin

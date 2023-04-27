@@ -82,8 +82,8 @@ class RabbitMessageAction(RabbitMessage):
 
 
 class RabbitMessageRegister(RabbitMessage):
-    def __init__(self, destination: str, source: str, equipment_interface):
-        super().__init__(destination, source)
+    def __init__(self, source: str, equipment_interface):
+        super().__init__("main_controller", source)
         self.equipment_interface = equipment_interface
 
     def __str__(self):

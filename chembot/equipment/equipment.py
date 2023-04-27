@@ -52,7 +52,7 @@ class Equipment(abc.ABC):
         logger.debug(config.log_formatter(self, self.name, "Activating"))
         self.rabbit.activate()
         self._activate()
-        self.read_register()
+        self._register()
         logger.info(config.log_formatter(self, self.name, "Activated"))
         self.equipment_config.state = self.equipment_config.states.STANDBY
 
@@ -92,8 +92,8 @@ class Equipment(abc.ABC):
         message = RabbitMessageState(self.name, self.state.name)
         self.rabbit.send(message)
 
-    def read_register(self, _: RabbitMessage = None):
-        message = RabbitMessageRegister(self.equipment_interface)
+    def _register(self, _: RabbitMessage = None):
+        message = RabbitMessageRegister(self.name, self.equipment_interface)
         self.rabbit.send(message)
 
     def write_deactivate(self, _: RabbitMessage = None):
@@ -104,10 +104,6 @@ class Equipment(abc.ABC):
         logger.debug(config.log_formatter(type(self).__name__, self.name, "Deactivating"))
         self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
         self.rabbit.deactivate()
-
-    @abc.abstractmethod
-    def _get_details(self) -> dict:
-        ...
 
     @abc.abstractmethod
     def _activate(self) -> dict:

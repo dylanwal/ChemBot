@@ -10,8 +10,8 @@ from chembot.rabbitmq.core import RabbitMQProducer, RabbitMQConsumer
 logger = logging.getLogger(config.root_logger_name + ".controller")
 
 
-class ControllerManual:
-    """ Controller Manual """
+class MainController:
+    """ Main Controller """
 
     def __init__(self):
         self.name = "controller"

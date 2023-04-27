@@ -1,5 +1,6 @@
 import abc
 import logging
+from abc import ABC
 
 from unitpy import Quantity
 
@@ -11,13 +12,15 @@ from chembot.rabbitmq.messages import RabbitMessage
 logger = logging.getLogger(config.root_logger_name + ".lights")
 
 
-class Light(Equipment):
+class Light(Equipment, ABC):
     """ Base Light"""
 
-    def __init__(self, name: str, color: int | Quantity | float | str, communication: str):
+
+class LightAdjustablePower(Light, ABC):
+    """ Base Light"""
+    def __init__(self, name: str, color: int | Quantity | float | str):
         super().__init__(name)
         self.color = color
-        self.communication = communication  # TODO: check for serial in system
         self.power = 0
 
     def _activate(self):
@@ -26,19 +29,17 @@ class Light(Equipment):
     def _deactivate(self):
         pass
 
-    def _get_details(self) -> dict:
-        data = {
-            "name": self.name,
-            "color": self.color,
-            "communication": self.communication,
-            "power": self.power
-        }
-        return data
+    def write_power(self, message: RabbitMessage):
+        """
 
-    def set_communication(self, message: RabbitMessage):
-        self.communication = message.value
+        Parameters
+        ----------
+        message
 
-    def set_power(self, message: RabbitMessage):
+        Returns
+        -------
+
+        """
         power = message.value
         if isinstance(power, int) or isinstance(power, float):
             if power > 0:
@@ -52,9 +53,9 @@ class Light(Equipment):
                 self.equipment_config.state = self.equipment_config.states.STANDBY
 
         self.power = power
-        self._set_power(power)
+        self._write_power(power)
         logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
 
     @abc.abstractmethod
-    def _set_power(self, power: int | float | Quantity):
+    def _write_power(self, power: int | float | Quantity):
         ...
