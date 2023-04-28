@@ -6,7 +6,7 @@ from unitpy import Quantity
 
 from chembot.configuration import config
 from equipment.lights.base import Light
-from chembot.rabbitmq.core import RabbitMessage
+from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
 from chembot.utils.pico_checks import check_GPIO_pins
 
 logger = logging.getLogger(config.root_logger_name + ".lights")
@@ -20,58 +20,161 @@ class LightPico(Light):
 
     def __init__(self,
                  name: str,
-                 color: int | Quantity | float | str,
                  communication: str,
                  pin: int,
-                 frequency: int = 300,
+                 color: Quantity | None = None,
+                 frequency: int = 10_000,
                  conversion: callable = None
                  ):
-        self.conversion = conversion
-        self._pin = None
+        super().__init__(name)
+        self.color = color
+        self.communication = communication
         self.pin = pin
-        self._frequency = None
         self.frequency = frequency
+
+        self.conversion = conversion
+        self.power: int = 0
         self.power_range = (0, 100)
+        self.power_quantity: Quantity = Quantity("0 * W/m**2")
         self.power_quantity_range = (self.conversion(0), self.conversion(100))
-        super().__init__(name, color, communication)
 
-    def write_communication(self, message: RabbitMessage):
-        self.communication = message.value
+    def _read_color_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_color()))
 
-    @property
-    def pin(self) -> int:
-        return self._pin
+    def read_color(self) -> Quantity | None:
+        """ read_color """
+        return self.color
 
-    @pin.setter
-    def pin(self, pin: int):
+    # def _write_color_message(self, message: RabbitMessageAction):
+    #     self.write_color(message.value)
+    #     self.rabbit.send(RabbitMessageReply(message, ""))
+    #
+    # def write_color(self, color: int | Quantity | float | str):
+    #     """ write_color """
+    #     self.color = color
+
+    def _read_communication_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_communication))
+
+    def read_communication(self) -> str:
+        """ read_communication """
+        return self.communication
+
+    def _write_communication_message(self, message: RabbitMessageAction):
+        self.write_communication(message.value)
+        self.rabbit.send(RabbitMessageReply(message, ""))
+
+    def write_communication(self, communication: str):
+        """
+        write_communication
+
+        Parameters
+        ----------
+        communication:
+            communication port (e.g. 'COM9')
+
+        """
+        self.communication = communication
+
+    def _read_pin_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_pin))
+
+    def read_pin(self) -> int:
+        """ read_pin """
+        return self.pin
+
+    def _write_pin_message(self, message: RabbitMessageAction):
+        self.write_pin(message.value)
+        self.rabbit.send(RabbitMessageReply(message, ""))
+
+    def write_pin(self, pin: int):
+        """
+        write_pin
+
+        Parameters
+        ----------
+        pin:
+            range: [0, 27]
+
+        """
         check_GPIO_pins(pin)
-        self._pin = pin
+        self.pin = pin
 
-    @property
-    def frequency(self) -> int:
-        return self._frequency
+    def _read_frequency_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_frequency))
 
-    @frequency.setter
-    def frequency(self, frequency: int):
+    def read_frequency(self) -> int:
+        """ read_frequency """
+        return self.frequency
+
+    def _write_frequency_message(self, message: RabbitMessageAction):
+        self.write_frequency(message.value)
+        self.rabbit.send(RabbitMessageReply(message, ""))
+
+    def write_frequency(self, frequency: int):
+        """
+        write_frequency
+
+        Parameters
+        ----------
+        frequency:
+            range: [100, 50_000]
+
+        Returns
+        -------
+
+        """
         if not isinstance(frequency, int):
             raise TypeError("'frequency' must be an integer.")
 
         if not (100 < frequency < 50_000):
             raise ValueError("'frequency' must be between [100, 50_000]")
 
-        self._frequency = frequency
+        self.frequency = frequency
 
-    def _get_details(self) -> dict:
-        data = {
-            "name": self.name,
-            "color": self.color,
-            "communication": self.communication,
-            "pin": self.pin,
-            "frequency": self.frequency,
-            "power": self.power
+    def _write_power_from_message(self, message: RabbitMessageAction):
+        self.write_power(message.value)
 
-        }
-        return data
+    def write_power(self, power: int | float | Quantity):
+        """
+        write_power
+        Sets the power setting for
+        Parameters
+        ----------
+        power
+
+        Returns
+        -------
+
+        """
+        if isinstance(power, int) or isinstance(power, float):
+            if power > 0:
+                self.equipment_config.state = self.equipment_config.states.RUNNING
+            elif power == 0:
+                self.equipment_config.state = self.equipment_config.states.STANDBY
+        if isinstance(power, Quantity):
+            if power.v > 0:
+                self.equipment_config.state = self.equipment_config.states.RUNNING
+            elif power.v == 0:
+                self.equipment_config.state = self.equipment_config.states.STANDBY
+
+        self.power = power
+        self._write_power(power)
+        logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
+
+
+
+
+
+
+    def _write_on(self):
+        ...
+
+    def _write_off(self):
+        ...
+
+    def _activate(self):
+        ...
 
     def _deactivate(self):
         # write to pico
@@ -88,14 +191,6 @@ class LightPico(Light):
             logger.debug("Reply to set power received.")
         else:
             self.rabbit.send_error("WrongReply", message.to_str())
-
-    def set_pin(self, message: RabbitMessage):
-        self.pin = message.value
-        self._send_message()
-
-    def set_frequency(self, message: RabbitMessage):
-        self.frequency = message.value
-        self._send_message()
 
     def _set_power(self, power: int | float | Quantity):
         self._set_power_attr(power)

@@ -4,7 +4,7 @@ import logging
 logger = logging.getLogger(config.root_logger_name)
 
 from chembot.gui.app import GUI
-from chembot.controller.main_controller import MainController
+from chembot.controller.mater_controller import MasterController
 
 import chembot.utils as utils
 import chembot.communication as communication

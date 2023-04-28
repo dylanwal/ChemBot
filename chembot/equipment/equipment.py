@@ -1,16 +1,25 @@
 import abc
 import logging
 import threading
-import queue
 
 from unitpy import Quantity
 
 from chembot.configuration import config
 from chembot.equipment.equipment_interface import EquipmentState, get_equipment_interface
-from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageState, RabbitMessageAction, RabbitMessageRegister
-from chembot.rabbitmq.core import RabbitCommunication
+from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitMessageAction, RabbitMessageRegister, \
+    RabbitMessageError, RabbitMessageCritical
+from chembot.rabbitmq.core import RabbitMQConnection
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
+
+
+def get_actions_list(class_) -> list[str]:
+    actions = []
+    for func in dir(class_):
+        if callable(getattr(class_, func)) and (func.startswith("read_") or func.startswith("write_")):
+            actions.append(func)
+
+    return actions
 
 
 class EquipmentConfig:
@@ -30,34 +39,37 @@ class EquipmentConfig:
 
 
 class Equipment(abc.ABC):
-    def __init__(self, name: str):
+    def __init__(self, name: str, **kwargs):
         self.name = name
         self.state: EquipmentState = EquipmentState.OFFLINE
-        self.rabbit = RabbitCommunication(f"equipment.{name}")
-        self.actions = self._get_actions_list()
+        self.rabbit = RabbitMQConnection(f"equipment.{name}")
+        self.actions = get_actions_list(self)
         self._deactivate_event = threading.Event()
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
         self.equipment_interface = get_equipment_interface(self)
 
-    def _get_actions_list(self) -> list[str]:
-        actions = []
-        for func in dir(self):
-            if callable(getattr(self, func)) and (func.startswith("read_") or func.startswith("write_")):
-                actions.append(func)
+        if kwargs:
+            for k, v in kwargs:
+                setattr(self, k, v)
 
-        return actions
+    def _register_equipment(self, _: RabbitMessage = None):
+        if not self.rabbit.queue_exists("master_controller"):
+            logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
+            raise ValueError()
+
+        self.rabbit.send(RabbitMessageRegister(self.name, self.equipment_interface))
 
     def activate(self):
-        logger.debug(config.log_formatter(self, self.name, "Activating"))
-        self.rabbit.activate()
-        self._activate()
-        self._register()
-        logger.info(config.log_formatter(self, self.name, "Activated"))
-        self.equipment_config.state = self.equipment_config.states.STANDBY
-
         try:
-            self._run()
+            logger.debug(config.log_formatter(self, self.name, "Activating"))
+            self._activate()
+            self._register_equipment()
+            logger.info(config.log_formatter(self, self.name, "Activated"))
+            self.equipment_config.state = self.equipment_config.states.STANDBY
+
+            self._run()  # infinite loop
+
         except KeyboardInterrupt:
             logger.info(config.log_formatter(self, self.name, "KeyboardInterrupt"))
         finally:
@@ -67,36 +79,91 @@ class Equipment(abc.ABC):
     def _run(self):
         # infinite loop
         while not self._deactivate_event.wait(timeout=0.1):
-            try:
-                message = self.rabbit.queue.get(block=False)
-                self.process_message(message)
-            except queue.Empty:
+            message = self.rabbit.consume()
+            if message is None:
                 continue
 
+            self.process_message(message)
+
     def process_message(self, message: RabbitMessage):
-        if isinstance(message, RabbitMessageAction) and message.action in self.actions:
+        if isinstance(message, RabbitMessageCritical):
+            self._deactivate_event.set()
+
+        elif isinstance(message, RabbitMessageError):
+            self._deactivate_event.set()
+
+        elif isinstance(message, RabbitMessageAction) and message.action in self.actions:
             try:
-                func = getattr(self, message.action)
+                func = getattr(self, f"_{message.action}_message")
                 func(message)
             except Exception as e:
-                logger.exception(
-                    config.log_formatter(self, self.name, "ActionError" + message.to_str())
-                )
-                self.rabbit.send_error(f"ActionError: {message.to_str()}")
+                logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
+                self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
         else:
             logger.warning("Invalid message action!!" + message.to_str())
-            self.rabbit.send_error(f"InvalidMessage: {message.to_str()}")
+            self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
 
-    def read_status(self, _: RabbitMessage = None):
-        """ Get equipment status """
-        message = RabbitMessageState(self.name, self.state.name)
-        self.rabbit.send(message)
+    def _read_all_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_all()))
 
-    def _register(self, _: RabbitMessage = None):
-        message = RabbitMessageRegister(self.name, self.equipment_interface)
-        self.rabbit.send(message)
+    def read_all(self) -> dict:
+        """
+        read_all
+        returns values off all properties that can be 'read'
 
-    def write_deactivate(self, _: RabbitMessage = None):
+        Returns
+        -------
+        results:
+
+        """
+        results = {}
+        for func in dir(self):
+            if callable(getattr(self, func)) and func.startswith("read"):
+                results[func] = getattr(self, func)()
+
+        return results
+
+    def _read_state_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_state()))
+
+    def read_state(self) -> EquipmentState:
+        """
+        read_state
+        Get equipment status
+
+        Returns
+        -------
+        state:
+            current state of equipment
+
+        """
+        return self.state
+
+    def _read_name_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_name()))
+
+    def read_name(self) -> str:
+        """ read_name """
+        return self.name
+
+    def _write_name_message(self, message: RabbitMessageAction):
+        self.write_name(message.value)
+        self.rabbit.send(RabbitMessageReply(message, ""))
+
+    def write_name(self, name: str):
+        """ write_name """
+        self.name = name
+
+    def _write_deactivate_message(self, message: RabbitMessageAction):
+        self.write_deactivate()
+        self.rabbit.send(RabbitMessageReply(message, ""))
+
+    def write_deactivate(self):
+        """
+        write_deactivate
+        deactivate equipment (shut down)
+
+        """
         self._deactivate_event.set()
         # self._deactivate is called by self._run
 
@@ -106,7 +173,7 @@ class Equipment(abc.ABC):
         self.rabbit.deactivate()
 
     @abc.abstractmethod
-    def _activate(self) -> dict:
+    def _activate(self):
         ...
 
     @abc.abstractmethod

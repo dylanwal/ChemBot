@@ -59,7 +59,7 @@ class Configurations:
 
         # file handler
         file_handler = logging.FileHandler(self.logging_directory + r"\\" + self.root_file.stem + '.log',
-                                 encoding="UTF-8", mode='a')
+                                           encoding="UTF-8", mode='a')
         # file_handler.setLevel(logging.DEBUG)
 
         # console logger

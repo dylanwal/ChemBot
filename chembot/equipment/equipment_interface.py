@@ -64,7 +64,7 @@ def get_equipment_interface(class_) -> EquipmentInterface:
     """ Given an Equipment create and equipment interface. """
     actions = []
     for func in dir(class_):
-        if callable(getattr(class_, func)) and (func.startswith("_read") or func.startswith("_write")):
+        if callable(getattr(class_, func)) and (func.startswith("read") or func.startswith("write")):
             docstring = numpy_parser.get_numpy_style_docstring(getattr(class_, func))
             inputs_ = parse_parameters(docstring.parameters)
             outputs_ = parse_parameters(docstring.returns)

@@ -5,19 +5,17 @@ import threading
 
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageDeactivate, RabbitMessageAction
-from chembot.rabbitmq.core import RabbitMQProducer, RabbitMQConsumer
+from chembot.rabbitmq.core import RabbitMQConnection
 
 logger = logging.getLogger(config.root_logger_name + ".controller")
 
 
-class MainController:
-    """ Main Controller """
+class MasterController:
+    """ Master Controller """
 
     def __init__(self):
-        self.name = "controller"
-        self.producer = RabbitMQProducer(self.name)
-        self.consumer = RabbitMQConsumer(self.name)
-        self.consumer_error = RabbitMQConsumer("error")
+        self.name = "master_controller"
+        self.rabbit = RabbitMQConnection(self.name)
 
         self.actions = self._get_actions_list()
         self.equipment = dict()
@@ -32,14 +30,11 @@ class MainController:
         return actions
 
     def _activate(self):
-        self.producer.activate()
-        self.consumer.activate()
-        self.consumer_error.activate()
+
         logger.info(config.log_formatter(type(self).__name__, self.name, "Activated"))
 
     def _deactivate(self):
-        self.consumer.deactivate()
-        self.consumer_error.deactivate()
+        self.rabbit.deactivate()
         logger.info(config.log_formatter(type(self).__name__, self.name, "Deactivated"))
         self._deactivate_event.set()
 

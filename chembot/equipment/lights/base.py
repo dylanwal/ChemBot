@@ -1,61 +1,39 @@
 import abc
 import logging
-from abc import ABC
-
-from unitpy import Quantity
 
 from chembot.configuration import config
 from chembot.equipment.equipment import Equipment
-from chembot.rabbitmq.messages import RabbitMessage
+from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
 
 
 logger = logging.getLogger(config.root_logger_name + ".lights")
 
 
-class Light(Equipment, ABC):
+class Light(Equipment, abc.ABC):
     """ Base Light"""
 
+    def _write_on_message(self, message: RabbitMessageAction):
+        self.write_on()
+        self.rabbit.send(RabbitMessageReply(message, ""))
 
-class LightAdjustablePower(Light, ABC):
-    """ Base Light"""
-    def __init__(self, name: str, color: int | Quantity | float | str):
-        super().__init__(name)
-        self.color = color
-        self.power = 0
+    def write_on(self):
+        self.equipment_config.state = self.equipment_config.states.RUNNING
+        self._write_on()
+        logger.debug(config.log_formatter(self, self.name, "Action | on"))
 
-    def _activate(self):
-        pass
+    def _write_off_message(self, message: RabbitMessageAction):
+        self.write_off()
+        self.rabbit.send(RabbitMessageReply(message, ""))
 
-    def _deactivate(self):
-        pass
-
-    def write_power(self, message: RabbitMessage):
-        """
-
-        Parameters
-        ----------
-        message
-
-        Returns
-        -------
-
-        """
-        power = message.value
-        if isinstance(power, int) or isinstance(power, float):
-            if power > 0:
-                self.equipment_config.state = self.equipment_config.states.RUNNING
-            elif power == 0:
-                self.equipment_config.state = self.equipment_config.states.STANDBY
-        if isinstance(power, Quantity):
-            if power.v > 0:
-                self.equipment_config.state = self.equipment_config.states.RUNNING
-            elif power.v == 0:
-                self.equipment_config.state = self.equipment_config.states.STANDBY
-
-        self.power = power
-        self._write_power(power)
-        logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
+    def write_off(self):
+        self._write_off()
+        self.equipment_config.state = self.equipment_config.states.STANDBY
+        logger.debug(config.log_formatter(self, self.name, "Action | off"))
 
     @abc.abstractmethod
-    def _write_power(self, power: int | float | Quantity):
+    def _write_on(self):
+        ...
+
+    @abc.abstractmethod
+    def _write_off(self):
         ...
