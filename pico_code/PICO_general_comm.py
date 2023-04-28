@@ -1,7 +1,7 @@
 """
 General Communication Code:
 
-This code is used on multi-purpose Picos.
+This code is used on multipurpose Picos.
 It takes commands over USB and based on the message it receives it can run various different functions.
 
 
@@ -15,11 +15,13 @@ import select
 import sys
 import machine
 
-# Available functions
-from PICO_valve import servo
-
 
 def main():
+    initialization()
+    main_loop()
+
+
+def initialization():
     # set all pins to low right away
     for i in range(28):
         machine.Pin(i, machine.Pin.OUT).value(0)
@@ -27,6 +29,8 @@ def main():
     # Turn LED on
     machine.Pin(25, machine.Pin.OUT).value(1)
 
+
+def main_loop():
     # main loop (infinite loop)
     while True:
         while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
@@ -37,7 +41,6 @@ def main():
             error = ""
             # Reply to poll
             if message[0] == "a":
-                options = ["a", "v", "t", "r", "l"]
                 print("a" + "general_pico;" + str(options))
                 continue
 
