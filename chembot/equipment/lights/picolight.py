@@ -5,7 +5,7 @@ from scipy.optimize import root
 from unitpy import Quantity
 
 from chembot.configuration import config
-from equipment.lights.base import Light
+from equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
 from chembot.utils.pico_checks import check_GPIO_pins
 
@@ -139,6 +139,7 @@ class LightPico(Light):
         """
         write_power
         Sets the power setting for
+
         Parameters
         ----------
         power
@@ -161,7 +162,6 @@ class LightPico(Light):
         self.power = power
         self._write_power(power)
         logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
-
 
 
 

@@ -10,7 +10,7 @@ logger = logging.getLogger(config.root_logger_name + ".lights")
 
 
 class Light(Equipment, abc.ABC):
-    """ Base Light"""
+    """ Base light"""
 
     def _write_on_message(self, message: RabbitMessageAction):
         self.write_on()

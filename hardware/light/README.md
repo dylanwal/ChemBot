@@ -27,3 +27,4 @@ Voltage data:
 * Blue (6 leds): 18.1 V at 0.75 Amp 
 * Violet (6 leds): 18.75 V at 0.95 Amp
 
+surface NTC Thermistors: NTCLE317E4103SBA

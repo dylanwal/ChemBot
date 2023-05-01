@@ -1,20 +1,13 @@
-import enum
 import logging
 
 import serial
 from serial.tools.list_ports import comports
 
 from chembot.configuration import config
-from chembot.communication.base import Communication
-from chembot.rabbitmq.messages import RabbitMessage
+from chembot.communication.communication import Communication
+from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
 
-logger = logging.getLogger(config.root_logger_name + "comm")
-
-
-class ParityOptions(enum.Enum):
-    EVEN = serial.PARITY_EVEN
-    ODD = serial.PARITY_ODD
-    NONE = serial.PARITY_NONE
+logger = logging.getLogger(config.root_logger_name + ".communication")
 
 
 class Serial(Communication):
@@ -24,7 +17,7 @@ class Serial(Communication):
                  name: str,
                  port: str,
                  baud_rate: int = 115200,
-                 parity: ParityOptions = ParityOptions.NONE,
+                 parity: str = 'N',
                  stop_bits: int = 1,
                  bytes_: int = 8,
                  timeout: float = 0.1,
@@ -41,31 +34,101 @@ class Serial(Communication):
     def __repr__(self):
         return self.name + f" || port: {self.port}"
 
-    def set_baud_rate(self, message: RabbitMessage):
-        self.serial.baudrate = message.value
+    def _read_port_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_port()))
+
+    def read_port(self) -> str:
+        """ read_port """
+        return self.port
+
+    def _read_parity_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_parity()))
+
+    def read_parity(self) -> str:
+        """
+        read_parity
+        PARITY_NONE, PARITY_EVEN, PARITY_ODD, PARITY_MARK, PARITY_SPACE = 'N', 'E', 'O', 'M', 'S'
+
+        Returns
+        -------
+        parity:
+            parity
+            range: ['N', 'E', 'O', 'M', 'S']
+
+        """
+        return self.serial.parity
+
+    def _read_stop_bits_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_stop_bits()))
+
+    def read_stop_bits(self) -> int:
+        """
+        read_stop_bits
+        STOPBITS_ONE, STOPBITS_ONE_POINT_FIVE, STOPBITS_TWO = (1, 1.5, 2)
+
+        Returns
+        -------
+        stop_bits:
+            stop_bits
+            range: [1, 1.5, 2]
+
+        """
+        return self.serial.stopbits
+
+    def _read_bytes_message(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_stop_bits()))
+
+    def read_bytes(self) -> int:
+        """
+        read_bytes
+
+        Returns
+        -------
+        bytes:
+            bytes
+            range: [7, 8, 9]
+
+        """
+        return self.serial.bytesize
+
+    def _read_baudrate(self, message: RabbitMessageAction):
+        self.rabbit.send(RabbitMessageReply(message, self.read_baudrate()))
+
+    def read_baudrate(self) -> str:
+        """ read_baudrate """
+        return self.serial.baudrate
+
+    def _write_baudrate(self, message: RabbitMessageAction):
+        self.write_baud_rate(message.value)
+        self.rabbit.send(RabbitMessageReply(message, ""))
+
+    def write_baud_rate(self, baudrate: int):
+        """
+        write_baud_rate
+
+        Parameters
+        ----------
+        baudrate: int
+            baudrate
+        """
+        self.serial.baudrate = baudrate
 
     def _activate(self):
         self.serial.flushOutput()
         self.serial.flushInput()
 
-    def _get_details(self) -> dict:
-        return {
-            "name": self.name,
-            "port": self.port
-        }
-
     def _deactivate(self):
         self.serial.close()
 
-    def _write(self, message: str):
+    def _write_write(self, message: str):
         self.serial.write(message.encode(config.encoding))
 
-    def _read(self, read_bytes: int) -> str:
+    def _read_read(self, read_bytes: int) -> str:
         return self.serial.read(read_bytes).decode(config.encoding)
 
-    def _read_until(self, symbol: str = "\n") -> str:
+    def _read_read_until(self, symbol: str = "\n") -> str:
         return self.serial.read_until(symbol.encode(config.encoding)).decode(config.encoding)
 
-    def action_flush_buffer(self, message: RabbitMessage):
+    def _write_flush_buffer(self):
         self.serial.flushInput()
         self.serial.flushOutput()
