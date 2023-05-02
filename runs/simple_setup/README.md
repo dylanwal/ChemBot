@@ -51,6 +51,7 @@ flowchart LR
     LEDS
     fraction_collector
     pico_1
+    pico_2
 
     %% chemical connections
     chemicals ==> valve_1
@@ -74,7 +75,9 @@ flowchart LR
 
     %% computers
     subgraph computer_1  
-        serial_line_pump_1
+        usb_pump_1 
+        usb_pump_2
+        usb_pump_3  
         serial_line_pump_2
         serial_line_pico_1
         serial_line_pico_2 
@@ -89,9 +92,9 @@ flowchart LR
     
     %% data connections
     USB_2 -.-> SEC
-    serial_line_pump_1 -.-> pump_1
-    serial_line_pump_1 -.-> pump_2
-    serial_line_pump_1 -.-> pump_4
+    usb_pump_1 -.-> pump_1
+    usb_pump_2 -.-> pump_2
+    usb_pump_3 -.-> pump_4
     serial_line_pump_2 -.-> pump_3
     serial_line_pico_1 -.-> pico_1
     pico_1 -.-> LEDS
@@ -100,8 +103,9 @@ flowchart LR
     pico_1 -.-> valve_3
     pico_1 -.-> valve_4
     pico_1 -.-> valve_5
-    serial_line_pico_2 -.-> fraction_collector
+    pico_2 -.-> fraction_collector
     USB_1 -.-> IR
+    serial_line_pico_2 -.-> pico_2
     
     ethernet_1 <-.-> ethernet_2
     
