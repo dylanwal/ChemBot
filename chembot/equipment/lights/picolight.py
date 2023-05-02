@@ -7,7 +7,6 @@ from unitpy import Quantity
 from chembot.configuration import config
 from equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
-from chembot.utils.pico_checks import check_GPIO_pins
 
 logger = logging.getLogger(config.root_logger_name + ".lights")
 

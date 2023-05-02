@@ -20,15 +20,13 @@ class Serial(Communication):
                  parity: str = 'N',
                  stop_bits: int = 1,
                  bytes_: int = 8,
-                 timeout: float = 0.1,
+                 timeout: float = 10,
                  ):
         super().__init__(name)
 
         if port not in self.available_ports:
-            # check if port is available
             raise ValueError(f"Port '{port}' is not connected to computer.")
-        # create new port
-        self.serial = serial.Serial.__init__(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
+        self.serial = serial.Serial(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
                                              parity=parity, timeout=timeout)
 
     def __repr__(self):
@@ -98,24 +96,8 @@ class Serial(Communication):
         """ read_baudrate """
         return self.serial.baudrate
 
-    def _write_baudrate(self, message: RabbitMessageAction):
-        self.write_baud_rate(message.value)
-        self.rabbit.send(RabbitMessageReply(message, ""))
-
-    def write_baud_rate(self, baudrate: int):
-        """
-        write_baud_rate
-
-        Parameters
-        ----------
-        baudrate: int
-            baudrate
-        """
-        self.serial.baudrate = baudrate
-
     def _activate(self):
-        self.serial.flushOutput()
-        self.serial.flushInput()
+        self._write_flush_buffer()
 
     def _deactivate(self):
         self.serial.close()
