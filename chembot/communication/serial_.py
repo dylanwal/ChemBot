@@ -38,6 +38,19 @@ class Serial(Communication):
     def _deactivate(self):
         self.serial.close()
 
+    def _write_flush_buffer(self):
+        self.serial.flushInput()
+        self.serial.flushOutput()
+
+    def _write(self, message: str):
+        self.serial.write(message.encode(config.encoding))
+
+    def _read(self, read_bytes: int) -> str:
+        return self.serial.read(read_bytes).decode(config.encoding)
+
+    def _read_until(self, symbol: str = "\n") -> str:
+        return self.serial.read_until(symbol.encode(config.encoding)).decode(config.encoding)
+
     def read_port(self) -> str:
         """ read_port """
         return self.port
@@ -87,15 +100,3 @@ class Serial(Communication):
         """ read_baudrate """
         return self.serial.baudrate
 
-    def _write(self, message: str):
-        self.serial.write(message.encode(config.encoding))
-
-    def _read(self, read_bytes: int) -> str:
-        return self.serial.read(read_bytes).decode(config.encoding)
-
-    def _read_until(self, symbol: str = "\n") -> str:
-        return self.serial.read_until(symbol.encode(config.encoding)).decode(config.encoding)
-
-    def _write_flush_buffer(self):
-        self.serial.flushInput()
-        self.serial.flushOutput()

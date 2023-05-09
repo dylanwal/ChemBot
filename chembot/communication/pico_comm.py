@@ -46,31 +46,20 @@ class PicoSerial(Serial):
     def __repr__(self):
         return self.name + f" || port: {self.port}"
 
-    def _write_write(self, message: str):
+    def _write(self, message: str):
         message = encode_message(message) + "\n"
-        super()._write_write(message)
+        super()._write(message)
 
-    def _read_read(self, read_bytes: int) -> str:
-        message = super()._read_read(read_bytes)
+    def _read(self, read_bytes: int) -> str:
+        message = super()._read(read_bytes)
         return decode_message(message.strip("\n"))
-
-    def write_plus_read_until(self, message: str, symbol: str = "\n") -> str:
-        self.write_write(message)
-        return self.read_read_until(symbol)
-
-    def _read_read_until(self, symbol: str = "\n") -> str:
-        return self.serial.read_until(symbol.encode(config.encoding)).decode(config.encoding)
-
-    def _write_flush_buffer(self):
-        self.serial.flushInput()
-        self.serial.flushOutput()
 
     def write_reset(self):
         """
         write_reset
         sets all pins to off
         """
-        reply = self.write_write_plus_read_until(f"r")
+        reply = self.write_plus_read_until(f"r")
         if reply != "r":
             raise ValueError(f"Unexpected reply from Pico.\n reply:{reply}")
 
@@ -99,7 +88,7 @@ class PicoSerial(Serial):
             raise ValueError(f"Digital value can only be [0, 1]. \ngiven: {value}")
 
         # action
-        reply = self.write_write_plus_read_until(f"d{pin:02}o{resistor}{value}")
+        reply = self.write_plus_read_until(f"d{pin:02}o{resistor}{value}")
         if reply != "d":
             raise ValueError(f"Unexpected reply from Pico.\n reply:{reply}")
 
@@ -128,7 +117,7 @@ class PicoSerial(Serial):
         resistor = PicoHardware.validate_digital_resistor(resistor)
 
         # action
-        reply = self.write_write_plus_read_until(f"d{pin:02}i{resistor}")
+        reply = self.write_plus_read_until(f"d{pin:02}i{resistor}")
         if reply[0] != "d":
             raise ValueError(f"Unexpected reply from Pico.\n reply:{reply}")
 
@@ -156,7 +145,7 @@ class PicoSerial(Serial):
         PicoHardware.validate_adc_pin(pin)
 
         # action
-        reply = self.write_write_plus_read_until(f"a{pin:02}")
+        reply = self.write_plus_read_until(f"a{pin:02}")
         if reply[0] != "a":
             raise ValueError(f"Unexpected reply from Pico.\n reply:{reply}")
 
@@ -187,7 +176,7 @@ class PicoSerial(Serial):
         PicoHardware.validate_pwm_frequency(frequency)
 
         # action
-        reply = self.write_write_plus_read_until(f"p{pin:02}{duty:05}{frequency:09}")
+        reply = self.write_plus_read_until(f"p{pin:02}{duty:05}{frequency:09}")
         if reply != "p":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -221,7 +210,7 @@ class PicoSerial(Serial):
         time_ = PicoHardware.validate_pwm_time(time_)
 
         # action
-        reply = self.write_write_plus_read_until(f"q{pin:02}{duty:05}{frequency:09}{time_}")
+        reply = self.write_plus_read_until(f"q{pin:02}{duty:05}{frequency:09}{time_}")
         if reply != "q":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -268,7 +257,7 @@ class PicoSerial(Serial):
 
         # action
         message_ = f"t{uart_id}{tx_pin:02}{rx_pin:02}{baudrate:06}{bits}{parity}{stop}w{message}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply != "t":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -323,7 +312,7 @@ class PicoSerial(Serial):
 
         # action
         message_ = f"t{uart_id}{tx_pin:02}{rx_pin:02}{baudrate:06}{bits}{parity}{stop}s{amount}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply[0] != "t":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -377,7 +366,7 @@ class PicoSerial(Serial):
 
         # action
         message_ = f"t{uart_id}{tx_pin:02}{rx_pin:02}{baudrate:06}{bits}{parity}{stop}r"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply[0] != "t":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -434,7 +423,7 @@ class PicoSerial(Serial):
 
         # action
         message_ = f"t{uart_id}{tx_pin:02}{rx_pin:02}{baudrate:06}{bits}{parity}{stop}b{message}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply[0] != "t":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -495,7 +484,7 @@ class PicoSerial(Serial):
         # action
         message_ = f"s{spi_id}{sck_pin:02}{mosi_pin:02}{miso_pin:02}{baudrate:06}{bits}{polarity}{phase}" \
                    f"{cs_pin:02}w{message}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply != "s":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -560,7 +549,7 @@ class PicoSerial(Serial):
         # action
         message_ = f"s{spi_id}{sck_pin:02}{mosi_pin:02}{miso_pin:02}{baudrate:06}{bits}{polarity}{phase}" \
                    f"{cs_pin:02}r{amount}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply[0] != "s":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -630,7 +619,7 @@ class PicoSerial(Serial):
         # action
         message_ = f"s{spi_id}{sck_pin:02}{mosi_pin:02}{miso_pin:02}{baudrate:06}{bits}{polarity}{phase}" \
                    f"{cs_pin:02}b{amount:03}{message}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply[0] != "s":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -676,7 +665,7 @@ class PicoSerial(Serial):
         PicoHardware.validate_i2c_parameters(frequency, address)
 
         # action
-        reply = self.write_write_plus_read_until(f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}w{message}")
+        reply = self.write_plus_read_until(f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}w{message}")
         if reply[0] != "i":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -722,7 +711,7 @@ class PicoSerial(Serial):
         PicoHardware.validate_i2c_parameters(frequency, address)
 
         # action
-        reply = self.write_write_plus_read_until(f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}r{amount}")
+        reply = self.write_plus_read_until(f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}r{amount}")
         if reply[0] != "i":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -764,7 +753,7 @@ class PicoSerial(Serial):
         PicoHardware.validate_i2c_pins(i2c_id, scl_pin, sda_pin)
 
         # action
-        reply = self.write_write_plus_read_until(f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}s")
+        reply = self.write_plus_read_until(f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}s")
         if reply[0] != "i":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
@@ -812,7 +801,7 @@ class PicoSerial(Serial):
 
         # action
         message_ = f"i{i2c_id}{scl_pin:02}{sda_pin:02}{frequency:06}b{amount:03}{message}"
-        reply = self.write_write_plus_read_until(message_)
+        reply = self.write_plus_read_until(message_)
         if reply[0] != "i":
             raise ValueError(f"Unexpected reply from Pico.\n reply:f{reply}")
 
