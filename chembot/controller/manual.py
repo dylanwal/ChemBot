@@ -3,7 +3,7 @@ import queue
 import time
 
 from chembot.configuration import config
-from chembot.rabbitmq.core import RabbitMQProducer, RabbitMQConsumer, RabbitMessage
+from chembot.rabbitmq.rabbit_core import RabbitMQConnection, RabbitMessage
 
 logger = logging.getLogger(config.root_logger_name + ".controller")
 
@@ -13,31 +13,13 @@ class ControllerManual:
 
     def __init__(self):
         self.name = "controller"
-        self.producer = RabbitMQProducer(self.name)
-        self.consumer = RabbitMQConsumer(self.name)
-        self.consumer_error = RabbitMQConsumer("error")
-        self.consumer_status = RabbitMQConsumer("status")
-        self.consumer_help = RabbitMQConsumer("help")
-        self.consumer_actions = RabbitMQConsumer("actions")
-        self.consumer_details = RabbitMQConsumer("details")
+        self.rabbit = RabbitMQConnection(self.name)
 
     def _activate(self):
-        self.producer.activate()
-        self.consumer.activate()
-        self.consumer_error.activate()
-        self.consumer_status.activate()
-        self.consumer_help.activate()
-        self.consumer_actions.activate()
-        self.consumer_details.activate()
         logger.info(config.log_formatter(type(self).__name__, self.name, "Activated"))
 
     def _deactivate(self):
-        self.consumer.deactivate()
-        self.consumer_error.deactivate()
-        self.consumer_status.deactivate()
-        self.consumer_help.deactivate()
-        self.consumer_actions.deactivate()
-        self.consumer_details.deactivate()
+        self.rabbit.deactivate()
         logger.info(config.log_formatter(type(self).__name__, self.name, "Deactivated"))
 
     def activate(self):

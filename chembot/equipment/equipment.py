@@ -8,7 +8,7 @@ from chembot.configuration import config
 from chembot.equipment.equipment_interface import EquipmentState, get_equipment_interface
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitMessageAction, RabbitMessageRegister, \
     RabbitMessageError, RabbitMessageCritical
-from chembot.rabbitmq.core import RabbitMQConnection
+from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
 
@@ -56,7 +56,7 @@ class Equipment(abc.ABC):
     def _register_equipment(self, _: RabbitMessage = None):
         if not self.rabbit.queue_exists("master_controller"):
             logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
-            raise ValueError()
+            raise ValueError("No MasterController found on the server.")
 
         self.rabbit.send(RabbitMessageRegister(self.name, self.equipment_interface))
 

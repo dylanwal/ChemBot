@@ -1,11 +1,10 @@
-import enum
 import logging
 import queue
 import threading
 
 from chembot.configuration import config
-from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageDeactivate, RabbitMessageAction
-from chembot.rabbitmq.core import RabbitMQConnection
+from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction
+from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 
 logger = logging.getLogger(config.root_logger_name + ".controller")
 
@@ -82,11 +81,11 @@ class MasterController:
 
     def error_handling(self):
         """ Deactivate all equipment """
-        for equip in self.equipment:
-            self.producer.send(RabbitMessageDeactivate(equip))
+        # for equip in self.equipment:
+        #     self.producer.send(RabbitMessageDeactivate(equip))
         self._deactivate()
 
     def read_equipment_status(self):
-        message =
+        pass
 
 

@@ -70,7 +70,7 @@ class Communication(Equipment, abc.ABC):
         """
         reply = self._read_read_until(symbol)
         logger.debug(config.log_formatter(self, self.name, f"Action | read_until: " + repr(reply)))
-        return reply
+        return reply.strip("\n").strip("\r")
 
     def _write_flush_buffer_message(self, message: RabbitMessageAction):
         self.write_flush_buffer()

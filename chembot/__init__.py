@@ -8,5 +8,4 @@ from chembot.controller.mater_controller import MasterController
 
 import chembot.utils as utils
 import chembot.communication as communication
-import chembot.equipment.lights as lights
-import chembot.equipment.pumps as pump
+import chembot.equipment as equipment

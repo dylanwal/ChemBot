@@ -412,20 +412,16 @@ def spi(message: str):
 
 def i2c(message: str):
     """
-    UART (serial bus)
-    UART0 can be mapped to GPIO 0/1, 12/13 and 16/17, and UART1 to GPIO 4/5 and 8/9
+    I2C – a two-wire serial protocol
 
     Parameters
     ----------
     message:
-        format: "p#txrx400000###a_"
-        '#' UART id
-        'tx' GPIO pin (for single digit pins add leading zero. eg: 01)
-        'rx' GPIO pin (for single digit pins add leading zero. eg: 01)
-        '115200' baud rate common values [9600, 19200, 57600, 115200]
-        '#' bits number of bits per character, 7, 8 or 9 (typically 8)
-        '#' parity 0 (even) or 1 (odd) or 2 (None)
-        '#' number of stop bits, 1 or 2
+        format: "i#####400000a_"
+        '#' i2c id
+        '##' scl GPIO pin (for single digit pins add leading zero. eg: 01)
+        '##' sda GPIO pin (for single digit pins add leading zero. eg: 01)
+        '400000' frequency
         'a' action 'r' (readline), 's' (read), 'w' (write), 'b' (write + readline)
         '_' if 'a'='s' number of bits to read // if 'w' or 'b' the message.
 

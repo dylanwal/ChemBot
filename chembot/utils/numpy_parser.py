@@ -798,7 +798,7 @@ def add_parameter(type_hints: dict, doc: NumpyDocString):
         if param in doc_param_names:
             doc.parameters[i].type_ = type_hints[param].__name__
         else:
-            doc.parameters.append(Parameter(param, param.__name__, ""))
+            doc.parameters.append(Parameter(param, type(param).__name__, ""))
 
 
 def add_return(type_hints: dict, doc: NumpyDocString):

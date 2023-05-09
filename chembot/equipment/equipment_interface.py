@@ -90,11 +90,11 @@ def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParamete
     return results
 
 
-def parse_description(text: str) -> list[str, str, str]:
+def parse_description(text: list[str]) -> list[str, str, str]:
     result = ["", "", ""]
 
-    text_list = text.split("\n")
-    for line in text_list:
+    # text_list = text.split("\n")
+    for line in text:
         if line.startswith("range"):
             result[1] = line
         elif line.startswith("unit"):

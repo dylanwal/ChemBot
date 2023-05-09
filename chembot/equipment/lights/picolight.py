@@ -4,6 +4,7 @@ import numpy as np
 from scipy.optimize import root
 from unitpy import Quantity
 
+from utils.pico_pins import PicoHardware
 from chembot.configuration import config
 from equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
@@ -96,7 +97,7 @@ class LightPico(Light):
             range: [0, 27]
 
         """
-        check_GPIO_pins(pin)
+        PicoHardware.validate_GPIO_pin(pin)
         self.pin = pin
 
     def _read_frequency_message(self, message: RabbitMessageAction):
@@ -177,15 +178,15 @@ class LightPico(Light):
 
     def _deactivate(self):
         # write to pico
-        message = RabbitMessage(self.communication, self.name, "write", "e\r")
+        message = RabbitMessageAction(self.communication, self.name, "write", "e\r")
         self.rabbit.send(message)
 
         # get reply
-        message = RabbitMessage(self.communication, self.name, "read_until", self._get_message())
+        message = RabbitMessageAction(self.communication, self.name, "read_until", self._get_message())
         self.rabbit.send(message)
         self._set_reply_alarm(5, self._deactivate_callback)
 
-    def _deactivate_callback(self, message: RabbitMessage):
+    def _deactivate_callback(self, message: RabbitMessageAction):
         if message.value == "e":
             logger.debug("Reply to set power received.")
         else:
@@ -195,7 +196,7 @@ class LightPico(Light):
         self._set_power_attr(power)
         self._send_message()
 
-    def _set_power_callback(self, message: RabbitMessage):
+    def _set_power_callback(self, message: RabbitMessageAction):
         if message.value == "l":
             logger.debug("Reply to set power received.")
         else:
@@ -219,11 +220,11 @@ class LightPico(Light):
 
     def _send_message(self):
         # write to pico
-        message = RabbitMessage(self.communication, self.name, "write", self._get_message())
+        message = RabbitMessageAction(self.communication, self.name, "write", self._get_message())
         self.rabbit.send(message)
 
         # get reply
-        message = RabbitMessage(self.communication, self.name, "read_until", self._get_message())
+        message = RabbitMessageAction(self.communication, self.name, "read_until", self._get_message())
         self.rabbit.send(message)
         self._set_reply_alarm(5, self._set_power_callback)
 
