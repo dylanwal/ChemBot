@@ -44,7 +44,8 @@ app.layout = html.Div([
 
 
 class GUI:
-    def activate(self):
+    @staticmethod
+    def activate():
         app.run_server(debug=True)
 
 

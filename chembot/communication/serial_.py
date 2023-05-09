@@ -32,15 +32,15 @@ class Serial(Communication):
     def __repr__(self):
         return self.name + f" || port: {self.port}"
 
-    def _read_port_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_port()))
+    def _activate(self):
+        self._write_flush_buffer()
+
+    def _deactivate(self):
+        self.serial.close()
 
     def read_port(self) -> str:
         """ read_port """
         return self.port
-
-    def _read_parity_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_parity()))
 
     def read_parity(self) -> str:
         """
@@ -56,9 +56,6 @@ class Serial(Communication):
         """
         return self.serial.parity
 
-    def _read_stop_bits_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_stop_bits()))
-
     def read_stop_bits(self) -> int:
         """
         read_stop_bits
@@ -73,9 +70,6 @@ class Serial(Communication):
         """
         return self.serial.stopbits
 
-    def _read_bytes_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_stop_bits()))
-
     def read_bytes(self) -> int:
         """
         read_bytes
@@ -89,26 +83,17 @@ class Serial(Communication):
         """
         return self.serial.bytesize
 
-    def _read_baudrate(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_baudrate()))
-
     def read_baudrate(self) -> str:
         """ read_baudrate """
         return self.serial.baudrate
 
-    def _activate(self):
-        self._write_flush_buffer()
-
-    def _deactivate(self):
-        self.serial.close()
-
-    def _write_write(self, message: str):
+    def _write(self, message: str):
         self.serial.write(message.encode(config.encoding))
 
-    def _read_read(self, read_bytes: int) -> str:
+    def _read(self, read_bytes: int) -> str:
         return self.serial.read(read_bytes).decode(config.encoding)
 
-    def _read_read_until(self, symbol: str = "\n") -> str:
+    def _read_until(self, symbol: str = "\n") -> str:
         return self.serial.read_until(symbol.encode(config.encoding)).decode(config.encoding)
 
     def _write_flush_buffer(self):

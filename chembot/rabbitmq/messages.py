@@ -53,19 +53,17 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    def __init__(self, destination: str, source: str, action: str, value, parameters: dict = None):
+    def __init__(self, destination: str, source: str, action: str, parameters: dict = None):
         super().__init__(destination, source)
         self.action = action
-        self.value = value
         self.parameters = parameters
 
     def __str__(self):
-        return super().__str__() + f" | {self.action}: {self.value}"
+        return super().__str__() + f" | {self.action}"
 
     def to_str(self) -> str:
         return f"\n\t{self.source} -> {self.destination} " \
-                 f"\n\taction: {self.action}" \
-                 f"\n\tvalue: {self.value}"
+                 f"\n\taction: {self.action}"
 
 
 class RabbitMessageReply(RabbitMessage):

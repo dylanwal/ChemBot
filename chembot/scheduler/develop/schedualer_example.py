@@ -1,7 +1,7 @@
 import time
 import threading
 
-from controller.develop.event_scheduler import EventScheduler
+from scheduler.develop.event_scheduler import EventScheduler
 
 
 def delay1(arg):

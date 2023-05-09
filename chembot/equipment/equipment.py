@@ -83,9 +83,9 @@ class Equipment(abc.ABC):
             if message is None:
                 continue
 
-            self.process_message(message)
+            self._process_message(message)
 
-    def process_message(self, message: RabbitMessage):
+    def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
             self._deactivate_event.set()
 
@@ -94,17 +94,15 @@ class Equipment(abc.ABC):
 
         elif isinstance(message, RabbitMessageAction) and message.action in self.actions:
             try:
-                func = getattr(self, f"_{message.action}_message")
-                func(message)
+                func = getattr(self, message.action)
+                reply = func(message.parameters)
+                self.rabbit.send(RabbitMessageReply(message, reply))
             except Exception as e:
                 logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
                 self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
         else:
-            logger.warning("Invalid message action!!" + message.to_str())
+            logger.warning("Invalid message or action!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
-
-    def _read_all_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_all()))
 
     def read_all(self) -> dict:
         """
@@ -123,9 +121,6 @@ class Equipment(abc.ABC):
 
         return results
 
-    def _read_state_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_state()))
-
     def read_state(self) -> EquipmentState:
         """
         read_state
@@ -139,24 +134,13 @@ class Equipment(abc.ABC):
         """
         return self.state
 
-    def _read_name_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_name()))
-
     def read_name(self) -> str:
         """ read_name """
         return self.name
 
-    def _write_name_message(self, message: RabbitMessageAction):
-        self.write_name(message.value)
-        self.rabbit.send(RabbitMessageReply(message, ""))
-
     def write_name(self, name: str):
         """ write_name """
         self.name = name
-
-    def _write_deactivate_message(self, message: RabbitMessageAction):
-        self.write_deactivate()
-        self.rabbit.send(RabbitMessageReply(message, ""))
 
     def write_deactivate(self):
         """

@@ -4,7 +4,7 @@ import numpy as np
 from scipy.optimize import root
 from unitpy import Quantity
 
-from utils.pico_pins import PicoHardware
+from reference_data.pico_pins import PicoHardware
 from chembot.configuration import config
 from equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
@@ -45,24 +45,13 @@ class LightPico(Light):
         """ read_color """
         return self.color
 
-    # def _write_color_message(self, message: RabbitMessageAction):
-    #     self.write_color(message.value)
-    #     self.rabbit.send(RabbitMessageReply(message, ""))
-    #
     # def write_color(self, color: int | Quantity | float | str):
     #     """ write_color """
     #     self.color = color
 
-    def _read_communication_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_communication))
-
     def read_communication(self) -> str:
         """ read_communication """
         return self.communication
-
-    def _write_communication_message(self, message: RabbitMessageAction):
-        self.write_communication(message.value)
-        self.rabbit.send(RabbitMessageReply(message, ""))
 
     def write_communication(self, communication: str):
         """
@@ -76,16 +65,9 @@ class LightPico(Light):
         """
         self.communication = communication
 
-    def _read_pin_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_pin))
-
     def read_pin(self) -> int:
         """ read_pin """
         return self.pin
-
-    def _write_pin_message(self, message: RabbitMessageAction):
-        self.write_pin(message.value)
-        self.rabbit.send(RabbitMessageReply(message, ""))
 
     def write_pin(self, pin: int):
         """
@@ -100,16 +82,9 @@ class LightPico(Light):
         PicoHardware.validate_GPIO_pin(pin)
         self.pin = pin
 
-    def _read_frequency_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_frequency))
-
     def read_frequency(self) -> int:
         """ read_frequency """
         return self.frequency
-
-    def _write_frequency_message(self, message: RabbitMessageAction):
-        self.write_frequency(message.value)
-        self.rabbit.send(RabbitMessageReply(message, ""))
 
     def write_frequency(self, frequency: int):
         """
@@ -126,14 +101,10 @@ class LightPico(Light):
         """
         if not isinstance(frequency, int):
             raise TypeError("'frequency' must be an integer.")
-
         if not (100 < frequency < 50_000):
             raise ValueError("'frequency' must be between [100, 50_000]")
 
         self.frequency = frequency
-
-    def _write_power_from_message(self, message: RabbitMessageAction):
-        self.write_power(message.value)
 
     def write_power(self, power: int | float | Quantity):
         """
@@ -162,9 +133,6 @@ class LightPico(Light):
         self.power = power
         self._write_power(power)
         logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
-
-
-
 
 
     def _write_on(self):

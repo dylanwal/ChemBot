@@ -1,15 +1,11 @@
 import enum
 import logging
 
-import serial
-from serial.tools.list_ports import comports
-
 from unitpy import Quantity
 
 from chembot.configuration import config
-from chembot.communication.communication import Communication
-from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
-from chembot.utils.pico_pins import PicoHardware
+from chembot.communication.serial_ import Serial
+from reference_data.pico_pins import PicoHardware
 
 logger = logging.getLogger(config.root_logger_name + ".communication")
 
@@ -34,50 +30,31 @@ class PinStatus(enum.Enum):
     I2C = 7
 
 
-class PicoSerial(Communication):
+class PicoSerial(Serial):
     """
     Pico serial
 
     """
-    available_ports = [port.device for port in comports()]
 
     def __init__(self,
                  name: str,
                  port: str,
                  ):
-        super().__init__(name)
-
-        if port not in self.available_ports:
-            raise ValueError(f"Port '{port}' is not connected to computer.")
-        self.serial = serial.Serial(port=port, parity=serial.PARITY_EVEN, stopbits=serial.STOPBITS_ONE, timeout=10)
-
+        super().__init__(name, port, parity='E')
         self.pins = {pin: PinStatus.STANDBY for pin in PicoHardware.pins_GPIO}
 
     def __repr__(self):
         return self.name + f" || port: {self.port}"
 
-    def _read_port_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_port()))
-
-    def read_port(self) -> str:
-        """ read_port """
-        return self.port
-
-    def _activate(self):
-        self._write_flush_buffer()
-
-    def _deactivate(self):
-        self.serial.close()
-
     def _write_write(self, message: str):
         message = encode_message(message) + "\n"
-        self.serial.write(message.encode(config.encoding))
+        super()._write_write(message)
 
     def _read_read(self, read_bytes: int) -> str:
-        message = self.serial.read(read_bytes).decode(config.encoding)
+        message = super()._read_read(read_bytes)
         return decode_message(message.strip("\n"))
 
-    def write_write_plus_read_until(self, message: str, symbol: str = "\n") -> str:
+    def write_plus_read_until(self, message: str, symbol: str = "\n") -> str:
         self.write_write(message)
         return self.read_read_until(symbol)
 
