@@ -1,1 +1,1 @@
-from chembot.master_controller.mater_controller import MasterController
+from chembot.master_controller.master_controller import MasterController

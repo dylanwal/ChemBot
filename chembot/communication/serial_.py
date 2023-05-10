@@ -5,7 +5,6 @@ from serial.tools.list_ports import comports
 
 from chembot.configuration import config
 from chembot.communication.communication import Communication
-from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
 
 logger = logging.getLogger(config.root_logger_name + ".communication")
 
@@ -27,7 +26,7 @@ class Serial(Communication):
         if port not in self.available_ports:
             raise ValueError(f"Port '{port}' is not connected to computer.")
         self.serial = serial.Serial(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
-                                             parity=parity, timeout=timeout)
+                                    parity=parity, timeout=timeout)
 
     def __repr__(self):
         return self.name + f" || port: {self.port}"
@@ -99,4 +98,3 @@ class Serial(Communication):
     def read_baudrate(self) -> str:
         """ read_baudrate """
         return self.serial.baudrate
-

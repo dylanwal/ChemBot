@@ -42,9 +42,15 @@ class PicoSerial(Serial):
                  ):
         super().__init__(name, port, parity='E')
         self.pins = {pin: PinStatus.STANDBY for pin in PicoHardware.pins_GPIO}
+        self.pico_version = None
 
     def __repr__(self):
         return self.name + f" || port: {self.port}"
+
+    def activate(self):
+        super().activate()
+        reply = self.write_plus_read_until("v")
+        self.pico_version = reply
 
     def _write(self, message: str):
         message = encode_message(message) + "\n"
@@ -54,12 +60,19 @@ class PicoSerial(Serial):
         message = super()._read(read_bytes)
         return decode_message(message.strip("\n"))
 
+    def read_pico_version(self) -> str:
+        """
+        read_pico_version
+        version of pico communication code
+        """
+        return self.pico_version
+
     def write_reset(self):
         """
         write_reset
         sets all pins to off
         """
-        reply = self.write_plus_read_until(f"r")
+        reply = self.write_plus_read_until("r")
         if reply != "r":
             raise ValueError(f"Unexpected reply from Pico.\n reply:{reply}")
 
@@ -166,6 +179,7 @@ class PicoSerial(Serial):
         duty: int
             how much the pulse is 'on'
             range: [0, ..., 65_535]
+            duty = 0 turns off pwm
         frequency:
             PWM pulse frequency
             range: [7, ..., 125_000_000]

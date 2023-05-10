@@ -28,7 +28,7 @@ class RabbitMessage:
 
 class RabbitMessageError(RabbitMessage):
     def __init__(self, source: str, error: str):
-        super().__init__("error", source)
+        super().__init__("master_controller", source)
         self.error = error
 
     def __str__(self):
@@ -41,7 +41,7 @@ class RabbitMessageError(RabbitMessage):
 
 class RabbitMessageCritical(RabbitMessage):
     def __init__(self, source: str, error: str):
-        super().__init__("error", source)
+        super().__init__("master_controller", source)
         self.error = error
 
     def __str__(self):
@@ -82,7 +82,7 @@ class RabbitMessageReply(RabbitMessage):
 
 class RabbitMessageRegister(RabbitMessage):
     def __init__(self, source: str, equipment_interface):
-        super().__init__("main_controller", source)
+        super().__init__("master_controller", source)
         self.equipment_interface = equipment_interface
 
     def __str__(self):

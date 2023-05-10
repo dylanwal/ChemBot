@@ -1,10 +1,11 @@
 import logging
-import queue
 import threading
 
 from chembot.configuration import config
-from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction
+from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction, RabbitMessageCritical, RabbitMessageError
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
+from chembot.rabbitmq.watchdog import RabbitWatchdog
+from chembot.master_controller.registry import EquipmentRegistry
 
 logger = logging.getLogger(config.root_logger_name + ".controller")
 
@@ -15,30 +16,17 @@ class MasterController:
     def __init__(self):
         self.name = "master_controller"
         self.rabbit = RabbitMQConnection(self.name)
-
-        self.actions = self._get_actions_list()
-        self.equipment = dict()
+        self.watchdog = RabbitWatchdog(self)
+        self.registry = EquipmentRegistry()
         self._deactivate_event = threading.Event()
-
-    def _get_actions_list(self) -> list[str]:
-        actions = []
-        for func in dir(self):
-            if callable(getattr(self, func)) and (func.startswith("read_") or func.startswith("write_")):
-                actions.append(func)
-
-        return actions
-
-    def _activate(self):
-
-        logger.info(config.log_formatter(type(self).__name__, self.name, "Activated"))
 
     def _deactivate(self):
         self.rabbit.deactivate()
-        logger.info(config.log_formatter(type(self).__name__, self.name, "Deactivated"))
+        logger.info(config.log_formatter(self, self.name, "Deactivated"))
         self._deactivate_event.set()
 
     def activate(self):
-        self._activate()
+        logger.info(config.log_formatter(self, self.name, "Activated"))
         try:
             self._run()
         finally:
@@ -46,26 +34,21 @@ class MasterController:
 
     def _run(self):
         # infinite loop
-        while not self._deactivate_event.wait(timeout=0.1):
-            if self._check_for_errors():
-                return
+        while not self._deactivate_event.wait(timeout=0.01):
+            self.watchdog.check_watchdogs()
+            message = self.rabbit.consume()
+            if message is None:
+                continue
 
-            # normal events
-            try:
-                message = self.consumer.queue.get(block=False)
-                self.process_message(message)
-            except queue.Empty:
-                pass
+            self._process_message(message)
 
-    def _check_for_errors(self) -> bool:
-        try:
-            message = self.consumer_error.queue.get(block=False)
-            self.error_handling()
-            return True
-        except queue.Empty:
-            return False
+    def _process_message(self, message: RabbitMessage):
+        if isinstance(message, RabbitMessageCritical):
+            self._deactivate_event.set()
 
-    def process_message(self, message: RabbitMessage):
+        elif isinstance(message, RabbitMessageError):
+            self._deactivate_event.set()
+
         if isinstance(message, RabbitMessageAction) and message.action in self.actions:
             try:
                 func = getattr(self, message.action)

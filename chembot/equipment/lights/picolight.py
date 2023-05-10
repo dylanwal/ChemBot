@@ -1,13 +1,11 @@
 import logging
 
-import numpy as np
-from scipy.optimize import root
 from unitpy import Quantity
 
 from reference_data.pico_pins import PicoHardware
 from chembot.configuration import config
 from equipment.lights.light import Light
-from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
+from chembot.rabbitmq.messages import RabbitMessageAction
 
 logger = logging.getLogger(config.root_logger_name + ".lights")
 
@@ -24,7 +22,6 @@ class LightPico(Light):
                  pin: int,
                  color: Quantity | None = None,
                  frequency: int = 10_000,
-                 conversion: callable = None
                  ):
         super().__init__(name)
         self.color = color
@@ -32,14 +29,17 @@ class LightPico(Light):
         self.pin = pin
         self.frequency = frequency
 
-        self.conversion = conversion
         self.power: int = 0
-        self.power_range = (0, 100)
-        self.power_quantity: Quantity = Quantity("0 * W/m**2")
-        self.power_quantity_range = (self.conversion(0), self.conversion(100))
 
-    def _read_color_message(self, message: RabbitMessageAction):
-        self.rabbit.send(RabbitMessageReply(message, self.read_color()))
+    def _write_on(self):
+        self.write_power(65535)
+
+    def _write_off(self):
+        self.write_power(0)
+
+    def _activate(self):
+        # ping communication to ensure it is alive
+        self.rabbit.send(RabbitMessageAction(self.communication, self.name, "read_name"))
 
     def read_color(self) -> Quantity | None:
         """ read_color """
@@ -106,95 +106,37 @@ class LightPico(Light):
 
         self.frequency = frequency
 
-    def write_power(self, power: int | float | Quantity):
+    def write_power(self, power: int):
         """
         write_power
         Sets the power setting for
 
         Parameters
         ----------
-        power
-
-        Returns
-        -------
-
+        power:
+            light intensity
+            range: [0, ..., 65535]
         """
-        if isinstance(power, int) or isinstance(power, float):
-            if power > 0:
-                self.equipment_config.state = self.equipment_config.states.RUNNING
-            elif power == 0:
-                self.equipment_config.state = self.equipment_config.states.STANDBY
-        if isinstance(power, Quantity):
-            if power.v > 0:
-                self.equipment_config.state = self.equipment_config.states.RUNNING
-            elif power.v == 0:
-                self.equipment_config.state = self.equipment_config.states.STANDBY
+        if power > 0:
+            self.equipment_config.state = self.equipment_config.states.RUNNING
+        elif power == 0:
+            self.equipment_config.state = self.equipment_config.states.STANDBY
 
         self.power = power
-        self._write_power(power)
-        logger.info(config.log_formatter(type(self).__name__, self.name, f"Action | power_set: {power}"))
 
+        # write to pico
+        param = {"pin": self.pin, "duty": self.power, "frequency": self.frequency}
+        message = RabbitMessageAction(self.communication, self.name, "write", param)
+        self.rabbit.send(message)
 
-    def _write_on(self):
-        ...
-
-    def _write_off(self):
-        ...
-
-    def _activate(self):
-        ...
+        # get reply
+        self.watchdog.set_watchdog(message, 5)
 
     def _deactivate(self):
         # write to pico
-        message = RabbitMessageAction(self.communication, self.name, "write", "e\r")
+        param = {"pin": self.pin, "duty": 0, "frequency": self.frequency}
+        message = RabbitMessageAction(self.communication, self.name, "write", param)
         self.rabbit.send(message)
 
         # get reply
-        message = RabbitMessageAction(self.communication, self.name, "read_until", self._get_message())
-        self.rabbit.send(message)
-        self._set_reply_alarm(5, self._deactivate_callback)
-
-    def _deactivate_callback(self, message: RabbitMessageAction):
-        if message.value == "e":
-            logger.debug("Reply to set power received.")
-        else:
-            self.rabbit.send_error("WrongReply", message.to_str())
-
-    def _set_power(self, power: int | float | Quantity):
-        self._set_power_attr(power)
-        self._send_message()
-
-    def _set_power_callback(self, message: RabbitMessageAction):
-        if message.value == "l":
-            logger.debug("Reply to set power received.")
-        else:
-            self.rabbit.send_error("WrongReply", message.to_str())
-
-    def _set_power_attr(self, power: int | float | Quantity):
-        if isinstance(power, Quantity):
-            def conversion(x: int | float) -> int | float:
-                return (self.conversion(x) - power).value
-
-            result = root(conversion, x0=np.array([1]))
-            power = round(result.x[0])
-
-        elif isinstance(power, float):
-            power = round(float)
-
-        if not (self.power_range[0] < power < self.power_range[1]):
-            raise ValueError("Power outside acceptable range.")
-
-        self.power = power
-
-    def _send_message(self):
-        # write to pico
-        message = RabbitMessageAction(self.communication, self.name, "write", self._get_message())
-        self.rabbit.send(message)
-
-        # get reply
-        message = RabbitMessageAction(self.communication, self.name, "read_until", self._get_message())
-        self.rabbit.send(message)
-        self._set_reply_alarm(5, self._set_power_callback)
-
-    def _get_message(self) -> str:
-        return "l" + str(self.pin).zfill(2) + str(self.frequency).zfill(4) + str(self.power).zfill(3) + "\r"
+        self.watchdog.set_watchdog(message, 5)
