@@ -1,10 +1,10 @@
 import abc
 import logging
-import threading
 
 from unitpy import Quantity
 
 from chembot.configuration import config
+from chembot.utils.class_building import get_actions_list
 from chembot.equipment.equipment_interface import EquipmentState, get_equipment_interface
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitMessageAction, RabbitMessageRegister, \
     RabbitMessageError, RabbitMessageCritical
@@ -12,15 +12,6 @@ from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
-
-
-def get_actions_list(class_) -> list[str]:
-    actions = []
-    for func in dir(class_):
-        if callable(getattr(class_, func)) and (func.startswith("read_") or func.startswith("write_")):
-            actions.append(func)
-
-    return actions
 
 
 class EquipmentConfig:
@@ -40,6 +31,9 @@ class EquipmentConfig:
 
 
 class Equipment(abc.ABC):
+    """ Equipment """
+    pulse = 0.1  # time of each loop in seconds
+
     def __init__(self, name: str, **kwargs):
         """
 
@@ -52,7 +46,7 @@ class Equipment(abc.ABC):
         self.state: EquipmentState = EquipmentState.OFFLINE
         self.rabbit = RabbitMQConnection(f"equipment.{name}")
         self.actions = get_actions_list(self)
-        self._deactivate_event = threading.Event()
+        self._deactivate_event = False
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
         self.equipment_interface = get_equipment_interface(self)
@@ -67,7 +61,9 @@ class Equipment(abc.ABC):
             logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
             raise ValueError("No MasterController found on the server.")
 
-        self.rabbit.send(RabbitMessageRegister(self.name, self.equipment_interface))
+        message = RabbitMessageRegister(self.name, self.equipment_interface)
+        self.rabbit.send(message)
+        self.watchdog.set_watchdog(message, 5)
 
     def activate(self):
         try:
@@ -87,20 +83,20 @@ class Equipment(abc.ABC):
 
     def _run(self):
         # infinite loop
-        while not self._deactivate_event.wait(timeout=0.1):
+        while True:
             self.watchdog.check_watchdogs()
-            message = self.rabbit.consume()
-            if message is None:
-                continue
-
-            self._process_message(message)
+            message = self.rabbit.consume(self.pulse)
+            if message:
+                self._process_message(message)
+            if self._deactivate_event:
+                break
 
     def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
-            self._deactivate_event.set()
+            self._deactivate_event = True
 
         elif isinstance(message, RabbitMessageError):
-            self._deactivate_event.set()
+            self._deactivate_event = True
 
         elif isinstance(message, RabbitMessageAction) and message.action in self.actions:
             try:
@@ -122,7 +118,6 @@ class Equipment(abc.ABC):
 
     def read_all(self) -> dict:
         """
-        read_all
         returns values off all properties that can be 'read'
 
         Returns
@@ -139,7 +134,6 @@ class Equipment(abc.ABC):
 
     def read_state(self) -> EquipmentState:
         """
-        read_state
         Get equipment status
 
         Returns
@@ -151,20 +145,22 @@ class Equipment(abc.ABC):
         return self.state
 
     def read_name(self) -> str:
-        """ read_name """
+        """
+        returns equipment name
+        """
         return self.name
 
     def write_name(self, name: str):
-        """ write_name """
+        """
+        write a new name for the equipment
+        """
         self.name = name
 
     def write_deactivate(self):
         """
-        write_deactivate
         deactivate equipment (shut down)
-
         """
-        self._deactivate_event.set()
+        self._deactivate_event = True
         # self._deactivate is called by self._run
 
     def _deactivate_(self):

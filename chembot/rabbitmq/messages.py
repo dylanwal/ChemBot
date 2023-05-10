@@ -8,7 +8,7 @@ import uuid
 
 class RabbitMessage:
     def __init__(self, destination: str, source: str):
-        self.id_ = uuid.uuid4().int
+        self.id_: int = uuid.uuid4().int
         self.destination = destination
         self.source = source
         self.type_ = type(self).__name__

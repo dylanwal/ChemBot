@@ -24,16 +24,22 @@ class ActionType(enum.Enum):
 class ActionParameter:
     def __init__(self,
                  name: str,
-                 type_,
+                 types: list,
                  descriptions: str = "",
                  range_: list | tuple = None,
                  unit: str = None
                  ):
         self.name = name
         self.descriptions = descriptions
-        self.type_ = type_
+        self.types = types
         self.range_ = range_
         self.unit = unit
+
+    def __str__(self):
+        return self.name + f" || {self.types}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class Action:
@@ -46,11 +52,17 @@ class Action:
         self.name = name
         self.descr = descriptions
         if name.startswith("read"):
-            self._type = ActionType.READ
+            self.type_ = ActionType.READ
         else:
-            self._type = ActionType.WRITE
+            self.type_ = ActionType.WRITE
         self.inputs = inputs
         self.outputs = outputs
+
+    def __str__(self):
+        return self.name + f" || {self.inputs} --> {self.outputs}"
+
+    def __repr__(self):
+        return self.__str__()
 
 
 class EquipmentInterface:
@@ -58,6 +70,12 @@ class EquipmentInterface:
         self.name = name
         self.state = state
         self.actions = actions
+
+    def __str__(self):
+        return self.name + f" ({self.state.name}) || " + str(len(self.actions))
+
+    def __repr__(self):
+        return self.__str__()
 
 
 def get_equipment_interface(class_) -> EquipmentInterface:

@@ -25,7 +25,7 @@ class Serial(Communication):
 
         if port not in self.available_ports:
             raise ValueError(f"Port '{port}' is not connected to computer.")
-        self.serial = serial.Serial(self, port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
+        self.serial = serial.Serial(port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
                                     parity=parity, timeout=timeout)
 
     def __repr__(self):

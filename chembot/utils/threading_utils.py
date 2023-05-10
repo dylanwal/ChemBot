@@ -10,7 +10,7 @@ from chembot.configuration import config
 logger = logging.getLogger(config.root_logger_name)
 
 
-class Equipment(Protocol):
+class EquipmentInterface(Protocol):
     name = ""
 
     def activate(self):
@@ -20,7 +20,7 @@ class Equipment(Protocol):
         ...
 
 
-def activate_multiple_equipment(equipment: list[Equipment]):
+def activate_multiple_equipment(equipment: list[EquipmentInterface, ...]):
     """ blocking """
     threads = [threading.Thread(target=equip.activate, name=equip.name) for equip in equipment]
 
@@ -29,7 +29,7 @@ def activate_multiple_equipment(equipment: list[Equipment]):
         thread.start()
         time.sleep(0.2)
 
-    logger.info(config.log_formatter("UTILS", "", "All threads started"))
+    logger.info("UTILS || All threads started")
     # wait for them all to finish
     try:
         while True:
@@ -40,11 +40,11 @@ def activate_multiple_equipment(equipment: list[Equipment]):
         logger.info("\n\n\tKeyboardInterrupt raised\n")
 
     finally:
-        logger.info(config.log_formatter("UTILS", "", "Cleaning up threads"))
+        logger.info("UTILS || Cleaning up threads")
         for equip in equipment:
             # if any alive; tell them to deactivate
             equip.write_deactivate()
-            logger.debug(config.log_formatter("UTILS", "", f"Deactivating thread after: {equip.name}"))
+            logger.debug(f"UTILS || Deactivating thread: {equip.name}")
             time.sleep(0.2)
 
         for _ in range(3):  # sometimes they are still alive on first pass

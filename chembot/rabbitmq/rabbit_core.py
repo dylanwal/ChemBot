@@ -43,7 +43,7 @@ class RabbitMQConnection:
         self.channel = get_rabbit_channel()
         create_queue(self.channel, self.topic)
         self.queue = self.channel.queue_declare(queue=topic, passive=True)
-        logger.debug(config.log_formatter(type(self).__name__, self.topic, "Started listening"))
+        logger.debug(config.log_formatter(self, self.topic, "Rabbit connection established."))
 
     @property
     def messages_in_queue(self) -> int:
@@ -52,13 +52,12 @@ class RabbitMQConnection:
     def queue_exists(self, queue_name: str) -> bool:
         return queue_exists(self.channel, queue_name)
 
-    def consume(self) -> RabbitMessage | None:
-        if self.messages_in_queue == 0:
-            return None
+    def consume(self, timeout: int | float = 0.1) -> RabbitMessage | None:
+        for method, properties, body in self.channel.consume(queue=self.topic, auto_ack=True, inactivity_timeout=timeout):
+            if body is None:
+                return None
 
-        method, properties, body = self.channel.basic_get(queue=self.topic, auto_ack=True)
-
-        return self._process_message(body.decode(config.encoding))
+            return self._process_message(body.decode(config.encoding))
 
     def _process_message(self, body: str) -> RabbitMessage | None:
         try:
@@ -70,8 +69,8 @@ class RabbitMQConnection:
 
     def send(self, message: RabbitMessage):
         if not queue_exists(self.channel, message.destination):
-            logger.error(config.log_formatter(self, self.topic, "Queue does not exist yet:" + message.to_str()))
-            raise ValueError()
+            logger.error(config.log_formatter(self, self.topic, "Queue does not exist yet:" + message.destination))
+            raise ValueError("Queue does not exist yet:" + message.destination)
 
         result = self.channel.basic_publish(
             exchange=config.rabbit_exchange,

@@ -5,6 +5,7 @@ import inspect
 import textwrap
 import re
 import pydoc
+import types
 import typing
 from warnings import warn
 from collections.abc import Callable, Mapping
@@ -820,7 +821,10 @@ def add_return(type_hints: dict, doc: NumpyDocString):
             doc_param.type_ = param.__name__
 
 
-def breakup_type(type_: type) -> tuple[type, ...]:
+def breakup_type(type_: type) -> tuple[type, ...] | list[type, ...]:
+    if isinstance(type_, types.UnionType):
+        return type_.__args__
+
     if type_.__name__ == "tuple" or type_.__name__ == "list":
         return type_.__args__
 
@@ -865,7 +869,7 @@ def local_run():
 
             Returns
             -------
-            status: str
+            status: str, int
                 current equipment status
 
             """

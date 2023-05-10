@@ -68,7 +68,7 @@ class Configurations:
 
         # formatter
         formatter = logging.Formatter(
-            '%(asctime)s  %(name)-25s  %(levelname)-8s || %(message)s', datefmt='%m-%d %H:%M')
+            '%(asctime)s %(levelname)-8s || %(name)-25s %(message)s', datefmt='%m-%d %H:%M')
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
 
@@ -81,7 +81,7 @@ class Configurations:
 
     @staticmethod
     def log_formatter(class_, name: str, message: str) -> str:
-        return f"{type(class_).__name__:20}: {name:15} || {message}"
+        return f"{type(class_).__name__:20}: {name:20} || {message}"
 
 
 config = Configurations()
