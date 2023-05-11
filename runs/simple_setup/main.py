@@ -3,12 +3,11 @@ from unitpy import U
 import chembot
 
 controller = chembot.MasterController()
-controller.activate()
 
 # gui = chembot.GUI()
-#
-# serial = chembot.communication.PicoSerial("pico_lights", "COM4")
-#
+
+serial = chembot.communication.PicoSerial("pico_lights", "COM4")
+
 # red = chembot.equipment.lights.LightPico(
 #     name="deep_red",
 #     color=665 * U.nm,
@@ -23,6 +22,6 @@ controller.activate()
 #     communication="pico_lights"
 # )
 #
-# equip = [controller, gui] # serial, red, mint
-#
-# chembot.utils.activate_multiple_equipment(equip)
+equip = [controller, serial] # red, mint
+
+chembot.utils.activate_multiple_equipment(equip)

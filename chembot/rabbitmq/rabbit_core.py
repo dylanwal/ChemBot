@@ -86,3 +86,4 @@ class RabbitMQConnection:
 
     def deactivate(self):
         self.channel.basic_cancel(self.topic)
+        logger.debug(config.log_formatter(self, self.topic, "Rabbit connection closed."))

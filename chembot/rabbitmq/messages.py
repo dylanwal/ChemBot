@@ -5,13 +5,16 @@ import json
 import sys
 import uuid
 
+from chembot import registry
+from chembot.utils.serializer import serialize, deserialize
+
 
 class RabbitMessage:
     def __init__(self, destination: str, source: str):
         self.id_: int = uuid.uuid4().int
         self.destination = destination
         self.source = source
-        self.type_ = type(self).__name__
+        # self.type_ = type(self).__name__
 
     def __str__(self):
         return f"{self.source} -> {self.destination}"
@@ -98,6 +101,4 @@ message_factory = {k: v for k, v in class_in_file}
 
 
 def JSON_to_message(message: str) -> RabbitMessage:
-    dict_ = json.loads(message)
-    class_ = message_factory[dict_.pop("type_")]
-    return class_(**dict_)
+    return deserialize(json.loads(message), registry)
