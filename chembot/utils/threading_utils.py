@@ -20,39 +20,68 @@ class EquipmentInterface(Protocol):
         ...
 
 
-def activate_multiple_equipment(equipment: list[EquipmentInterface, ...]):
-    """ blocking """
-    threads = [threading.Thread(target=equip.activate, name=equip.name) for equip in equipment]
+EQUIPMENT_TYPE = list[EquipmentInterface, ...] | tuple[EquipmentInterface, ...] | EquipmentInterface
 
-    # start all threads
-    for thread in threads:
-        thread.start()
-        time.sleep(0.2)
 
-    logger.info("UTILS || All threads started")
-    # wait for them all to finish
-    try:
-        while True:
-            for thread in threads:
-                thread.join(timeout=1)
+def equipment_to_list(equipment: EQUIPMENT_TYPE):
+    if not (isinstance(equipment, list) or isinstance(equipment, tuple)):
+        equipment = [equipment]
+    return equipment
 
-    except KeyboardInterrupt:
-        logger.info("\n\n\tKeyboardInterrupt raised\n")
 
-    finally:
-        logger.info("UTILS || Cleaning up threads")
-        for equip in equipment:
-            # if any alive; tell them to deactivate
-            equip.write_deactivate()
-            logger.debug(f"UTILS || Deactivating thread: {equip.name}")
+class EquipmentManager:
+    def __init__(self, equipment: EQUIPMENT_TYPE = None):
+        self.equipment = []
+        self.threads = {}
+
+        if equipment is not None:
+            self.add(equipment)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.deactive()
+
+    def add(self, equipment: EQUIPMENT_TYPE):
+        self.equipment += equipment_to_list(equipment)
+
+    def activate(self):
+        self.threads = {equip.name: threading.Thread(target=equip.activate, name=equip.name) for equip in
+                        self.equipment}
+
+        # start all threads
+        for thread in self.threads.values():
+            thread.start()
             time.sleep(0.2)
 
-        for _ in range(3):  # sometimes they are still alive on first pass
-            for thread in threads:
-                if thread.is_alive():
-                    thread.join(0.2)
+        logger.info("#" * 35)
+        logger.info("UTILS || All threads started")
 
-    try:
-        sys.exit(0)
-    except SystemExit:
-        os._exit(0)
+    def deactive(self):
+        # wait for them all to finish
+        try:
+            while True:
+                for thread in self.threads.values():
+                    thread.join(timeout=1)
+
+        except KeyboardInterrupt:
+            logger.info("\n\n\tKeyboardInterrupt raised\n")
+
+        finally:
+            logger.info("UTILS || Cleaning up threads")
+            for equip in self.equipment:
+                # if any alive; tell them to deactivate
+                equip.write_deactivate()
+                logger.debug(f"UTILS || Deactivating thread: {equip.name}")
+                time.sleep(0.2)
+
+            for _ in range(3):  # sometimes they are still alive on first pass
+                for thread in self.threads.values():
+                    if thread.is_alive():
+                        thread.join(0.2)
+
+        try:
+            sys.exit(0)
+        except SystemExit:
+            os._exit(0)

@@ -17,16 +17,17 @@ class RabbitMessage:
         # self.type_ = type(self).__name__
 
     def __str__(self):
-        return f"{self.source} -> {self.destination}"
+        return self.to_str()
 
     def __repr__(self):
         return self.__str__()
 
     def to_JSON(self) -> str:  # noqa
-        return json.dumps(self, default=lambda x: x.__dict__)
+        dict_ = serialize(self)
+        return json.dumps(dict_)
 
     def to_str(self) -> str:
-        return f"\n\t{self.source} -> {self.destination} "
+        return f"\n\t{type(self).__name__} | {self.source} -> {self.destination} (id: {self.id_})"
 
 
 class RabbitMessageError(RabbitMessage):
@@ -34,12 +35,8 @@ class RabbitMessageError(RabbitMessage):
         super().__init__("master_controller", source)
         self.error = error
 
-    def __str__(self):
-        return super().__str__() + f" | ERROR"
-
     def to_str(self) -> str:
-        return f"\n\t{self.source} -> {self.destination} " \
-                 f"\n\tERROR: {self.error}"
+        return super().to_str() + f"\n\tERROR: {self.error}"
 
 
 class RabbitMessageCritical(RabbitMessage):
@@ -47,12 +44,8 @@ class RabbitMessageCritical(RabbitMessage):
         super().__init__("master_controller", source)
         self.error = error
 
-    def __str__(self):
-        return super().__str__() + f" | ERROR"
-
     def to_str(self) -> str:
-        return f"\n\t{self.source} -> {self.destination} " \
-                 f"\n\tCritical: {self.error}"
+        return super().to_str() + f"\n\tCritical: {self.error}"
 
 
 class RabbitMessageAction(RabbitMessage):
@@ -61,26 +54,33 @@ class RabbitMessageAction(RabbitMessage):
         self.action = action
         self.parameters = parameters
 
-    def __str__(self):
-        return super().__str__() + f" | {self.action}"
-
     def to_str(self) -> str:
-        return f"\n\t{self.source} -> {self.destination} " \
-                 f"\n\taction: {self.action}"
+        text = super().to_str()
+        text += f"\n\taction: {self.action}"
+        text += "\n\tparameters: "
+        if self.parameters is not None:
+            text += "".join(f"\n\t\t{k}: {v}" for k, v in self.parameters.items())
+
+        return text
 
 
 class RabbitMessageReply(RabbitMessage):
-    def __init__(self, message: RabbitMessage, value):
-        super().__init__(source=message.destination, destination=message.source)
-        self.id_reply = message.id_
+    def __init__(self, destination: str, source: str, id_reply: int, value):
+        super().__init__(destination, source)
+        self.id_reply = id_reply
         self.value = value
 
-    def __str__(self):
-        return super().__str__() + f" | {self.value}"
-
     def to_str(self) -> str:
-        return f"\n\t{self.source} -> {self.destination} " \
-                 f"\n\tvalue: {self.value}"
+        return super().to_str() + f"\n\tid_reply: {self.id_reply}" + f"\n\tvalue: {self.value}"
+
+    @staticmethod
+    def create_reply(message: RabbitMessage, value):
+        return RabbitMessageReply(
+            destination=message.source,
+            source=message.destination,
+            id_reply=message.id_,
+            value=value
+        )
 
 
 class RabbitMessageRegister(RabbitMessage):
@@ -88,11 +88,8 @@ class RabbitMessageRegister(RabbitMessage):
         super().__init__("master_controller", source)
         self.equipment_interface = equipment_interface
 
-    def __str__(self):
-        return super().__str__()
-
     def to_str(self) -> str:
-        return f"\n\t{self.source} -> {self.destination} " \
+        return super().to_str()
 
 
 # automatically grab all messages
@@ -102,3 +99,11 @@ message_factory = {k: v for k, v in class_in_file}
 
 def JSON_to_message(message: str) -> RabbitMessage:
     return deserialize(json.loads(message), registry)
+
+
+registry.register(RabbitMessage)
+registry.register(RabbitMessageRegister)
+registry.register(RabbitMessageCritical)
+registry.register(RabbitMessageError)
+registry.register(RabbitMessageAction)
+registry.register(RabbitMessageReply)

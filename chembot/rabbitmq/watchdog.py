@@ -19,6 +19,9 @@ class WatchdogEvent:
 
         self.warn_time = time.time() + delay
 
+    def __str__(self):
+        return f"{self.id_}: {self.warn_time}"
+
 
 class RabbitWatchdog:
 
@@ -61,7 +64,13 @@ class RabbitWatchdog:
 
     def check_watchdogs(self):
         now = time.time()
-        for id_, time_ in self.watchdogs:
-            if now > time_:
+        del_watchdog = []
+        for id_, watchdog in self.watchdogs.items():
+            if now > watchdog.warn_time:
                 # trigger watchdog
-                self.parent.rabbit.send(RabbitMessageError(self.parent.name, f"Watchdog triggered for message {id_}"))
+                del_watchdog.append(id_)
+                self.parent.rabbit.send(RabbitMessageError(self.parent.name, f"Watchdog triggered for message {watchdog}"))
+
+        # delete triggered watchdogs
+        for id_ in del_watchdog:
+            del self.watchdogs[id_]

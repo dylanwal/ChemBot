@@ -1,6 +1,7 @@
 
 import enum
 
+from chembot import registry
 import chembot.utils.numpy_parser as numpy_parser
 
 
@@ -24,7 +25,7 @@ class ActionType(enum.Enum):
 class ActionParameter:
     def __init__(self,
                  name: str,
-                 types: list,
+                 types: str | list[str],
                  descriptions: str = "",
                  range_: list | tuple = None,
                  unit: str = None
@@ -45,12 +46,12 @@ class ActionParameter:
 class Action:
     def __init__(self,
                  name: str,
-                 descriptions: str = "",
+                 description: str = "",
                  inputs: list[ActionParameter] = None,
                  outputs: list[ActionParameter] = None
                  ):
         self.name = name
-        self.descr = descriptions
+        self.description = description
         if name.startswith("read"):
             self.type_ = ActionType.READ
         else:
@@ -121,3 +122,10 @@ def parse_description(text: list[str]) -> list[str, str, str]:
             result[0] += line
 
     return result
+
+
+registry.register(EquipmentInterface)
+registry.register(Action)
+registry.register(ActionParameter)
+registry.register(ActionType)
+registry.register(EquipmentState)

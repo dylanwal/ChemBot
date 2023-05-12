@@ -1,4 +1,4 @@
-from os import listdir, getcwd
+from os import listdir
 from os.path import isfile, join
 import importlib
 import inspect
@@ -8,11 +8,11 @@ class ObjectRegistry:
     def __init__(self):
         self.objects = {}
 
-    def register(self, obj):
-        if type(obj).__name__ in self.objects:
+    def register(self, obj: type):
+        if obj.__name__ in self.objects:
             raise ValueError("Objects can't be registered twice.")
 
-        self.objects[type(obj).__name__] = obj
+        self.objects[obj.__name__] = obj
 
     def get(self, obj_name: str):
         if obj_name in self.objects:

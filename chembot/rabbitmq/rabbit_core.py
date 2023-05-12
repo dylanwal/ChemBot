@@ -72,17 +72,17 @@ class RabbitMQConnection:
             logger.error(config.log_formatter(self, self.topic, "Queue does not exist yet:" + message.destination))
             raise ValueError("Queue does not exist yet:" + message.destination)
 
-        result = self.channel.basic_publish(
-            exchange=config.rabbit_exchange,
-            routing_key=config.rabbit_exchange + "." + message.destination,
-            body=message.to_JSON().encode(config.encoding),
-            properties=pika.BasicProperties(delivery_mode=2)
-        )
-        if result:
+        try:
+            self.channel.basic_publish(
+                exchange=config.rabbit_exchange,
+                routing_key=config.rabbit_exchange + "." + message.destination,
+                body=message.to_JSON().encode(config.encoding),
+                properties=pika.BasicProperties(delivery_mode=2)
+            )
             logger.debug(config.log_formatter(self, self.topic, "Message sent:" + message.to_str()))
-        else:
+        except Exception as e:
             logger.error(config.log_formatter(self, self.topic, "Message not sent:" + message.to_str()))
-            raise ValueError()
+            raise e
 
     def deactivate(self):
         self.channel.basic_cancel(self.topic)

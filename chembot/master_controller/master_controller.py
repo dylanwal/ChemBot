@@ -56,7 +56,7 @@ class MasterController:
 
         elif isinstance(message, RabbitMessageRegister):
             self.registry.register(message)
-            self.rabbit.send(RabbitMessageReply(message, None))
+            self.rabbit.send(RabbitMessageReply.create_reply(message, None))
 
         elif isinstance(message, RabbitMessageAction) and message.action in self.actions:
             try:

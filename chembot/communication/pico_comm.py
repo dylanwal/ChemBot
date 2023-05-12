@@ -47,10 +47,14 @@ class PicoSerial(Serial):
     def __repr__(self):
         return self.name + f" || port: {self.port}"
 
-    def activate(self):
-        super().activate()
+    def _activate(self):
+        super()._activate()
         reply = self.write_plus_read_until("v")
         self.pico_version = reply
+
+    def _deactivate(self):
+        self.write_reset()
+        super()._deactivate()
 
     def _write(self, message: str):
         message = encode_message(message) + "\n"

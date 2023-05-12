@@ -44,7 +44,7 @@ class Equipment(abc.ABC):
         """
         self.name = name
         self.state: EquipmentState = EquipmentState.OFFLINE
-        self.rabbit = RabbitMQConnection(f"equipment.{name}")
+        self.rabbit = RabbitMQConnection(name)
         self.actions = get_actions_list(self)
         self._deactivate_event = False
         self._reply_callback = None
@@ -77,7 +77,10 @@ class Equipment(abc.ABC):
 
         except KeyboardInterrupt:
             logger.info(config.log_formatter(self, self.name, "KeyboardInterrupt"))
+
         finally:
+            logger.debug(config.log_formatter(self, self.name, "Deactivating"))
+            self._deactivate()
             self._deactivate_()
             logger.info(config.log_formatter(self, self.name, "Deactivated"))
 
@@ -98,23 +101,35 @@ class Equipment(abc.ABC):
         elif isinstance(message, RabbitMessageError):
             self._deactivate_event = True
 
-        elif isinstance(message, RabbitMessageAction) and message.action in self.actions:
-            try:
-                func = getattr(self, message.action)
-                reply = func(message.parameters)
-                self.rabbit.send(RabbitMessageReply(message, reply))
-                logger.info(
-                    config.log_formatter(self, self.name, f"Action | {message.action}: {message.parameters}"))
-            except Exception as e:
-                logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-                self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
+        elif isinstance(message, RabbitMessageAction):
+            self._execute_action(message)
 
         elif isinstance(message, RabbitMessageReply):
             self.watchdog.deactivate_watchdog(message)
 
         else:
-            logger.warning("Invalid message or action!!" + message.to_str())
+            logger.warning("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
+
+    def _execute_action(self, message):
+        if message.action not in self.actions:
+            logger.warning("Invalid action!!" + message.to_str())
+            self.rabbit.send(RabbitMessageError(self.name, f"Invalid action: {message.to_str()}"))
+
+        try:
+            func = getattr(self, message.action)
+            if func.__code__.co_argcount == 1:  # the '1' is 'self'
+                # function with no inputs
+                reply = func()
+            else:
+                reply = func(**message.parameters)
+            self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+            logger.info(
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.parameters}"))
+
+        except Exception as e:
+            logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
+            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
 
     def read_all(self) -> dict:
         """
@@ -164,8 +179,8 @@ class Equipment(abc.ABC):
         # self._deactivate is called by self._run
 
     def _deactivate_(self):
-        logger.info(config.log_formatter(self, self.name, "Deactivating"))
         self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
+        # TODO un-register
         self.rabbit.deactivate()
 
     @abc.abstractmethod

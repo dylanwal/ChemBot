@@ -11,7 +11,8 @@ def serialize(obj):
     elif isinstance(obj, enum.Enum):
         return {'enum': type(obj).__name__, 'value': obj.value}
     elif hasattr(obj, '__dict__'):
-        dict_ = serialize(obj.__dict__)
+        keys = {k.lstrip("_") for k in vars(obj) if not k.startswith("__")}
+        dict_ = {k: serialize(getattr(obj, k)) for k in keys}
         dict_["class"] = type(obj).__name__
         return dict_
     else:
@@ -26,10 +27,22 @@ def deserialize(json_data: dict, registry: ObjectRegistry):
             return registry.get(json_data["enum"])(json_data["value"])
         if "class" in json_data:
             class_ = registry.get(json_data.pop("class"))
+            __init__param = class_.__init__.__code__.co_varnames
+            init_parameters = {}
             parameters = {}
             for key, value in json_data.items():
-                parameters[key] = deserialize(value, registry)
-            return class_(**parameters)
+                parameter = deserialize(value, registry)
+                if key in __init__param:
+                    init_parameters[key] = parameter
+                else:
+                    parameters[key] = parameter
+
+            obj = class_(**init_parameters)
+            for k, v in parameters.items():
+                if not hasattr(obj, k):
+                    raise ValueError(f"Attempting to setattr({type(obj).__name__}, {k}); but {k} does not exist.")
+                setattr(obj, k, v)
+            return obj
 
         args = {}
         for key, value in json_data.items():

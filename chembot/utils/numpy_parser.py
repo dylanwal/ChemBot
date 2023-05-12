@@ -110,7 +110,7 @@ class ParseError(Exception):
 class Parameter:
     __slots__ = ("name", "type_", "description")
 
-    def __init__(self, name: str, type_: str, description: str):
+    def __init__(self, name: str, type_: str, description: list[str]):
         self.name = name
         self.type_ = type_
         self.description = description
