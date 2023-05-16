@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 
 dash.register_page(__name__, path='/')
 
-default_refresh_rate = 1
+default_refresh_rate = 2
 
 layout = html.Div(children=[
     dcc.Interval(id="refresh", interval=default_refresh_rate * 1000, n_intervals=-1),
@@ -15,7 +15,7 @@ layout = html.Div(children=[
             dbc.Col([html.H1(children='Instrument Status')]),
             dbc.Col(html.P("Refresh Rate (sec):", style={"text-align": "center"}), width=1),
             dbc.Col([
-                dbc.Select([1, 2, default_refresh_rate, 10, 30], default_refresh_rate, id="refresh-dropdown")
+                dbc.Select([1, 2, 5, 10, 30], default_refresh_rate, id="refresh-dropdown")
                 ], width=1)
         ]
     ),

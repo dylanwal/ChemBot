@@ -15,7 +15,7 @@ class Serial(Communication):
     def __init__(self,
                  name: str,
                  port: str,
-                 baud_rate: int = 115200,
+                 baud_rate: int = 9600,
                  parity: str = 'N',
                  stop_bits: int = 1,
                  bytes_: int = 8,

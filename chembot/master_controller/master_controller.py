@@ -58,16 +58,35 @@ class MasterController:
             self.registry.register(message)
             self.rabbit.send(RabbitMessageReply.create_reply(message, None))
 
-        elif isinstance(message, RabbitMessageAction) and message.action in self.actions:
-            try:
-                func = getattr(self, message.action)
-                func(message)
-            except Exception as e:
-                logger.exception(
-                    config.log_formatter(self, self.name, "ActionError" + message.to_str())
-                )
+        elif isinstance(message, RabbitMessageAction):
+            self._execute_action(message)
+
+        elif isinstance(message, RabbitMessageReply):
+            self.watchdog.deactivate_watchdog(message)
+
         else:
-            logger.warning("Invalid message action!!" + message.to_str())
+            logger.warning("Invalid message!!" + message.to_str())
+            self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
+
+    def _execute_action(self, message):
+        if message.action not in self.actions:
+            logger.warning("Invalid action!!" + message.to_str())
+            self.rabbit.send(RabbitMessageError(self.name, f"Invalid action: {message.to_str()}"))
+
+        try:
+            func = getattr(self, message.action)
+            if func.__code__.co_argcount == 1:  # the '1' is 'self'
+                # function with no inputs
+                reply = func()
+            else:
+                reply = func(**message.parameters)
+            self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+            logger.info(
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.parameters}"))
+
+        except Exception as e:
+            logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
+            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
 
     def _error_handling(self):
         """ Deactivate all equipment """
@@ -75,8 +94,9 @@ class MasterController:
             self.rabbit.send(RabbitMessageAction(equip, self.name, ""))
         self._deactivate()
 
-    def read_equipment_status(self):
-        pass
+    def read_equipment_status(self) -> EquipmentRegistry:
+        """ read equipment status"""
+        return self.registry
 
     def write_deactivate(self):
         pass

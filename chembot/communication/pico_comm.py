@@ -40,7 +40,7 @@ class PicoSerial(Serial):
                  name: str,
                  port: str,
                  ):
-        super().__init__(name, port, parity='E')
+        super().__init__(name, port)
         self.pins = {pin: PinStatus.STANDBY for pin in PicoHardware.pins_GPIO}
         self.pico_version = None
 

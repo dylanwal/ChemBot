@@ -1,47 +1,19 @@
-from dash import Dash, html, dcc, Output, Input, State
+from dash import Dash, html
 import dash
 import dash_bootstrap_components as dbc
 
-app = Dash(__name__, use_pages=True, external_stylesheets=[dbc.themes.DARKLY])
-
-PLOTLY_LOGO = "assets/icon-research-catalysis-white.svg"
-
-navbar = dbc.Navbar(
-    dbc.Container(
-        [
-            html.A(
-                # Use row and col to control vertical alignment of logo / brand
-                dbc.Row(
-                    [
-                        dbc.Col(html.Img(src=PLOTLY_LOGO, height="30px")),
-                        dbc.Col(dbc.NavbarBrand("ChemBot", className="ms-2")),
-                        dbc.Col(
-                            dbc.Nav([
-                                dbc.NavItem(dbc.NavLink("Home", href="/")),
-                                dbc.NavItem(dbc.NavLink("Jobs", href="/jobs")),
-                                dbc.NavItem(dbc.NavLink("Rabbitmq", href="/rabbitmq")),
-                            ])
-                        )
-                    ],
-                    align="center",
-                    className="g-0",
-                ),
-                href="/",
-                style={"textDecoration": "none"},
-            ),
-
-        ]
-    ),
-    color="dark",
-    dark=True,
-)
-
-app.layout = html.Div([
-    navbar,
-    html.Br(),
-    dash.page_container
-])
+from chembot.gui.gui_data_actions import GUIInterface
+from chembot.gui.components.navbar import create_navbar
 
 
-if __name__ == '__main__':
-    app.run_server(debug=True)
+class GUI:
+    name = "GUI"
+
+    def __init__(self, debug: bool = True):
+        self.debug = debug
+        self.app = Dash(__name__, use_pages=True, external_stylesheets=[dbc.themes.DARKLY])
+        self.gui = GUIInterface(self.app)
+        self.app.layout = html.Div([create_navbar(self.gui), html.Br(), dash.page_container])
+
+    def activate(self):
+        self.app.run_server(debug=self.debug)  # blocking
