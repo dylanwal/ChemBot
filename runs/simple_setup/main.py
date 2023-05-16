@@ -4,7 +4,7 @@ import chembot
 
 controller = chembot.MasterController()
 
-serial = chembot.communication.PicoSerial("pico_lights", "COM3")
+serial = chembot.communication.PicoSerial("pico_lights", "COM4")
 
 red = chembot.equipment.lights.LightPico(
     name="deep_red",

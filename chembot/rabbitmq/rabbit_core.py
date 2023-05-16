@@ -5,7 +5,7 @@ import pika.exceptions
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 from chembot.configuration import config
-from chembot.rabbitmq.messages import RabbitMessage, JSON_to_message
+from chembot.rabbitmq.messages import RabbitMessage, JSON_to_message, RabbitMessageReply
 
 logger = logging.getLogger(config.root_logger_name + ".rabbitmq")
 
@@ -52,9 +52,12 @@ class RabbitMQConnection:
     def queue_exists(self, queue_name: str) -> bool:
         return queue_exists(self.channel, queue_name)
 
-    def consume(self, timeout: int | float = 0.1) -> RabbitMessage | None:
+    def consume(self, timeout: int | float = 0.1, error_out: bool = False) -> RabbitMessage | None:
         for method, properties, body in self.channel.consume(queue=self.topic, auto_ack=True, inactivity_timeout=timeout):
             if body is None:
+                if error_out:
+                    raise ValueError("No message to consume.")
+
                 return None
 
             return self._process_message(body.decode(config.encoding))
@@ -83,6 +86,14 @@ class RabbitMQConnection:
         except Exception as e:
             logger.error(config.log_formatter(self, self.topic, "Message not sent:" + message.to_str()))
             raise e
+
+    def send_and_consume(self, message: RabbitMessage, timeout: int | float = 0.1, error_out: bool = False) \
+            -> RabbitMessageReply | None:
+        self.send(message)
+        try:
+            return self.consume(timeout, error_out)
+        except ValueError:
+            raise ValueError(f"No reply received from message: {message.id_}")
 
     def deactivate(self):
         self.channel.basic_cancel(self.topic)

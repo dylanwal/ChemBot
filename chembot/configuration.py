@@ -28,7 +28,7 @@ class Configurations:
 
         # rabbitmq
         # MUST BE CHANGED BEFORE INITIALIZING DEVISES
-        self.rabbit_host = 'localhost'
+        self.rabbit_host = '127.0.0.1'
         self.rabbit_port = 5672
         self.rabbit_username = 'guest'
         self.rabbit_password = 'guest'

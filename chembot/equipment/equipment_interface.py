@@ -67,8 +67,9 @@ class Action:
 
 
 class EquipmentInterface:
-    def __init__(self, name: str, actions: list[Action], state: EquipmentState):
+    def __init__(self, name: str, class_, actions: list[Action], state: EquipmentState):
         self.name = name
+        self.class_ = class_
         self.state = state
         self.actions = actions
 
@@ -77,6 +78,9 @@ class EquipmentInterface:
 
     def __repr__(self):
         return self.__str__()
+
+    def data_row(self) -> dict:
+        return {"name": self.name, "class": self.class_, "state": self.state.name, "actions": len(self.actions)}
 
 
 def get_equipment_interface(class_) -> EquipmentInterface:
@@ -89,7 +93,7 @@ def get_equipment_interface(class_) -> EquipmentInterface:
             outputs_ = parse_parameters(docstring.returns)
             actions.append(Action(func, docstring.summary, inputs_, outputs_))
 
-    return EquipmentInterface(class_.name, actions, class_.state)
+    return EquipmentInterface(class_.name, type(class_).__name__, actions, class_.state)
 
 
 def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParameter]:
