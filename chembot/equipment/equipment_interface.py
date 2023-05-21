@@ -1,5 +1,6 @@
 
 import enum
+from typing import Iterable
 
 from chembot import registry
 import chembot.utils.numpy_parser as numpy_parser
@@ -22,19 +23,47 @@ class ActionType(enum.Enum):
     WRITE = 1
 
 
+class ParameterRange:
+    ...
+
+
+class NumericalRange(ParameterRange):
+    def __init__(self, min_: float | int, max_: float | int, step: int | float | None = None):
+        self.min_ = min_
+        self.max_ = max_
+        self.step = step
+
+    def __str__(self):
+        text = f"[{self.min_}:"
+        if self.step is not None:
+            text += f"{self.step}:"
+        return text + f"{self.max_}]"
+
+
+class CategoricalRange(ParameterRange):
+    def __init__(self, options: Iterable[int] | Iterable[float] | Iterable[str]):
+        self.options = options
+
+
+class NotDefinedParameter:
+    ...
+
+
 class ActionParameter:
     def __init__(self,
                  name: str,
                  types: str | list[str],
                  descriptions: str = "",
-                 range_: list | tuple = None,
-                 unit: str = None
+                 range_: ParameterRange | None = None,
+                 unit: str = None,
+                 default=NotDefinedParameter,
                  ):
         self.name = name
         self.descriptions = descriptions
         self.types = types
         self.range_ = range_
         self.unit = unit
+        self.default = default
 
     def __str__(self):
         return self.name + f" || {self.types}"
@@ -79,6 +108,13 @@ class EquipmentInterface:
     def __repr__(self):
         return self.__str__()
 
+    def get_action(self, name: str):
+        for action in self.actions:
+            if action.name == name:
+                return action
+
+        raise ValueError(f"Action ({name}) not found in EquipmentInterface ({self.name}).")
+
     def data_row(self) -> dict:
         return {"name": self.name, "class": self.class_, "state": self.state.name, "actions": len(self.actions)}
 
@@ -114,12 +150,12 @@ def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParamete
 
 
 def parse_description(text: list[str]) -> list[str, str, str]:
-    result = ["", "", ""]
+    result = ["", None, None]
 
     # text_list = text.split("\n")
     for line in text:
         if line.startswith("range"):
-            result[1] = line
+            result[1] = parse_range(line)
         elif line.startswith("unit"):
             result[2] = line
         else:
@@ -128,8 +164,54 @@ def parse_description(text: list[str]) -> list[str, str, str]:
     return result
 
 
+def parse_range(text: str) -> ParameterRange | None:
+    if not text:
+        return None
+
+    text = text.replace("range:", "").replace(" ", "").replace("[", "").replace("]", "")
+
+    if "'" in text or '"' in text:
+        return parse_categorical_range(text)
+
+    return parse_numerical_range(text)
+
+
+def parse_categorical_range(text: str) -> CategoricalRange | None:
+    options = text.replace("'", "").replace('"', "").split(",")
+    if options:
+        return CategoricalRange(options)
+
+    return None
+
+
+def parse_numerical_range(text: str) -> NumericalRange | CategoricalRange:
+    count_collen = text.count(":")
+
+    if count_collen == 0:
+        options = text.split(",")
+        options_numerical = []
+        for op in options:
+            num = float(op)
+            if num == int(num):
+                num = int(num)
+            options_numerical.append(num)
+        return CategoricalRange(options_numerical)
+
+    if count_collen == 1:
+        text = text.split(":")
+        return NumericalRange(float(text[0]), float(text[1]))
+
+    if count_collen == 2:
+        text = text.split(":")
+        return NumericalRange(float(text[0]), float(text[2]), float(text[1]))
+
+    raise ValueError("Invalid doc sting range.")
+
+
 registry.register(EquipmentInterface)
 registry.register(Action)
 registry.register(ActionParameter)
 registry.register(ActionType)
 registry.register(EquipmentState)
+registry.register(NumericalRange)
+registry.register(CategoricalRange)

@@ -1,18 +1,97 @@
 import logging
+import time
 
-from dash import Dash, html, dcc
+from dash import Dash, html, dcc, Input, Output
 import dash
 import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
-from chembot.gui.gui_data_actions import GUIData
+from chembot.gui.gui_data import GUIData, IDDataStore
+from chembot.gui.gui_actions import equipment_registry
 from chembot.gui.pages.home import layout_home
 from chembot.gui.pages.rabbitmq import layout_rabbit
+from chembot.gui.pages.jobs import layout_jobs
 
 logger = logging.getLogger(config.root_logger_name + ".gui")
 
+example_registry = {
+    "class": "EquipmentRegistry",
+    "equipment": {
+        "pico_serial": {
+            "class": "EquipmentInterface",
+            "name": "pico_serial",
+            "class_": "PicoSerial",
+            "state": {
+                "enum": "EquipmentState",
+                "value": 0
+            },
+            "actions": [
+                {
+                    "class": "Action",
+                    "name": "write",
+                    "description": "write stuff to pico",
+                    "inputs": [
+                        {
+                            "class": "ActionParameter",
+                            "name": "message",
+                            "types": "str"
+                        }
+                    ]
+                },
+                {
+                    "class": "Action",
+                    "name": "read",
+                    "description": "read stuff from pico",
+                    "outputs": [
+                        {
+                            "class": "ActionParameter",
+                            "name": "message",
+                            "types": "str"
+                        }
+                    ]
+                }
+            ]
+        },
+        "red_led": {
+            "class": "EquipmentInterface",
+            "name": "red_led",
+            "class_": "PicoLED",
+            "state": {
+                "enum": "EquipmentState",
+                "value": 0
+            },
+            "actions": [
+                {
+                    "class": "Action",
+                    "name": "write_on",
+                    "description": "turn on light",
+                },
+                {
+                    "class": "Action",
+                    "name": "write_off",
+                    "description": "turn off light",
+                },
+                {
+                    "class": "Action",
+                    "name": "write_power",
+                    "description": "set light power",
+                    "inputs": [
+                        {
+                            "class": "ActionParameter",
+                            "name": "power",
+                            "types": "float",
+                            "range_": "[0:100]",
+                            "unit": "kg"
+                        }
+                    ]
+                }
+            ]
+        }
+    }
+}
 
-def create_navbar() -> html.Div:
+
+def create_navbar(app: Dash) -> html.Div:
     navbar = dbc.Navbar(
         dbc.Container(
             [
@@ -28,7 +107,8 @@ def create_navbar() -> html.Div:
                                     dbc.NavItem(dbc.NavLink("Jobs", href="/jobs")),
                                     dbc.NavItem(dbc.NavLink("Rabbitmq", href="/rabbitmq")),
                                 ])
-                            )
+                            ),
+                            dbc.Col(dbc.Button(id="refresh_data_button", name="refresh"), align="end")
                         ],
                         align="center",
                         className="g-0",
@@ -43,11 +123,22 @@ def create_navbar() -> html.Div:
         dark=True,
     )
 
-    return html.Div([navbar, html.Br()])
+    # add data store
+    data = html.Div(
+        [
+            dcc.Store(id=IDDataStore.EQUIPMENT_REGISTRY, storage_type='session', data={},
+                      modified_timestamp=time.time()),
+        ]
+    )
 
+    @app.callback(
+        Output(IDDataStore.EQUIPMENT_REGISTRY, "data"),
+        Input("refresh_data_button", "n_clicks")
+    )
+    def update_data(_):
+        return example_registry
 
-class IDGUI:
-    EQUIPMENT_REGISTRY = "e"
+    return html.Div([navbar, html.Br(), data])
 
 
 class GUI:
@@ -63,8 +154,9 @@ class GUI:
 
     def _register_pages(self):
         # layout common to all pages
-        self.app.layout = html.Div([create_navbar(), html.Br(), dash.page_container])
+        self.app.layout = html.Div([create_navbar(self.app), html.Br(), dash.page_container])
 
         # individual pages
         dash.register_page("home", path='/', layout=layout_home(self.app))
         dash.register_page("rabbitmq", path='/rabbitmq', layout=layout_rabbit(self.app))
+        dash.register_page("jobs", path='/jobs', layout=layout_jobs(self.app))

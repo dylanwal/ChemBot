@@ -97,8 +97,10 @@ class_in_file = inspect.getmembers(sys.modules[__name__], inspect.isclass)
 message_factory = {k: v for k, v in class_in_file}
 
 
-def JSON_to_message(message: str) -> RabbitMessage:
-    return deserialize(json.loads(message), registry)
+def JSON_to_class(data: str | dict[str, object]):
+    if isinstance(data, str):
+        message = json.loads(data)
+    return deserialize(data, registry)
 
 
 registry.register(RabbitMessage)

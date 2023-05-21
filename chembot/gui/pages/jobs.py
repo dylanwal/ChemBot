@@ -1,11 +1,9 @@
-import dash
-from dash import html, dcc
 
-dash.register_page(__name__)
+from dash import Dash, html, dcc
 
-layout = html.Div(children=[
-    html.H1(children='Running Jobs'),
 
-    html.H1(children='Add new job'),
-]
-)
+def layout_jobs(app: Dash) -> html.Div:
+    return html.Div(children=[
+        html.H1(children='Place holder'),
+        ]
+    )
