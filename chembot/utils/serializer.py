@@ -1,6 +1,18 @@
 import enum
+import logging
 
 from chembot.utils.object_registry import ObjectRegistry
+from chembot.configuration import config
+
+logger = logging.getLogger(config.root_logger_name + ".serialize")
+
+
+def serialize_try(obj):
+    try:
+        return serialize(obj)
+    except Exception as e:
+        logger.exception(f"Exception raise while serializing: {obj}")
+        raise e
 
 
 def serialize(obj):
@@ -17,6 +29,14 @@ def serialize(obj):
         return dict_
     else:
         return obj
+
+
+def deserialize_try(json_data: dict, registry: ObjectRegistry):
+    try:
+        return deserialize(json_data, registry)
+    except Exception as e:
+        logger.exception(f"Exception raise while deserializing: {json_data}")
+        raise e
 
 
 def deserialize(json_data: dict, registry: ObjectRegistry):

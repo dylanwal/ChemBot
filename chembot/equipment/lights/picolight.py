@@ -110,7 +110,6 @@ class LightPico(Light):
 
     def write_power(self, power: int):
         """
-        write_power
         Sets the power setting for
 
         Parameters

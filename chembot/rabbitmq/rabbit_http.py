@@ -12,7 +12,7 @@ from chembot.configuration import config
 
 def get_vhost(
         ip: str = config.rabbit_host,
-        port: int = config.rabbit_port,
+        port: int = config.rabbit_port_http,
 ) -> list[dict]:
     """server definitions for a given virtual host"""
     reply = requests.get(f"http://{ip}:{port}/api/vhosts", auth=config.rabbit_auth)
@@ -22,7 +22,7 @@ def get_vhost(
 def create_exchange(
         exchange: str,
         ip: str = config.rabbit_host,
-        port: int = config.rabbit_port,
+        port: int = config.rabbit_port_http,
         type_: str = "direct",
         auto_delete: bool = False,
         durable: bool = True,
@@ -47,7 +47,7 @@ def create_exchange(
 def create_queue(
         queue: str,
         ip: str = config.rabbit_host,
-        port: int = config.rabbit_port,
+        port: int = config.rabbit_port_http,
         auto_delete: bool = False,
         durable: bool = True,
         arguments: dict = None
@@ -66,15 +66,29 @@ def create_queue(
         raise ValueError(f"Error creating a queue. status code: {reply.status_code}")
 
 
+def delete_queue(
+        queue: str,
+        ip: str = config.rabbit_host,
+        port: int = config.rabbit_port_http,
+):
+    API = f"http://{ip}:{port}/api/queues/%2f/{queue}"
+    headers = {'content-type': 'application/json'}
+    reply = requests.delete(url=API, auth=config.rabbit_auth, headers=headers)
+
+    if not reply.ok:
+        raise ValueError(f"Error delete a queue. status code: {reply.status_code}")
+
+
 def create_binding(
         queue: str,
         exchange: str = config.rabbit_exchange,
         ip: str = config.rabbit_host,
-        port: int = config.rabbit_port
+        port: int = config.rabbit_port_http
 ):
     API = f"http://{ip}:{port}/api/bindings/%2f/e/{exchange}/q/{queue}"
     headers = {'content-type': 'application/json'}
-    reply = requests.post(url=API, auth=config.rabbit_auth, headers=headers)
+    pdata = {"routing_key": exchange + "." + queue}
+    reply = requests.post(url=API, auth=config.rabbit_auth, json=pdata, headers=headers)
 
     if not reply.ok:
         raise ValueError(f"Error binding queue ({queue}) to exchange ({exchange}). status code: {reply.status_code}")
@@ -85,7 +99,7 @@ def publish(
         payload: str,
         exchange: str = config.rabbit_exchange,
         ip: str = config.rabbit_host,
-        port: int = config.rabbit_port
+        port: int = config.rabbit_port_http
 ):
     API = f"http://{ip}:{port}/api/exchanges/%2f/{exchange}/publish"
     headers = {'content-type': 'application/json'}
@@ -103,7 +117,7 @@ def publish(
 def get(
         queue: str,
         ip: str = config.rabbit_host,
-        port: int = config.rabbit_port,
+        port: int = config.rabbit_port_http,
         count: int = 1,
         ackmode: str = "ack_requeue_true",
         encoding: str = "auto",

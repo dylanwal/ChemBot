@@ -66,15 +66,13 @@ class PicoSerial(Serial):
 
     def read_pico_version(self) -> str:
         """
-        read_pico_version
         version of pico communication code
         """
         return self.pico_version
 
     def write_reset(self):
         """
-        write_reset
-        sets all pins to off
+        reset all pins to off
         """
         reply = self.write_plus_read_until("r")
         if reply != "r":
@@ -82,14 +80,13 @@ class PicoSerial(Serial):
 
     def write_digital(self, pin: int, value: int, resistor: str = None):
         """
-        write digital
-        Turn GPIO pin on or off
+        Turn GPIO pin on, off
 
         Parameters
         ----------
         pin: int
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         value: int
             0: off; 1 on
             range: [0, 1]
@@ -123,7 +120,7 @@ class PicoSerial(Serial):
         ----------
         pin: int
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         resistor:
             'n': No resistor, 'u': pull up, 'd': pull down
             range: ['n', 'u', 'd']
@@ -151,12 +148,12 @@ class PicoSerial(Serial):
         ----------
         pin: int
             GPIO pin
-            range: [0, 1, 2, 3, 4]
+            range: [0:4]
 
         Returns
         -------
         value: int
-            range: [0, ..., 65535]
+            range: [0:65535]
         """
         # validation
         PicoHardware.validate_adc_pin(pin)
@@ -179,14 +176,14 @@ class PicoSerial(Serial):
         ----------
         pin: int
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         duty: int
             how much the pulse is 'on'
-            range: [0, ..., 65_535]
+            range: [0:65_535]
             duty = 0 turns off pwm
         frequency:
             PWM pulse frequency
-            range: [7, ..., 125_000_000]
+            range: [7:125_000_000]
         """
         # validation
         PicoHardware.validate_GPIO_pin(pin)
@@ -209,16 +206,16 @@ class PicoSerial(Serial):
         ----------
         pin: int
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         duty: int
             how much the pulse is 'on'
-            range: [0, ..., 65_535]
+            range: [0:65_535]
         frequency:
             PWM pulse frequency
-            range: [7, ..., 125_000_000]
+            range: [7:125_000_000]
         time_:
             time the PWM will remain on
-            range: [999 * U("s"), ..., 1 * U("us")]
+            _range: [999 * U("s"):1 * U("us")]
 
         """
         # validation
@@ -253,16 +250,16 @@ class PicoSerial(Serial):
             range: [0, 1]
         tx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         rx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
             range: [9600, 19200, 57600, 115200]
         bits:
             range: [7, 8, 9]
         parity:
-            range: [0, 1, 2 or None]
+            range: [0, 1, 2, None]
         stop:
             range: [1, 2]
 
@@ -304,16 +301,16 @@ class PicoSerial(Serial):
             range: [0, 1]
         tx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         rx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
             range: [9600, 19200, 57600, 115200]
         bits:
             range: [7, 8, 9]
         parity:
-            range: [0, 1, 2 or None]
+            range: [0, 1, 2, None]
         stop:
             range: [1, 2]
 
@@ -358,16 +355,16 @@ class PicoSerial(Serial):
             range: [0, 1]
         tx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         rx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
             range: [9600, 19200, 57600, 115200]
         bits:
             range: [7, 8, 9]
         parity:
-            range: [0, 1, 2 or None]
+            range: [0, 1, 2, None]
         stop:
             range: [1, 2]
 
@@ -415,16 +412,16 @@ class PicoSerial(Serial):
             range: [0, 1]
         tx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         rx_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
             range: [9600, 19200, 57600, 115200]
         bits:
             range: [7, 8, 9]
         parity:
-            range: [0, 1, 2 or None]
+            range: [0, 1, 2, None]
         stop:
             range: [1, 2]
 
@@ -474,18 +471,18 @@ class PicoSerial(Serial):
             range: [0, 1]
         sck_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         mosi_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         miso_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         cs_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
-            range: [9600, ..., 115_200]
+            range: [9600:115_200]
             # could increase to 1000000
         bits:
             range: [7, 8, 9]
@@ -535,18 +532,18 @@ class PicoSerial(Serial):
             range: [0, 1]
         sck_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         mosi_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         miso_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         cs_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
-            range: [9600, ..., 115_200]
+            range: [9600:115_200]
             # could increase to 1000000
         bits:
             range: [7, 8, 9]
@@ -605,18 +602,18 @@ class PicoSerial(Serial):
             range: [0, 1]
         sck_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         mosi_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         miso_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         cs_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         baudrate: int
-            range: [9600, ..., 115_200]
+            range: [9600:115_200]
             # could increase to 1000000
         bits:
             range: [7, 8, 9]
@@ -670,10 +667,10 @@ class PicoSerial(Serial):
             range: [0, 1]
         scl_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         sda_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         frequency: int
             range: [400_000]
 
@@ -712,10 +709,10 @@ class PicoSerial(Serial):
             range: [0, 1]
         scl_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         sda_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         frequency: int
             range: [400_000]
 
@@ -746,7 +743,6 @@ class PicoSerial(Serial):
                       frequency: int = 115_200,
                       ) -> str:
         """
-        scan_i2c
         Scan all I2C addresses between 0x08 and 0x77 inclusive and return a list of those that respond.
 
         Parameters
@@ -755,10 +751,10 @@ class PicoSerial(Serial):
             range: [0, 1]
         scl_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         sda_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         frequency: int
             range: [400_000]
 
@@ -805,10 +801,10 @@ class PicoSerial(Serial):
             range: [0, 1]
         scl_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         sda_pin:
             GPIO pin
-            range: [0, ..., 28]
+            range: [0:28]
         frequency: int
             range: [400_000]
 

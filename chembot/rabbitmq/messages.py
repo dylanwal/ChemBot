@@ -6,7 +6,7 @@ import sys
 import uuid
 
 from chembot import registry
-from chembot.utils.serializer import serialize, deserialize
+from chembot.utils.serializer import serialize_try, deserialize_try
 
 
 class RabbitMessage:
@@ -23,7 +23,7 @@ class RabbitMessage:
         return self.__str__()
 
     def to_JSON(self) -> str:  # noqa
-        dict_ = serialize(self)
+        dict_ = serialize_try(self)
         return json.dumps(dict_)
 
     def to_str(self) -> str:
@@ -99,8 +99,8 @@ message_factory = {k: v for k, v in class_in_file}
 
 def JSON_to_class(data: str | dict[str, object]):
     if isinstance(data, str):
-        message = json.loads(data)
-    return deserialize(data, registry)
+        data = json.loads(data)
+    return deserialize_try(data, registry)
 
 
 registry.register(RabbitMessage)

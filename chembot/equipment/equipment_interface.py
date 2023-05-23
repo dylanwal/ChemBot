@@ -1,9 +1,12 @@
-
+import logging
 import enum
 from typing import Iterable
 
 from chembot import registry
+from chembot.configuration import config
 import chembot.utils.numpy_parser as numpy_parser
+
+logger = logging.getLogger(config.root_logger_name + ".equipment_interface")
 
 
 class EquipmentState(enum.Enum):
@@ -44,9 +47,13 @@ class CategoricalRange(ParameterRange):
     def __init__(self, options: Iterable[int] | Iterable[float] | Iterable[str]):
         self.options = options
 
+    def __str__(self):
+        return str(self.options)
+
 
 class NotDefinedParameter:
-    ...
+    def __init__(self):
+        self.name = "not defined parameter"
 
 
 class ActionParameter:
@@ -56,7 +63,7 @@ class ActionParameter:
                  descriptions: str = "",
                  range_: ParameterRange | None = None,
                  unit: str = None,
-                 default=NotDefinedParameter,
+                 default=NotDefinedParameter(),
                  ):
         self.name = name
         self.descriptions = descriptions
@@ -122,12 +129,17 @@ class EquipmentInterface:
 def get_equipment_interface(class_) -> EquipmentInterface:
     """ Given an Equipment create and equipment interface. """
     actions = []
-    for func in dir(class_):
-        if callable(getattr(class_, func)) and (func.startswith("read") or func.startswith("write")):
-            docstring = numpy_parser.get_numpy_style_docstring(getattr(class_, func))
-            inputs_ = parse_parameters(docstring.parameters)
-            outputs_ = parse_parameters(docstring.returns)
-            actions.append(Action(func, docstring.summary, inputs_, outputs_))
+    try:
+        for func in dir(class_):
+            if callable(getattr(class_, func)) and (func.startswith("read") or func.startswith("write")):
+                docstring = numpy_parser.get_numpy_style_docstring(getattr(class_, func))
+                inputs_ = parse_parameters(docstring.parameters)
+                outputs_ = parse_parameters(docstring.returns)
+                actions.append(Action(func, docstring.summary, inputs_, outputs_))
+    except Exception as e:
+        logger.exception(f"Exception raise while parsing: {class_.name} ({type(class_)}) "
+                         f"function: {func if 'func' in locals() else None}")
+        raise e
 
     return EquipmentInterface(class_.name, type(class_).__name__, actions, class_.state)
 
@@ -191,9 +203,13 @@ def parse_numerical_range(text: str) -> NumericalRange | CategoricalRange:
         options = text.split(",")
         options_numerical = []
         for op in options:
-            num = float(op)
-            if num == int(num):
-                num = int(num)
+            try:
+                num = float(op)
+                if num == int(num):
+                    num = int(num)
+            except ValueError:
+                if "None" in op:
+                    num = None
             options_numerical.append(num)
         return CategoricalRange(options_numerical)
 
@@ -215,3 +231,4 @@ registry.register(ActionType)
 registry.register(EquipmentState)
 registry.register(NumericalRange)
 registry.register(CategoricalRange)
+registry.register(NotDefinedParameter)

@@ -7,6 +7,7 @@ from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction, Rabbit
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 from chembot.master_controller.registry import EquipmentRegistry
+from chembot.scheduler.event import Event
 
 logger = logging.getLogger(config.root_logger_name + ".controller")
 
@@ -94,9 +95,12 @@ class MasterController:
             self.rabbit.send(RabbitMessageAction(equip, self.name, ""))
         self._deactivate()
 
-    def read_equipment_status(self) -> EquipmentRegistry:
+    def read_equipment_registry(self) -> EquipmentRegistry:
         """ read equipment status"""
         return self.registry
+
+    def write_event(self, *args, **kwargs):
+        return "received event"
 
     def write_deactivate(self):
         pass
