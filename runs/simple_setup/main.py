@@ -4,6 +4,7 @@ import chembot
 
 controller = chembot.MasterController()
 
+
 serial = chembot.communication.PicoSerial("pico_lights", "COM4")
 
 red = chembot.equipment.lights.LightPico(
@@ -24,6 +25,3 @@ mint = chembot.equipment.lights.LightPico(
 with chembot.utils.EquipmentManager() as manager:
     manager.add([controller, serial, red, mint])
     manager.activate()
-
-
-

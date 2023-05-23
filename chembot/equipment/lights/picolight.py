@@ -2,9 +2,9 @@ import logging
 
 from unitpy import Quantity
 
-from reference_data.pico_pins import PicoHardware
+from chembot.reference_data.pico_pins import PicoHardware
 from chembot.configuration import config
-from equipment.lights.light import Light
+from chembot.equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction
 
 logger = logging.getLogger(config.root_logger_name + ".lights")

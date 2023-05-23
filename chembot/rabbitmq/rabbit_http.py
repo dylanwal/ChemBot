@@ -63,7 +63,7 @@ def create_queue(
     reply = requests.put(url=API, auth=config.rabbit_auth, json=pdata, headers=headers)
 
     if not reply.ok:
-        raise ValueError(f"Error creating a queue. status code: {reply.status_code}")
+        raise ValueError(f"Error creating a queue ({queue}). status code: {reply.status_code}")
 
 
 def delete_queue(
@@ -76,7 +76,7 @@ def delete_queue(
     reply = requests.delete(url=API, auth=config.rabbit_auth, headers=headers)
 
     if not reply.ok:
-        raise ValueError(f"Error delete a queue. status code: {reply.status_code}")
+        raise ValueError(f"Error delete a queue ({queue}). status code: {reply.status_code}")
 
 
 def create_binding(

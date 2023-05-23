@@ -46,7 +46,7 @@ def get_parameter_div(param: ActionParameter) -> dbc.InputGroup:
             value = param.default
         range_: CategoricalRange = param.range_
         children.append(dbc.Select(id=IDRabbit.SELECT_EQUIPMENT,
-                                   options=[{"label":v, "value":v} for v in range_.options], value=value))
+                                   options=[{"label": v, "value": v} for v in range_.options], value=value))
 
     if param.types == "int" or param.types == "float":
         children.append(dbc.Input("value", type="number"))
@@ -139,8 +139,9 @@ def layout_rabbit(app: Dash) -> html.Div:
         dbc.Row(dbc.Col(dbc.Button("Send", id=IDRabbit.SEND_BUTTON, color="primary", className="me-1"), width=3)),
     ])
 
-    ######################################################################################################################
-    ######################################################################################################################
+    ###################################################################################################################
+    ###################################################################################################################
+
     @app.callback(
         Output(IDRabbit.REPLY_STATUS, 'children'),
         Input(IDRabbit.SEND_BUTTON, 'n_clicks'),
@@ -167,13 +168,8 @@ def layout_rabbit(app: Dash) -> html.Div:
     def send_message_to_rabbitmq(status: str, equipment: str, action: str, parameters):
         if not status:
             return [
-                dbc.Placeholder(xs=6),
-                html.Br(),
-                dbc.Placeholder(xs=6),
-                html.Br(),
-                dbc.Placeholder(xs=6),
-                html.Br(),
-                dbc.Placeholder(xs=6),
+                dbc.Placeholder(xs=6), html.Br(), dbc.Placeholder(xs=6), html.Br(),
+                dbc.Placeholder(xs=6), html.Br(), dbc.Placeholder(xs=6),
             ]
 
         try:
