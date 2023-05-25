@@ -49,17 +49,17 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    def __init__(self, destination: str, source: str, action: str, parameters: dict = None):
+    def __init__(self, destination: str, source: str, action: str, kwargs: dict = None):
         super().__init__(destination, source)
         self.action = action
-        self.parameters = parameters
+        self.kwargs = kwargs
 
     def to_str(self) -> str:
         text = super().to_str()
         text += f"\n\taction: {self.action}"
-        text += "\n\tparameters: "
-        if self.parameters is not None:
-            text += "".join(f"\n\t\t{k}: {v}" for k, v in self.parameters.items())
+        text += "\n\tkwargs: "
+        if self.kwargs is not None:
+            text += "".join(f"\n\t\t{k}: {v}" for k, v in self.kwargs.items())
 
         return text
 

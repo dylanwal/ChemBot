@@ -154,7 +154,7 @@ def create_navbar(app: Dash) -> html.Div:
                 action=MasterController.read_equipment_registry.__name__
             )
         )
-
+        logger.debug("updating equipment registry")
         return reply["value"]
         # return example_registry
 

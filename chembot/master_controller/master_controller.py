@@ -1,4 +1,5 @@
 import logging
+from functools import partial
 
 from chembot.configuration import config
 from chembot.utils.class_building import get_actions_list
@@ -7,6 +8,7 @@ from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction, Rabbit
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 from chembot.master_controller.registry import EquipmentRegistry
+from chembot.scheduler.base import Schedule
 from chembot.scheduler.event import Event
 
 logger = logging.getLogger(config.root_logger_name + ".controller")
@@ -22,6 +24,7 @@ class MasterController:
         self.rabbit = RabbitMQConnection(self.name)
         self.watchdog = RabbitWatchdog(self)
         self.registry = EquipmentRegistry()
+        self.schedule = Schedule(self)
         self._deactivate_event = False
 
     def _deactivate(self):
@@ -43,6 +46,7 @@ class MasterController:
             message = self.rabbit.consume(self.pulse)
             if message:
                 self._process_message(message)
+            self.schedule.run(blocking=False)
             if self._deactivate_event:
                 break
 
@@ -80,10 +84,10 @@ class MasterController:
                 # function with no inputs
                 reply = func()
             else:
-                reply = func(**message.parameters)
+                reply = func(**message.kwargs)
             self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
             logger.info(
-                config.log_formatter(self, self.name, f"Action | {message.action}: {message.parameters}"))
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"))
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
@@ -99,8 +103,21 @@ class MasterController:
         """ read equipment status"""
         return self.registry
 
-    def write_event(self, *args, **kwargs):
-        return "received event"
+    def write_event_to_schedule(self, event: Event):
+        self.schedule.add_event(event)
+
+    def write_event(self, message: RabbitMessageAction, forward: bool = False):
+        self.rabbit.send(message)
+        if forward:
+            self.watchdog.set_watchdog(message, 1,
+                                       reply_callback=partial(self.write_forward_reply, destination="GUI"))
+        else:
+            self.watchdog.set_watchdog(message, 1)
+
+    def write_forward_reply(self, message: RabbitMessageReply, destination: str):
+        message.destination = destination
+        logger.warning(f"forwarding: {message}")
+        self.rabbit.send(message)
 
     def write_deactivate(self):
         pass

@@ -131,9 +131,8 @@ flowchart LR
 }%%
 flowchart LR
 
-    error:::error
-    status:::error
-    controller
+
+    master_controller:::error
     pump1,2,4
     pump_3
     valve1-5
@@ -145,28 +144,23 @@ flowchart LR
     IR:::output
     SEC:::output
     fraction_collector
-     
-    controller
     GUI:::GUI
     
-    scheduler --> controller
+    scheduler <--> master_controller
     
-    controller --> fraction_collector
+    master_controller --> fraction_collector
     fraction_collector --> serial_line_pico_2
-    controller --> pump1,2,4 --> serial_line_pump_1
-    controller --> pump_3 --> serial_line_pump_2
-    controller --> valve1-5 --> serial_line_pico_1
-    controller --> LEDS --> serial_line_pico_1
-    controller --> IR
-    controller --> SEC
+    master_controller --> pump1,2,4 --> serial_line_pump_1
+    master_controller --> pump_3 --> serial_line_pump_2
+    master_controller --> valve1-5 --> serial_line_pico_1
+    master_controller --> LEDS --> serial_line_pico_1
+    master_controller --> IR
+    master_controller --> SEC
     
-    status --> controller
-    error --> controller
-    GUI --> scheduler
+    GUI --> master_controller
     GUI <--> data_logger
     
-    scheduler --> data_logger
-    controller --> tempature_probes
+    master_controller --> tempature_probes
     tempature_probes --> serial_line_pico_1
     tempature_probes --> data_logger 
     IR --> data_logger
@@ -200,9 +194,7 @@ flowchart LR
 flowchart LR
 
     rabbitMQ:::rabbit    
-    error:::error <--> rabbitMQ
-    status:::error <--> rabbitMQ
-    controller <--> rabbitMQ
+    master_controller:::error <--> rabbitMQ
     pumps <--> rabbitMQ
     valves <--> rabbitMQ
     serial_line_pump:::output <--> rabbitMQ
@@ -211,8 +203,6 @@ flowchart LR
     rabbitMQ <--> IR:::output
     rabbitMQ <--> SEC:::output
     rabbitMQ <--> fraction_collector
-     
-    rabbitMQ <--> controller
     rabbitMQ <--> GUI:::GUI
     
     classDef rabbit fill:#001219

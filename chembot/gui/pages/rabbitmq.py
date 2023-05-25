@@ -7,7 +7,7 @@ import dash_bootstrap_components as dbc
 from chembot.configuration import config
 from chembot.gui.gui_data import IDDataStore
 from chembot.rabbitmq.messages import JSON_to_class, RabbitMessageAction
-from chembot.rabbitmq.rabbit_http_messages import write_and_read_message
+from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, NotDefinedParameter, \
     NumericalRange, CategoricalRange
@@ -30,14 +30,15 @@ class IDRabbit:
     REPLY = "reply"
 
 
-def get_parameter_div(param: ActionParameter) -> dbc.InputGroup:
-    children = [dbc.InputGroupText(param.name)]
+def get_parameter_div(param: ActionParameter, index: int) -> dbc.InputGroup:
+    children = [dbc.InputGroupText(param.name, id={"type": "parameter_labels", "index": index})]
+    print(param)
     if param.types == "str":
         if isinstance(param.default, NotDefinedParameter):
             text = "text"
         else:
             text = param.default
-        children.append(dbc.Input(text))
+        children.append(dbc.Input(text, id={"type": "parameter", "index": index}))
 
     if param.types == "str" and param.range_:  # with options
         if isinstance(param.default, NotDefinedParameter):
@@ -45,18 +46,20 @@ def get_parameter_div(param: ActionParameter) -> dbc.InputGroup:
         else:
             value = param.default
         range_: CategoricalRange = param.range_
-        children.append(dbc.Select(id=IDRabbit.SELECT_EQUIPMENT,
-                                   options=[{"label": v, "value": v} for v in range_.options], value=value))
+        children.append(dbc.Select(id={"type": "parameter", "index": index},
+                                   options=[{"label": v, "value": v} for v in range_.options]))
 
     if param.types == "int" or param.types == "float":
-        children.append(dbc.Input("value", type="number"))
+        children.append(dbc.Input(placeholder="value", type="number", id={"type": "parameter", "index": index}))
         if param.unit is not None:
             children.append(dbc.InputGroupText(param.unit))
         if param.range_ is not None:
             children.append(dbc.InputGroupText('range :' + str(param.range_)))
 
     if param.types == "bool":
-        children.append(dbc.Switch(value=False))
+        children.append(dbc.Select(options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
+                                   id={"type": "parameter",
+                                                                                   "index": index}))
 
     return dbc.InputGroup(children)
 
@@ -105,8 +108,8 @@ def layout_rabbit(app: Dash) -> html.Div:
         equipment = get_equipment(equipment, data)
         action = equipment.get_action(action)
         if action.inputs:
-            for param in action.inputs:
-                parameter_components.append(get_parameter_div(param))
+            for i, param in enumerate(action.inputs):
+                parameter_components.append(get_parameter_div(param, i))
 
         return parameter_components, action.description
 
@@ -162,28 +165,29 @@ def layout_rabbit(app: Dash) -> html.Div:
         [
             State(IDRabbit.SELECT_EQUIPMENT, 'value'),
             State(IDRabbit.SELECT_ACTION, "value"),
-            State({"type": "parameter", "index": ALL}, "value")
+            State({"type": "parameter", "index": ALL}, "value"),
+            State({"type": "parameter_labels", "index": ALL}, "children")
         ]
     )
-    def send_message_to_rabbitmq(status: str, equipment: str, action: str, parameters):
+    def send_message_to_rabbitmq(status: str, equipment: str, action: str, parameters, labels):
         if not status:
             return [
                 dbc.Placeholder(xs=6), html.Br(), dbc.Placeholder(xs=6), html.Br(),
                 dbc.Placeholder(xs=6), html.Br(), dbc.Placeholder(xs=6),
             ]
 
+        kwargs = {label: value for label, value in zip(labels, parameters)}
         try:
             message = RabbitMessageAction(
                 destination="chembot." + MasterController.name,
                 source="GUI",
                 action="write_event",
-                parameters={
-                    "equipment": equipment,
-                    "action": action,
-                    "parameters": parameters
+                kwargs={"message": RabbitMessageAction(get_equipment_name(equipment), MasterController.name, action,
+                                                       kwargs=kwargs), "forward": True
                 }
             )
-            reply = write_and_read_message(message)
+            write_and_read_message(message)
+            reply = read_message("GUI", time_out=2)
             toast = dbc.Toast(
                 [html.P(str(reply), className="mb-0")],
                 header=f"Reply from '{equipment}' for action '{action}'.",

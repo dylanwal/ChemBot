@@ -1,8 +1,12 @@
 import time
+import logging
 from typing import Protocol
 
+from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitMessageError
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
+
+logger = logging.getLogger(config.root_logger_name + ".watchdog")
 
 
 class WatchdogParent(Protocol):
@@ -49,7 +53,8 @@ class RabbitWatchdog:
 
     def deactivate_watchdog(self, message: RabbitMessageReply):
         if message.id_reply not in self.watchdogs:
-            raise ValueError(f"Reply id({message.id_reply}) not in watchdog list.")
+            logger.exception(f"Reply id({message.id_reply}) not in watchdog list for parent '{self.parent.name}'.")
+            return
 
         watchdog = self.watchdogs[message.id_reply]
 
@@ -58,7 +63,7 @@ class RabbitWatchdog:
                              f"\nexpected value: {watchdog.expect_reply}")
 
         if watchdog.reply_callback:
-            watchdog.reply_callback(message.value)
+            watchdog.reply_callback(message)
 
         del self.watchdogs[message.id_reply]
 

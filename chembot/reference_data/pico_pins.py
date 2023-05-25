@@ -5,7 +5,7 @@ class PicoHardware:
     # all pins GPIO numbering (except adc)
     pins_GPIO = list(range(0, 22)) + [25, 26, 27, 28]
     pin_LED = 25
-    pin_adc = [0, 1, 2]
+    pin_adc = [0, 1, 2, 4]
     pin_adc_GPIO = [26, 27, 28]
     pin_internal_temp = 4  # ADC4
     pin_vsys = 3  # ADC3

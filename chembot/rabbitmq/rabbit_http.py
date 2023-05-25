@@ -119,7 +119,7 @@ def get(
         ip: str = config.rabbit_host,
         port: int = config.rabbit_port_http,
         count: int = 1,
-        ackmode: str = "ack_requeue_true",
+        ackmode: str = "ack_requeue_false",
         encoding: str = "auto",
         truncate: str = 50_000
         ) -> list[dict]:
