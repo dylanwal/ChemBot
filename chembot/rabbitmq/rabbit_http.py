@@ -1,8 +1,13 @@
 """
+http binding for Rabbit MQ
+
+(slower than pika, but useful if direct access is not an option)
+
 Many more http methods are available. see RabbitMQ docs
 
 
 """
+
 import json
 
 import requests

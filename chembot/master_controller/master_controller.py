@@ -46,7 +46,7 @@ class MasterController:
             message = self.rabbit.consume(self.pulse)
             if message:
                 self._process_message(message)
-            self.schedule.run(blocking=False)
+            self.schedule.run(blocking=False)  # check if event needs to be run
             if self._deactivate_event:
                 break
 

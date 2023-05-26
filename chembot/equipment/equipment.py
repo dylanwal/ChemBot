@@ -30,6 +30,17 @@ class EquipmentConfig:
         self.min_temperature = min_temperature
 
 
+def get_attrs(class_) -> set:
+    results = set()
+    for func in dir(class_):
+        if callable(getattr(class_, func)) and func.startswith("read_"):
+            attr = func.strip("read_")
+            if hasattr(class_, attr):
+                results.add(attr)
+
+    return results
+
+
 class Equipment(abc.ABC):
     """ Equipment """
     pulse = 0.1  # time of each loop in seconds
@@ -46,6 +57,7 @@ class Equipment(abc.ABC):
         self.state: EquipmentState = EquipmentState.OFFLINE
         self.rabbit = RabbitMQConnection(name)
         self.actions = get_actions_list(self)
+        self.attrs = get_attrs(self)
         self._deactivate_event = False
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
@@ -60,6 +72,9 @@ class Equipment(abc.ABC):
         if not self.rabbit.queue_exists("master_controller"):
             logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
             raise ValueError("No MasterController found on the server.")
+
+        # update parameters
+        self.equipment_interface.parameters = self.read_all()
 
         message = RabbitMessageRegister(self.name, self.equipment_interface)
         self.rabbit.send(message)
@@ -140,12 +155,7 @@ class Equipment(abc.ABC):
         results:
 
         """
-        results = {}
-        for func in dir(self):
-            if callable(getattr(self, func)) and func.startswith("read"):
-                results[func] = getattr(self, func)()
-
-        return results
+        return {attr: getattr(self, attr) for attr in self.attrs}
 
     def read_state(self) -> EquipmentState:
         """

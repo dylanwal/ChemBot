@@ -108,6 +108,7 @@ class EquipmentInterface:
         self.class_ = class_
         self.state = state
         self.actions = actions
+        self.parameters = {}
 
     def __str__(self):
         return self.name + f" ({self.state.name}) || " + str(len(self.actions))

@@ -18,5 +18,3 @@ class Schedule(sched.scheduler):
 
     def add_event(self, event: Event):
         self.enter(event.time_, event.priority, self.parent.write_event, (event.message,))
-
-

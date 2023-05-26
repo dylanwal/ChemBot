@@ -2,7 +2,11 @@
 from dash import Dash, html, dcc, Output, Input, State
 import dash_bootstrap_components as dbc
 
+from chembot.gui.app import IDDataStore
 from chembot.gui.gui_data import GUIData
+from chembot.master_controller.registry import EquipmentRegistry
+from chembot.equipment.equipment_interface import EquipmentInterface
+from chembot.rabbitmq.messages import JSON_to_class
 
 
 class IDHome:
@@ -11,22 +15,34 @@ class IDHome:
     EQUIPMENT_STATUS = "equipment_status"
 
 
+def row_layout(equipment: EquipmentInterface):
+    return dbc.ListGroupItem(
+        [
+        html.Div(
+            [
+                html.H5(equipment.name, className="mb-1"),
+                html.Small(equipment.state.name, className="text-success"),
+            ],
+            className="d-flex w-100 justify-content-between",
+        ),
+            html.P("fish")
+            ] + [html.P(f"{name}: {value}") for name, value in equipment.parameters.items()],
+        # html.P("And some text underneath", className="mb-1"),
+        # html.Small("Plus some small print.", className="text-muted"),
+        color="primary"
+    )
+
+
 def layout_home(app: Dash) -> html.Div:
 
-    # @app.callback(Output(IDHome.EQUIPMENT_STATUS, "children"), [Input(IDHome.REFRESH_INTERVAL, "n_intervals")])
-    # def refresh_equipment_status(_: int) -> html.Div:
-    #     equips = [equip.data_row() for equip in gui.equipment_registry.equipment.values()]
-    #
-    #     headers = html.Thead(html.Tr([html.Th(k) for k in equips[0]]), className='table-primary')
-    #     rows = [html.Tr([html.Td(v) for v in equip.values()], className='table-secondary') for equip in equips]
-    #
-    #     return html.Div([
-    #         dbc.Label('Equipment Status'),
-    #         dbc.Row([
-    #             dbc.Col(dbc.Table([headers, html.Tbody(rows)], bordered=True, hover=True, size='sm')),
-    #             dbc.Col()
-    #             ])
-    #     ])
+    @app.callback(
+        Output(IDHome.EQUIPMENT_STATUS, "children"),
+        [Input(IDDataStore.EQUIPMENT_REGISTRY, "data")]
+    )
+    def refresh_equipment_status(data: dict[str, object]):
+        equipment_registry: EquipmentRegistry = JSON_to_class(data)
+        equip_layouts = [row_layout(equip) for equip in equipment_registry.equipment.values()]
+        return [dbc.ListGroup(equip_layouts)]
 
     @app.callback(
         Output(IDHome.REFRESH_INTERVAL, "interval"),
@@ -46,5 +62,5 @@ def layout_home(app: Dash) -> html.Div:
                     ], width=1)
             ]
         ),
-        html.Div(id=IDHome.EQUIPMENT_STATUS, children=[dbc.Input(placeholder="dropdown", type="test", id="drop")]),
+        html.Div(id=IDHome.EQUIPMENT_STATUS, children=[]),
     ])
