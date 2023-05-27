@@ -1,5 +1,4 @@
-# PolyBot
+# ChemBot
 
-fdgdssdf
 
 [Documentation](https://dylanwal.github.io/ChemBot/)
