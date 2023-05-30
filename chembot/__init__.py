@@ -2,6 +2,10 @@ from chembot.configuration import config
 from chembot.utils.object_registry import ObjectRegistry
 registry = ObjectRegistry()
 
+from unitpy import Quantity, Unit
+registry.register(Quantity)
+registry.register(Unit)
+
 import logging
 logger = logging.getLogger(config.root_logger_name)
 

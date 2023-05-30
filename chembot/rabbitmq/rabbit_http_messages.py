@@ -25,9 +25,10 @@ def read_message(queue: str, time_out: float = 1, create: bool = False):
     time_out = time.time() + time_out
 
     while time.time() < time_out:  # repeatedly check for messages in queue till timeout reached.
-        reply = get(queue)[0]
+        reply = get(queue)
 
         if reply:
+            reply = reply[0]
             logger.debug(config.log_formatter("RabbitMQConnection", "http", "Message received:"
                                               + str(reply)[:min([25, len(reply)])]))
             if create:

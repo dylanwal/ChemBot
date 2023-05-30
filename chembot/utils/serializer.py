@@ -1,6 +1,8 @@
 import enum
 import logging
 
+from unitpy import Quantity, Unit
+
 from chembot.utils.object_registry import ObjectRegistry
 from chembot.configuration import config
 
@@ -22,11 +24,19 @@ def serialize(obj):
         return {key: serialize(value) for key, value in obj.items()}
     elif isinstance(obj, enum.Enum):
         return {'enum': type(obj).__name__, 'value': obj.value}
+    elif isinstance(obj, Quantity):
+        return {"class": Quantity.__name__, "value": str(obj)}
+    elif isinstance(obj, Unit):
+        return {"class": Unit.__name__, "unit": str(obj)}
     elif hasattr(obj, '__dict__'):
         keys = {k.lstrip("_") for k in vars(obj) if not k.startswith("__")}
         dict_ = {k: serialize(getattr(obj, k)) for k in keys}
         dict_["class"] = type(obj).__name__
         return dict_
+    elif hasattr(obj, '__slots__'):
+        keys = {k.lstrip("_") for k in obj.__slots__ if not k.startswith("__")}
+        dict_ = {k: serialize(getattr(obj, k)) for k in keys}
+        dict_["class"] = type(obj).__name__
     else:
         return obj
 

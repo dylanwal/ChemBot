@@ -127,7 +127,7 @@ class LightPico(Light):
 
         # write to pico
         param = {"pin": self.pin, "duty": self.power, "frequency": self.frequency}
-        message = RabbitMessageAction(self.communication, self.name, "write", param)
+        message = RabbitMessageAction(self.communication, self.name, "write_pwm", param)
         self.rabbit.send(message)
 
         # get reply
@@ -136,7 +136,7 @@ class LightPico(Light):
     def _deactivate(self):
         # write to pico
         param = {"pin": self.pin, "duty": 0, "frequency": self.frequency}
-        message = RabbitMessageAction(self.communication, self.name, "write", param)
+        message = RabbitMessageAction(self.communication, self.name, "write_pwm", param)
         self.rabbit.send(message)
 
         # get reply

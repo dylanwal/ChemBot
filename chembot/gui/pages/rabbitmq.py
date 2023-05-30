@@ -58,8 +58,7 @@ def get_parameter_div(param: ActionParameter, index: int) -> dbc.InputGroup:
 
     if param.types == "bool":
         children.append(dbc.Select(options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
-                                   id={"type": "parameter",
-                                                                                   "index": index}))
+                                   id={"type": "parameter", "index": index}))
 
     return dbc.InputGroup(children)
 
@@ -133,12 +132,12 @@ def layout_rabbit(app: Dash) -> html.Div:
 
     input_group = html.Div([
         html.H3("Send:"),
-        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_DESTINATION, children=[equipment_dropdown], width=3)),
+        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_DESTINATION, children=[equipment_dropdown], width=4)),
         dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_ACTION, children=[
             action_dropdown,
             html.P(id=IDRabbit.ACTION_DESCRIPTION)
-        ], width=3)),
-        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_PARAMETERS, children=parameter_group, width=3)),  # parameters
+        ], width=4)),
+        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_PARAMETERS, children=parameter_group, width=4)),  # parameters
         dbc.Row(dbc.Col(dbc.Button("Send", id=IDRabbit.SEND_BUTTON, color="primary", className="me-1"), width=3)),
     ])
 
@@ -189,10 +188,10 @@ def layout_rabbit(app: Dash) -> html.Div:
             write_and_read_message(message)
             reply = read_message("GUI", time_out=2)
             toast = dbc.Toast(
-                [html.P(str(reply), className="mb-0")],
+                [html.P(str(reply['value']), className="mb-0")],
                 header=f"Reply from '{equipment}' for action '{action}'.",
             )
-            return toast
+            return html.Div([toast, html.P(str(reply), className="mb-0")])
         except Exception as e:
             return dbc.Alert('Error sending message.\n' + str(e), color="danger")
 

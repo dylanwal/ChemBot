@@ -1,6 +1,7 @@
 
 class IDDataStore:
     EQUIPMENT_REGISTRY = "equipment_registry"
+    EQUIPMENT_UPDATE = "equipment_update"
 
 
 class GUIData:
