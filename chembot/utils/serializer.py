@@ -1,17 +1,19 @@
 import enum
+import json
 import logging
 
 from unitpy import Quantity, Unit
 
+from chembot import registry
 from chembot.utils.object_registry import ObjectRegistry
 from chembot.configuration import config
 
 logger = logging.getLogger(config.root_logger_name + ".serialize")
 
 
-def serialize_try(obj):
+def to_JSON(obj):
     try:
-        return serialize(obj)
+        return json.dumps(serialize(obj))
     except Exception as e:
         logger.exception(f"Exception raise while serializing: {obj}")
         raise e
@@ -41,27 +43,31 @@ def serialize(obj):
         return obj
 
 
-def deserialize_try(json_data: dict, registry: ObjectRegistry):
+#######################################################################################################################
+#######################################################################################################################
+def from_JSON(json_data: str | dict[str, object], registry_: ObjectRegistry = registry):
     try:
-        return deserialize(json_data, registry)
+        if isinstance(json_data, str):
+            json_data = json.loads(json_data)
+        return deserialize(json_data, registry_)
     except Exception as e:
         logger.exception(f"Exception raise while deserializing: {json_data}")
         raise e
 
 
-def deserialize(json_data: dict, registry: ObjectRegistry):
+def deserialize(json_data: dict, registry_: ObjectRegistry = registry):
     if isinstance(json_data, (list, tuple)):
-        return [deserialize(item, registry) for item in json_data]
+        return [deserialize(item, registry_) for item in json_data]
     elif isinstance(json_data, dict):
         if "enum" in json_data:
-            return registry.get(json_data["enum"])(json_data["value"])
+            return registry_.get(json_data["enum"])(json_data["value"])
         if "class" in json_data:
-            class_ = registry.get(json_data.pop("class"))
+            class_ = registry_.get(json_data.pop("class"))
             __init__param = class_.__init__.__code__.co_varnames
             init_parameters = {}
             parameters = {}
             for key, value in json_data.items():
-                parameter = deserialize(value, registry)
+                parameter = deserialize(value, registry_)
                 if key in __init__param:
                     init_parameters[key] = parameter
                 else:

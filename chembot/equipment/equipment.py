@@ -76,8 +76,6 @@ class Equipment(abc.ABC):
             raise ValueError("No MasterController found on the server.")
 
         # update parameters
-        self.equipment_interface.parameters = self.read_all_attributes()
-
         message = RabbitMessageRegister(self.name, self.equipment_interface)
         self.rabbit.send(message)
         self.watchdog.set_watchdog(message, 5)
@@ -168,7 +166,7 @@ class Equipment(abc.ABC):
         results:
 
         """
-        return {"state": self.state}
+        return {"state": self.state}  # TODO: add sensors and important values
 
     def read_state(self) -> EquipmentState:
         """

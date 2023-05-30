@@ -10,3 +10,5 @@ Every piece of equipment has three types of methods:
 * read_
   * Returns value or data
   * Does not cause any changes in state or actions
+
+Equipment.attrs should be updated with attributes in subclasses.

@@ -6,13 +6,13 @@ import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
 from chembot.gui.gui_data import IDDataStore
-from chembot.rabbitmq.messages import JSON_to_class, RabbitMessageAction
+from chembot.rabbitmq.messages import RabbitMessageAction
+from chembot.utils.serializer import from_JSON
 from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, NotDefinedParameter, \
     NumericalRange, CategoricalRange
 from chembot.master_controller.master_controller import MasterController
-from chembot.scheduler.event import Event
 
 logger = logging.getLogger(config.root_logger_name + ".gui")
 
@@ -69,7 +69,7 @@ def get_equipment_name(text: str) -> str:
 
 def get_equipment(text: str, data: dict[str, object]) -> EquipmentInterface:
     equipment_name = get_equipment_name(text)
-    equipment_registry: EquipmentRegistry = JSON_to_class(data)
+    equipment_registry: EquipmentRegistry = from_JSON(data)
     return equipment_registry.equipment[equipment_name]
 
 
@@ -79,7 +79,7 @@ def layout_rabbit(app: Dash) -> html.Div:
         [Input(IDDataStore.EQUIPMENT_REGISTRY, "data")],
     )
     def update_equipment_dropdown(data: dict[str, object]) -> list[str]:
-        equipment_registry: EquipmentRegistry = JSON_to_class(data)
+        equipment_registry: EquipmentRegistry = from_JSON(data)
         equipment = [f"{equip.name} ({equip.class_})" for equip in equipment_registry.equipment.values()]
         return equipment
 

@@ -7,10 +7,10 @@ import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
 from chembot.gui.gui_data import GUIData, IDDataStore
-from chembot.rabbitmq.messages import RabbitMessageAction
+from chembot.gui.gui_actions import get_equipment_registry, get_equipment_update
 from chembot.rabbitmq.rabbit_http import create_queue, create_binding, delete_queue
-from chembot.rabbitmq.rabbit_http_messages import write_and_read_message
-from chembot.master_controller.master_controller import MasterController
+from chembot.master_controller.registry import EquipmentRegistry
+from chembot.utils.serializer import from_JSON
 
 # pages
 from chembot.gui.pages.home import layout_home
@@ -58,9 +58,11 @@ def create_navbar(app: Dash) -> html.Div:
         ])
 
     # add data store
-    data = html.Div(
+    data_stores = html.Div(
         [
             dcc.Store(id=IDDataStore.EQUIPMENT_REGISTRY, storage_type='session', data={},
+                      modified_timestamp=time.time()),
+            dcc.Store(id=IDDataStore.EQUIPMENT_UPDATE, storage_type='session', data={},
                       modified_timestamp=time.time()),
         ]
     )
@@ -69,23 +71,15 @@ def create_navbar(app: Dash) -> html.Div:
         Output(IDDataStore.EQUIPMENT_REGISTRY, "data"),
         Input("refresh_data_button", "n_clicks")
     )
-    def update_data(_):
-        reply = write_and_read_message(
-            RabbitMessageAction(
-                destination="chembot." + MasterController.name,
-                source=GUI.name,
-                action=MasterController.read_equipment_registry.__name__
-            )
-        )
+    def update_equipment_registry(_):
         logger.debug("updating equipment registry")
-        return reply["value"]
-        # return example_registry
+        return get_equipment_registry()
 
-    return html.Div([navbar, html.Br(), data])
+    return html.Div([navbar, html.Br(), data_stores])
 
 
 class GUI:
-    name = "GUI"
+    name = GUIData.name
 
     def __init__(self, debug: bool = True):
         self.debug = debug
