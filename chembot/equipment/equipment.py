@@ -60,6 +60,7 @@ class Equipment(abc.ABC):
         self.rabbit = RabbitMQConnection(name)
         self.actions = get_actions_list(self)
         self.attrs = []
+        self.update = ["state"]
         self._deactivate_event = False
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
@@ -166,7 +167,7 @@ class Equipment(abc.ABC):
         results:
 
         """
-        return {"state": self.state}  # TODO: add sensors and important values
+        return {attr: getattr(self, attr) for attr in self.update}  # TODO: add sensors a
 
     def read_state(self) -> EquipmentState:
         """

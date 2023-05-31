@@ -30,6 +30,8 @@ class LightPico(Light):
         self.frequency = frequency
 
         self.power: int = 0
+        self.attrs += ["color", "communication", "pin", "frequency"]
+        self.update += ["power"]
 
     def _write_on(self):
         self.write_power(65535)
@@ -119,9 +121,9 @@ class LightPico(Light):
             range: [0, ..., 65535]
         """
         if power > 0:
-            self.equipment_config.state = self.equipment_config.states.RUNNING
+            self.state = self.equipment_config.states.RUNNING
         elif power == 0:
-            self.equipment_config.state = self.equipment_config.states.STANDBY
+            self.state = self.equipment_config.states.STANDBY
 
         self.power = power
 

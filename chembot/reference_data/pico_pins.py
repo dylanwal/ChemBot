@@ -103,12 +103,12 @@ class PicoHardware:
 
     @staticmethod
     def validate_pwm_duty(duty: int):
-        if not (0 < duty < 65_535):
+        if not (0 <= duty <= 65_535):
             raise ValueError(f"pwm duty must be between [0, 65_535].\n given:{duty}")
 
     @staticmethod
     def validate_pwm_frequency(frequency: int):
-        if not (7 < frequency < 125_000_000):
+        if not (7 <= frequency <= 125_000_000):
             raise ValueError(f"pwm frequency must be between [0, 125_000_000].\n given:{frequency}")
 
     @staticmethod

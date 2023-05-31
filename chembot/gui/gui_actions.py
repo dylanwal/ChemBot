@@ -18,6 +18,21 @@ def get_equipment_registry() -> dict[str, object]:  # JSON
     return reply["value"]
 
 
+def get_equipment_attributes(equipments: Iterable) -> dict[str, object]:  # JSON
+    data = {}
+    for equipment in equipments:
+        reply = write_and_read_message(
+            RabbitMessageAction(
+                destination="chembot." + equipment,
+                source=GUIData.name,
+                action=Equipment.read_all_attributes.__name__
+            )
+        )
+        data[equipment] = reply["value"]
+
+    return data
+
+
 def get_equipment_update(equipments: Iterable) -> dict[str, object]:
     data = {}
     for equipment in equipments:

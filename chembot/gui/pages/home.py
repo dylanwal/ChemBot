@@ -4,8 +4,7 @@ from dash import Dash, html, dcc, Output, Input, State, MATCH
 import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
-from chembot.gui.app import IDDataStore
-from chembot.gui.gui_data import GUIData
+from chembot.gui.gui_data import GUIData, IDDataStore
 from chembot.gui.gui_actions import get_equipment_update
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import EquipmentInterface, EquipmentState, Action, ActionParameter
@@ -18,7 +17,7 @@ logger = logging.getLogger(config.root_logger_name + ".gui")
 class IDHome:
     REFRESH_INTERVAL = "refresh_interval"
     REFRESH_DROPDOWN = "refresh_dropdown"
-    EQUIPMENT_STATUS = "equipment_status"
+    EQUIPMENT_LIST = "equipment_list"
     EQUIPMENT_ITEM = "equipment_item"
     EQUIPMENT_DETAILS = "equipment_details"
 
@@ -37,7 +36,6 @@ STATUS_COLORS = {
 
 
 def equipment_layout(equipment: EquipmentInterface, update: dict):
-
     return dbc.ListGroupItem(
         [
             html.Div(
@@ -47,12 +45,13 @@ def equipment_layout(equipment: EquipmentInterface, update: dict):
                         html.P(f"({equipment.class_})"),
                     ], className="d-inline-flex w-100 justify-content-start"),
                     html.H5(
-                        update[equipment.name]["state"].name,
-                        className=STATUS_COLORS[update[equipment.name]["state"]]
+                        update[equipment.name]["state"].name if update else "None",
+                        className=STATUS_COLORS[update[equipment.name]["state"]] if update else ""
                     ),
                 ],
                 className="d-flex w-100 justify-content-between",
             ),
+            html.P("||".join(f"{name}: {value}" for name, value in update[equipment.name].items() if name != "state")),
             html.Div(id={"type": IDHome.EQUIPMENT_DETAILS, "index": equipment.name})
         ],
         color="primary",
@@ -104,30 +103,30 @@ def layout_home(app: Dash) -> html.Div:
         [
             State({"type": IDHome.EQUIPMENT_ITEM, "index": MATCH}, "id"),
             State(IDDataStore.EQUIPMENT_REGISTRY, "data"),
-            State(IDDataStore.EQUIPMENT_UPDATE, "data")
+            State(IDDataStore.EQUIPMENT_ATTRIBUTES, "data")
         ]
     )
-    def equipment_dropdown(n_clicks: int, id_: dict, data: dict[str, object], update: dict):
+    def equipment_dropdown(n_clicks: int, id_: dict, data: dict[str, object], attributes: dict):
         if n_clicks % 2 == 0:
             return []
 
         equipment = id_["index"]
         equipment_registry: EquipmentRegistry = from_JSON(data)
         equipment_interface: EquipmentInterface = equipment_registry.equipment[equipment]
+        attributes = from_JSON(attributes[equipment])
 
         actions = []
         for action in equipment_interface.actions:
             actions.append(get_action_list(action))
 
         return [
-            html.P(" ||  ".join(f"{name}: {value}" for name, value in update[equipment].items())),
+            html.P(" ||  ".join(f"{name}: {value}" for name, value in attributes.items())),
             dbc.ListGroup(actions)
             ]
 
     @app.callback(
-        Output(IDHome.EQUIPMENT_STATUS, "children"),
-        [Input(IDDataStore.EQUIPMENT_REGISTRY, "data")],
-        [State(IDDataStore.EQUIPMENT_UPDATE, "data")]
+        Output(IDHome.EQUIPMENT_LIST, "children"),
+        [Input(IDDataStore.EQUIPMENT_REGISTRY, "data"), Input(IDDataStore.EQUIPMENT_UPDATE, "data")],
     )
     def refresh_equipment_status(data: dict[str, object], update: dict):
         equipment_registry: EquipmentRegistry = from_JSON(data)
@@ -164,5 +163,5 @@ def layout_home(app: Dash) -> html.Div:
                 ], width=1)
             ]
         ),
-        html.Div(id=IDHome.EQUIPMENT_STATUS, children=[]),
+        html.Div(id=IDHome.EQUIPMENT_LIST, children=[]),
     ])

@@ -99,7 +99,7 @@ def layout_rabbit(app: Dash) -> html.Div:
         Input(IDRabbit.SELECT_ACTION, "value"),
         [State(IDDataStore.EQUIPMENT_REGISTRY, "data"), State(IDRabbit.SELECT_EQUIPMENT, "value")]
     )
-    def update_parameters_group(action: str, data: dict[str, object], equipment: str | None) -> tuple[list, str]:
+    def update_parameters_group(action: str, data: dict[str, object], equipment: str | None) -> tuple:
         if equipment is None:
             return [], ""
 
@@ -110,7 +110,8 @@ def layout_rabbit(app: Dash) -> html.Div:
             for i, param in enumerate(action.inputs):
                 parameter_components.append(get_parameter_div(param, i))
 
-        return parameter_components, action.description
+        description = [html.H5("Description:"), html.P(action.description)]
+        return parameter_components, description
 
     equipment_dropdown = dbc.InputGroup(
         [
@@ -135,7 +136,7 @@ def layout_rabbit(app: Dash) -> html.Div:
         dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_DESTINATION, children=[equipment_dropdown], width=4)),
         dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_ACTION, children=[
             action_dropdown,
-            html.P(id=IDRabbit.ACTION_DESCRIPTION)
+            html.Div(id=IDRabbit.ACTION_DESCRIPTION)
         ], width=4)),
         dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_PARAMETERS, children=parameter_group, width=4)),  # parameters
         dbc.Row(dbc.Col(dbc.Button("Send", id=IDRabbit.SEND_BUTTON, color="primary", className="me-1"), width=3)),
@@ -183,7 +184,7 @@ def layout_rabbit(app: Dash) -> html.Div:
                 action="write_event",
                 kwargs={"message": RabbitMessageAction(get_equipment_name(equipment), MasterController.name, action,
                                                        kwargs=kwargs), "forward": True
-                }
+                        }
             )
             write_and_read_message(message)
             reply = read_message("GUI", time_out=2)
