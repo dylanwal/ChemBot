@@ -4,7 +4,7 @@ from dash import Dash, html, dcc, Output, Input, State, MATCH
 import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
-from chembot.gui.gui_data import GUIData, IDDataStore
+from chembot.gui.gui_data import GUIData, IDData
 from chembot.gui.gui_actions import get_equipment_update
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import EquipmentInterface, EquipmentState, Action, ActionParameter
@@ -102,8 +102,8 @@ def layout_home(app: Dash) -> html.Div:
         Input({"type": IDHome.EQUIPMENT_ITEM, "index": MATCH}, "n_clicks"),
         [
             State({"type": IDHome.EQUIPMENT_ITEM, "index": MATCH}, "id"),
-            State(IDDataStore.EQUIPMENT_REGISTRY, "data"),
-            State(IDDataStore.EQUIPMENT_ATTRIBUTES, "data")
+            State(IDData.EQUIPMENT_REGISTRY, "data"),
+            State(IDData.EQUIPMENT_ATTRIBUTES, "data")
         ]
     )
     def equipment_dropdown(n_clicks: int, id_: dict, data: dict[str, object], attributes: dict):
@@ -126,7 +126,7 @@ def layout_home(app: Dash) -> html.Div:
 
     @app.callback(
         Output(IDHome.EQUIPMENT_LIST, "children"),
-        [Input(IDDataStore.EQUIPMENT_REGISTRY, "data"), Input(IDDataStore.EQUIPMENT_UPDATE, "data")],
+        [Input(IDData.EQUIPMENT_REGISTRY, "data"), Input(IDData.EQUIPMENT_UPDATE, "data")],
     )
     def refresh_equipment_status(data: dict[str, object], update: dict):
         equipment_registry: EquipmentRegistry = from_JSON(data)
@@ -143,9 +143,9 @@ def layout_home(app: Dash) -> html.Div:
         return int(value) * 1000
 
     @app.callback(
-        Output(IDDataStore.EQUIPMENT_UPDATE, "data"),
+        Output(IDData.EQUIPMENT_UPDATE, "data"),
         Input(IDHome.REFRESH_INTERVAL, 'n_intervals'),
-        State(IDDataStore.EQUIPMENT_REGISTRY, "data")
+        State(IDData.EQUIPMENT_REGISTRY, "data")
     )
     def data_equipment_update(_, data: dict[str, object]):
         equipment_registry: EquipmentRegistry = from_JSON(data)

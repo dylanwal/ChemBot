@@ -1,6 +1,6 @@
 import logging
 
-from dash import Dash, html, dcc, Input, Output
+from dash import Dash, html
 import dash
 import dash_bootstrap_components as dbc
 
@@ -8,9 +8,9 @@ from chembot.configuration import config
 from chembot.gui.gui_data import GUIData
 from chembot.rabbitmq.rabbit_http import create_queue, create_binding, delete_queue
 
-
 # pages
 from chembot.gui.pages.navbar import layout_navbar
+from chembot.gui.pages.data_stores import layout_data_stores
 from chembot.gui.pages.home import layout_home
 from chembot.gui.pages.rabbitmq import layout_rabbit
 from chembot.gui.pages.jobs import layout_jobs
@@ -45,7 +45,13 @@ class GUI:
 
     def _register_pages(self):
         # layout common to all pages
-        self.app.layout = html.Div([layout_navbar(self.app), html.Br(), dash.page_container])
+        self.app.layout = html.Div(
+            [
+                layout_navbar(self.app),
+                layout_data_stores(self.app),
+                dash.page_container
+            ]
+        )
 
         # individual pages
         dash.register_page("home", path='/', layout=layout_home(self.app))

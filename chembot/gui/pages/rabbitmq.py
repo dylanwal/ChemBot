@@ -5,7 +5,7 @@ from dash import Dash, html, dcc, Input, Output, State, ALL, Patch
 import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
-from chembot.gui.gui_data import IDDataStore
+from chembot.gui.gui_data import IDData
 from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.utils.serializer import from_JSON
 from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
@@ -76,7 +76,7 @@ def get_equipment(text: str, data: dict[str, object]) -> EquipmentInterface:
 def layout_rabbit(app: Dash) -> html.Div:
     @app.callback(
         Output(IDRabbit.SELECT_EQUIPMENT, "options"),
-        [Input(IDDataStore.EQUIPMENT_REGISTRY, "data")],
+        [Input(IDData.EQUIPMENT_REGISTRY, "data")],
     )
     def update_equipment_dropdown(data: dict[str, object]) -> list[str]:
         equipment_registry: EquipmentRegistry = from_JSON(data)
@@ -86,7 +86,7 @@ def layout_rabbit(app: Dash) -> html.Div:
     @app.callback(
         Output(IDRabbit.SELECT_ACTION, "options"),
         Input(IDRabbit.SELECT_EQUIPMENT, "value"),
-        State(IDDataStore.EQUIPMENT_REGISTRY, "data")
+        State(IDData.EQUIPMENT_REGISTRY, "data")
     )
     def update_action_dropdown(equipment: str | None, data: dict[str, object]) -> list[str]:
         if equipment:
@@ -97,7 +97,7 @@ def layout_rabbit(app: Dash) -> html.Div:
     @app.callback(
         [Output(IDRabbit.PARAMETERS_GROUP, "children"), Output(IDRabbit.ACTION_DESCRIPTION, "children")],
         Input(IDRabbit.SELECT_ACTION, "value"),
-        [State(IDDataStore.EQUIPMENT_REGISTRY, "data"), State(IDRabbit.SELECT_EQUIPMENT, "value")]
+        [State(IDData.EQUIPMENT_REGISTRY, "data"), State(IDRabbit.SELECT_EQUIPMENT, "value")]
     )
     def update_parameters_group(action: str, data: dict[str, object], equipment: str | None) -> tuple:
         if equipment is None:

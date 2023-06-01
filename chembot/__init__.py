@@ -15,4 +15,5 @@ from chembot.master_controller.master_controller import MasterController
 import chembot.utils as utils
 import chembot.communication as communication
 import chembot.equipment as equipment
+import chembot.scheduler as scheduler
 
