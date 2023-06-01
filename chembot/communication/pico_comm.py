@@ -5,7 +5,7 @@ from unitpy import Quantity, Unit
 
 from chembot.configuration import config
 from chembot.communication.serial_ import Serial
-from reference_data.pico_pins import PicoHardware
+from chembot.reference_data.pico_pins import PicoHardware
 
 logger = logging.getLogger(config.root_logger_name + ".communication")
 

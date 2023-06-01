@@ -9,14 +9,17 @@ class Event(abc.ABC):
                  trigger: Trigger,
                  args: list | tuple = None,
                  kwargs: dict[str, object] = None,
-                 id_: int | str = None,
-                 priority: int = 0
+                 priority: int = 0,
+                 name: str = None,
+                 completion_signal: str | int = None,
                  ):
-        self.id_ = id_ if id_ is not None else uuid.uuid4().int
+        self.id_ = uuid.uuid4().int
+        self.name = name if name is None else str(self.id_)
         self.trigger = trigger
         self.priority = priority
         self.args = args
         self.kwargs = kwargs
+        self.completion_signal = completion_signal
 
     def run(self):
         func = self._run()
@@ -37,12 +40,15 @@ class EventCallable(Event):
     def __init__(self,
                  callable_: callable,
                  trigger: Trigger,
+                 *,
                  args: list | tuple = None,
                  kwargs: dict[str, object] = None,
-                 id_: int | str = None,
-                 priority: int = 0
+                 priority: int = 0,
+                 name: str = None,
+                 completion_signal: str | int = None
                  ):
-        super().__init__(trigger=trigger, args=args, kwargs=kwargs, id_=id_, priority=priority)
+        super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
+                         completion_signal=completion_signal)
         self.callable_ = callable_
 
     def __str__(self):
@@ -57,12 +63,15 @@ class EventResource(Event):
                  resource: str,
                  callable_: str,
                  trigger: Trigger,
+                 *,
                  args: list | tuple = None,
                  kwargs: dict[str, object] = None,
-                 id_: int | str = None,
-                 priority: int = 0
+                 priority: int = 0,
+                 name: str = None,
+                 completion_signal: str | int = None
                  ):
-        super().__init__(trigger=trigger, args=args, kwargs=kwargs, id_=id_, priority=priority)
+        super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
+                         completion_signal=completion_signal)
         self.resource = resource
         self.callable_ = callable_
 

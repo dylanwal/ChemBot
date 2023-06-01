@@ -1,8 +1,6 @@
 import logging
 
-import plotly.express as px
 import plotly.graph_objs as go
-import pandas as pd
 from dash import Dash, html, dcc, Output, Input, State, MATCH
 import dash_bootstrap_components as dbc
 
@@ -17,16 +15,16 @@ class IDJobs:
     TIMELINE = "timeline"
 
 
-def create_timeline() -> go.Figure:
-    df = pd.DataFrame([
-        dict(Equipment="Serial", Start='2023-01-01', Finish='2023-02-28', Job="expt_1"),
-        dict(Equipment="Red_LED", Start='2023-03-05', Finish='2023-04-15', Job="expt_1"),
-        dict(Equipment="Mint_LED", Start='2023-02-20', Finish='2023-05-30', Job="expt_2")
-    ])
-
-    fig = px.timeline(df, x_start="Start", x_end="Finish", y="Equipment", color="Job")
-    fig.update_yaxes(autorange="reversed")  # otherwise tasks are listed from the bottom up
-    return fig
+# def create_timeline() -> go.Figure:
+#     df = pd.DataFrame([
+#         dict(Equipment="Serial", Start='2023-01-01', Finish='2023-02-28', Job="expt_1"),
+#         dict(Equipment="Red_LED", Start='2023-03-05', Finish='2023-04-15', Job="expt_1"),
+#         dict(Equipment="Mint_LED", Start='2023-02-20', Finish='2023-05-30', Job="expt_2")
+#     ])
+#
+#     fig = px.timeline(df, x_start="Start", x_end="Finish", y="Equipment", color="Job")
+#     fig.update_yaxes(autorange="reversed")  # otherwise tasks are listed from the bottom up
+#     return fig
 
 
 def layout_jobs(app: Dash) -> html.Div:
@@ -36,7 +34,7 @@ def layout_jobs(app: Dash) -> html.Div:
         Input(IDJobs.REFRESH_TIMELINE, "n_clicks")
     )
     def layout_timeline(_):
-        return [dcc.Graph(figure=create_timeline())]
+        return [dcc.Graph()] # figure=create_timeline()
 
     return html.Div(children=[
         dbc.Row(
