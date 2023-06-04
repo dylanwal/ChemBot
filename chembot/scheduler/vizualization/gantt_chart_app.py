@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 from chembot.scheduler.vizualization.gantt_chart import Row, ConfigPlot, create_gantt_chart
 
 
-def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
+def gantt_chart_component(app: dash.Dash, data: Sequence[Row], config: ConfigPlot = None) -> html.Div:
     """
     app.run_server(debug=True)
     """
@@ -15,11 +15,11 @@ def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
         config = ConfigPlot()
         config.num_rows = len(data)
 
-    # Create the Dash app
-    app = dash.Dash(__name__)
+    if config.num_rows < config.max_rows:
+        return html.Div()
 
     # Define the layout of the app
-    app.layout = html.Div([
+    layout = html.Div([
         html.Div([
             dcc.Slider(
                 id='slider',
@@ -46,5 +46,15 @@ def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
         # Set custom labels on the y-axis
         fig['layout']['yaxis']['range'] = config.get_window(position=value)
         return fig
+
+    return layout
+
+
+def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
+    """
+    app.run_server(debug=True)
+    """
+    app = dash.Dash(__name__)
+    app.layout(create_gantt_chart(data, config))
 
     return app
