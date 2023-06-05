@@ -1,4 +1,4 @@
-from typing import Sequence, Iterator, Collection, Generator
+from typing import Sequence, Iterator
 from datetime import datetime, timedelta
 
 import plotly.graph_objs as go
@@ -17,7 +17,7 @@ class TimeBlock:
 
 
 class Row:
-    def __init__(self, name: str, time_blocks: Collection[TimeBlock]):
+    def __init__(self, name: str, time_blocks: Sequence[TimeBlock]):
         self.name = name
         self.time_blocks = time_blocks
 
@@ -129,8 +129,6 @@ class ConfigPlot:
             "margin": self.margin,
             "xaxis": self.x_axis_layout(),
             "yaxis": self.y_axis_layout(),
-            "updatemenus": self.layout_buttons(),
-            "sliders": self.layout_slider()
         }
 
         return kwargs
@@ -145,7 +143,9 @@ class ConfigPlot:
             "showgrid": True,
             "gridcolor": "lightgray",
             "mirror": True,
-
+            "type": "date",
+            "rangeselector": self.layout_range_slider(),
+            "rangeslider": dict(visible=True, bordercolor="black", borderwidth=3, thickness=0.1)
         }
 
     def y_axis_layout(self) -> dict:
@@ -164,52 +164,38 @@ class ConfigPlot:
             "ticktext": tuple(self.y_axis_labels)
         }
 
-    def layout_buttons(self):
-        return [{
-            "type": "buttons",
-            "direction": "left",
-            "buttons": [self._get_button(timedelta_) for timedelta_ in self._get_button_deltas()],
-            "pad": {"r": 10, "t": 10},
-            "showactive": True,
-            "x": 0,
-            "xanchor": "left",
-            "y": 1.2,
-            "yanchor": "top"
-        }]
-
-    def _get_button(self, time_delta: timedelta) -> dict:
-        return {
-            "args": ["xaxis.range", self._get_x_range(time_delta)],
-            "label": get_time_delta_label(time_delta),
-            "method": "relayout"
-        }
-
-    def _get_button_deltas(self) -> list[timedelta]:
-        # TODO: make a better scale
-        if self.time_range < timedelta(hours=1):
-            return [timedelta(hours=1), timedelta(minutes=5), timedelta(minutes=1), timedelta(seconds=5)]
-        if self.time_range < timedelta(days=2):
-            return [timedelta(days=2), timedelta(days=1), timedelta(hours=4), timedelta(hours=1)]
-
-        return [timedelta(days=365), timedelta(days=30), timedelta(days=1), timedelta(hours=4)]
-
-    def layout_slider(self):
-        return [dict(
-            active=10,
-            currentvalue={"prefix": "Frequency: "},
-            pad={"t": 50},
-            steps=self._get_slider_steps()
-        )]
-
-    def _get_slider_steps(self):
-        steps = []
-        for i in linspace_datetime(self.min_time, self.max_time, self.x_slider_division):
-            step = dict(
-                method="relayout",
-                args=["xaxis.range", self._get_x_range(time_delta)]
-            )
-            steps.append(step)
-        return steps
+    @staticmethod
+    def layout_range_slider():
+        return dict(
+            buttons=list([
+                dict(count=1,
+                     label="1sec",
+                     step="second",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="1min",
+                     step="minute",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="1h",
+                     step="hour",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="1d",
+                     step="day",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="1m",
+                     step="month",
+                     stepmode="backward"),
+                dict(count=1,
+                     label="1y",
+                     step="year",
+                     stepmode="backward"),
+                dict(step="all")
+            ]),
+            activecolor="#b0b0b0"
+        )
 
     def scatter_kwargs(self, text: str = None) -> dict:
         kwargs = {}
@@ -231,11 +217,11 @@ class ConfigPlot:
         if position <= self.y_min + self.step * half_rows:
             # bottom limit of window
             return self.y_min - self.step, self.y_min + self.step * self.max_rows
-        elif position >= self.y_max - self.step * half_rows:
+        elif position > self.y_max - self.step * half_rows:
             # top limit of window
-            return self.y_max - self.step * self.max_rows, self.y_min + self.step
-
-        return position - half_rows * self.step, position + half_rows * self.step
+            return self.y_max - self.step * self.max_rows, self.y_max + self.step
+        print("e")
+        return position - half_rows * self.step-1, position + half_rows * self.step
 
 
 def create_bar(fig: go.Figure, time_block: TimeBlock, y: float, config: ConfigPlot):

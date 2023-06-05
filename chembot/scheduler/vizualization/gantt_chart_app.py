@@ -20,21 +20,29 @@ def gantt_chart_component(app: dash.Dash, data: Sequence[Row], config: ConfigPlo
 
     # Define the layout of the app
     layout = html.Div([
+        html.Div(create_slider(app, data, config), style={'float': 'left', 'height': '450px', 'margin-top': '10px'}),
         html.Div([
-            dcc.Slider(
+            dcc.Graph(id='scatter-plot', figure=create_gantt_chart(data))
+        ], style={'margin-left': '60px'})
+    ])
+
+    return layout
+
+
+def create_slider(app: dash.Dash, data: Sequence[Row], config: ConfigPlot):
+    if len(data) <= config.max_rows:
+        return []
+
+    slider = dcc.Slider(
                 id='slider',
+                className="slider",
                 min=1,
                 max=max(config.get_y_values()),
                 step=config.step,
                 value=1,
-                # marks={y_: labels for y_, label in zip(y, labels)},
+                marks={y_: row.name for y_, row in zip(range(1, len(data)), data)},
                 vertical=True
             )
-        ], style={'float': 'left', 'height': '400px'}),
-        html.Div([
-            dcc.Graph(id='scatter-plot', figure=create_gantt_chart(data))
-        ], style={'margin-left': '40px'})
-    ])
 
     # Define the callback function to update the scatter plot based on the slider value
     @app.callback(
@@ -47,7 +55,7 @@ def gantt_chart_component(app: dash.Dash, data: Sequence[Row], config: ConfigPlo
         fig['layout']['yaxis']['range'] = config.get_window(position=value)
         return fig
 
-    return layout
+    return slider
 
 
 def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
@@ -55,6 +63,6 @@ def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
     app.run_server(debug=True)
     """
     app = dash.Dash(__name__)
-    app.layout(create_gantt_chart(data, config))
+    app.layout = gantt_chart_component(app, data, config)
 
     return app
