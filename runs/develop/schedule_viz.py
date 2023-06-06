@@ -8,12 +8,12 @@ def run():
     data = [
         Row("LED (red)",
             [
-              TimeBlock(
-                  start=datetime(year=2023, month=6, day=1, hour=13, minute=15, second=0),
-                  end=datetime(year=2023, month=6, day=1, hour=13, minute=16, second=0),
-                  name="ON",
-                  hover_text=str({"power": 50})
-              )
+                TimeBlock(
+                    start=datetime(year=2023, month=6, day=1, hour=13, minute=15, second=0),
+                    end=datetime(year=2023, month=6, day=1, hour=13, minute=16, second=0),
+                    name="ON",
+                    hover_text=str({"power": 50})
+                )
             ]
             ),
         Row("LED (blue)",
@@ -83,7 +83,7 @@ def run():
                 )
             ]
             ),
-                Row("LED3 (serial)",
+        Row("LED3 (serial)",
             [
                 TimeBlock(
                     start=datetime(year=2023, month=6, day=1, hour=13, minute=23, second=6),
@@ -93,7 +93,7 @@ def run():
                 )
             ]
             ),
-                Row("LED4 (serial)",
+        Row("LED4 (serial)",
             [
                 TimeBlock(
                     start=datetime(year=2023, month=6, day=1, hour=13, minute=23, second=6),

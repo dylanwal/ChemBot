@@ -1,3 +1,4 @@
+import uuid
 from typing import Collection
 import abc
 import time
@@ -46,8 +47,8 @@ class TriggerTimeAbsolute(Trigger):
 
 
 class TriggerSignal(Trigger):
-    def __init__(self, signal: int | float | str):
-        self.signal = signal
+    def __init__(self, signal: int | float | str = None):
+        self.signal = signal if signal is None else uuid.uuid4()
         self._signaled = False
 
     def __str__(self):
@@ -82,7 +83,7 @@ class TriggerOr(TriggerCombine):
 
 
 class TriggerAnd(TriggerCombine):
-    def __init__(self, triggers: Collection[Trigger], *args):
+    def __init__(self, triggers: Collection[Trigger]):
         self.triggers = triggers
 
     def __str__(self):
