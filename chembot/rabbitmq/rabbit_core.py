@@ -5,7 +5,8 @@ import pika.exceptions
 logging.getLogger("pika").setLevel(logging.WARNING)
 
 from chembot.configuration import config
-from chembot.rabbitmq.messages import RabbitMessage, JSON_to_class, RabbitMessageReply
+from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply
+from chembot.utils.serializer import from_JSON
 
 logger = logging.getLogger(config.root_logger_name + ".rabbitmq")
 
@@ -64,7 +65,7 @@ class RabbitMQConnection:
 
     def _process_message(self, body: str) -> RabbitMessage | None:
         try:
-            message = JSON_to_class(body)
+            message = from_JSON(body)
             logger.debug(config.log_formatter(self, self.topic, "Message received:" + message.to_str()))
             return message
         except Exception as e:

@@ -5,14 +5,14 @@ from dash import Dash, html, dcc, Input, Output, State, ALL, Patch
 import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
-from chembot.gui.gui_data import IDDataStore
-from chembot.rabbitmq.messages import JSON_to_class, RabbitMessageAction
+from chembot.gui.gui_data import IDData
+from chembot.rabbitmq.messages import RabbitMessageAction
+from chembot.utils.serializer import from_JSON
 from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, NotDefinedParameter, \
     NumericalRange, CategoricalRange
 from chembot.master_controller.master_controller import MasterController
-from chembot.scheduler.event import Event
 
 logger = logging.getLogger(config.root_logger_name + ".gui")
 
@@ -58,8 +58,7 @@ def get_parameter_div(param: ActionParameter, index: int) -> dbc.InputGroup:
 
     if param.types == "bool":
         children.append(dbc.Select(options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
-                                   id={"type": "parameter",
-                                                                                   "index": index}))
+                                   id={"type": "parameter", "index": index}))
 
     return dbc.InputGroup(children)
 
@@ -70,24 +69,24 @@ def get_equipment_name(text: str) -> str:
 
 def get_equipment(text: str, data: dict[str, object]) -> EquipmentInterface:
     equipment_name = get_equipment_name(text)
-    equipment_registry: EquipmentRegistry = JSON_to_class(data)
+    equipment_registry: EquipmentRegistry = from_JSON(data)
     return equipment_registry.equipment[equipment_name]
 
 
 def layout_rabbit(app: Dash) -> html.Div:
     @app.callback(
         Output(IDRabbit.SELECT_EQUIPMENT, "options"),
-        [Input(IDDataStore.EQUIPMENT_REGISTRY, "data")],
+        [Input(IDData.EQUIPMENT_REGISTRY, "data")],
     )
     def update_equipment_dropdown(data: dict[str, object]) -> list[str]:
-        equipment_registry: EquipmentRegistry = JSON_to_class(data)
+        equipment_registry: EquipmentRegistry = from_JSON(data)
         equipment = [f"{equip.name} ({equip.class_})" for equip in equipment_registry.equipment.values()]
         return equipment
 
     @app.callback(
         Output(IDRabbit.SELECT_ACTION, "options"),
         Input(IDRabbit.SELECT_EQUIPMENT, "value"),
-        State(IDDataStore.EQUIPMENT_REGISTRY, "data")
+        State(IDData.EQUIPMENT_REGISTRY, "data")
     )
     def update_action_dropdown(equipment: str | None, data: dict[str, object]) -> list[str]:
         if equipment:
@@ -98,9 +97,9 @@ def layout_rabbit(app: Dash) -> html.Div:
     @app.callback(
         [Output(IDRabbit.PARAMETERS_GROUP, "children"), Output(IDRabbit.ACTION_DESCRIPTION, "children")],
         Input(IDRabbit.SELECT_ACTION, "value"),
-        [State(IDDataStore.EQUIPMENT_REGISTRY, "data"), State(IDRabbit.SELECT_EQUIPMENT, "value")]
+        [State(IDData.EQUIPMENT_REGISTRY, "data"), State(IDRabbit.SELECT_EQUIPMENT, "value")]
     )
-    def update_parameters_group(action: str, data: dict[str, object], equipment: str | None) -> tuple[list, str]:
+    def update_parameters_group(action: str, data: dict[str, object], equipment: str | None) -> tuple:
         if equipment is None:
             return [], ""
 
@@ -111,7 +110,8 @@ def layout_rabbit(app: Dash) -> html.Div:
             for i, param in enumerate(action.inputs):
                 parameter_components.append(get_parameter_div(param, i))
 
-        return parameter_components, action.description
+        description = [html.H5("Description:"), html.P(action.description)]
+        return parameter_components, description
 
     equipment_dropdown = dbc.InputGroup(
         [
@@ -133,12 +133,12 @@ def layout_rabbit(app: Dash) -> html.Div:
 
     input_group = html.Div([
         html.H3("Send:"),
-        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_DESTINATION, children=[equipment_dropdown], width=3)),
+        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_DESTINATION, children=[equipment_dropdown], width=4)),
         dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_ACTION, children=[
             action_dropdown,
-            html.P(id=IDRabbit.ACTION_DESCRIPTION)
-        ], width=3)),
-        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_PARAMETERS, children=parameter_group, width=3)),  # parameters
+            html.Div(id=IDRabbit.ACTION_DESCRIPTION)
+        ], width=4)),
+        dbc.Row(dbc.Col(id=IDRabbit.MESSAGE_PARAMETERS, children=parameter_group, width=4)),  # parameters
         dbc.Row(dbc.Col(dbc.Button("Send", id=IDRabbit.SEND_BUTTON, color="primary", className="me-1"), width=3)),
     ])
 
@@ -184,15 +184,15 @@ def layout_rabbit(app: Dash) -> html.Div:
                 action="write_event",
                 kwargs={"message": RabbitMessageAction(get_equipment_name(equipment), MasterController.name, action,
                                                        kwargs=kwargs), "forward": True
-                }
+                        }
             )
             write_and_read_message(message)
             reply = read_message("GUI", time_out=2)
             toast = dbc.Toast(
-                [html.P(str(reply), className="mb-0")],
+                [html.P(str(reply['value']), className="mb-0")],
                 header=f"Reply from '{equipment}' for action '{action}'.",
             )
-            return toast
+            return html.Div([toast, html.P(str(reply), className="mb-0")])
         except Exception as e:
             return dbc.Alert('Error sending message.\n' + str(e), color="danger")
 

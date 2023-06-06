@@ -1,11 +1,11 @@
 import enum
 import logging
 
-from unitpy import Quantity
+from unitpy import Quantity, Unit
 
 from chembot.configuration import config
 from chembot.communication.serial_ import Serial
-from reference_data.pico_pins import PicoHardware
+from chembot.reference_data.pico_pins import PicoHardware
 
 logger = logging.getLogger(config.root_logger_name + ".communication")
 
@@ -16,6 +16,15 @@ def encode_message(text: str):
 
 def decode_message(text: str):
     return text.replace("__n__", "\n").replace("__r__", "\r")
+
+
+def analog_to_voltage(analog: int) -> Quantity:
+    return analog * PicoHardware.v_sys / 65535   # 65535 = 2**16 or 16 bit resolution of the ADC
+
+
+def analog_to_temperature(analog: int) -> Quantity:
+    voltage = analog_to_voltage(analog)
+    return (27 - (voltage.v - 0.706)/0.001721) * Unit.degC  # equation from RP2040 data sheet (section 4.9.5)
 
 
 class PinStatus(enum.Enum):
@@ -43,6 +52,8 @@ class PicoSerial(Serial):
         super().__init__(name, port)
         self.pins = {pin: PinStatus.STANDBY for pin in PicoHardware.pins_GPIO}
         self.pico_version = None
+
+        self.attrs += ["pico_version"]
 
     def __repr__(self):
         return self.name + f" || port: {self.port}"
@@ -112,6 +123,18 @@ class PicoSerial(Serial):
         else:
             self.pins[pin] = PinStatus.DIGITAL_OFF
 
+    def write_led(self, value: int):
+        """
+        Turn built in LED on, off
+
+        Parameters
+        ----------
+        value: int
+            0: off; 1 on
+            range: [0, 1]
+        """
+        self.write_digital(PicoHardware.pin_LED, value, 'n')
+
     def read_digital(self, pin: int, resistor: str = None) -> int:
         """
         read_digital
@@ -167,6 +190,20 @@ class PicoSerial(Serial):
         self.pins[pin] = PinStatus.ANALOG
 
         return int(reply[1:])
+
+    def read_internal_temperature(self) -> float:
+        """
+        read the pico's internal temperature sensor
+        board temperature sensor is very sensitive to errors in the reference voltage
+
+        Returns
+        -------
+        temperature:
+            degrees Celsius
+
+        """
+        analog = self.read_analog(PicoHardware.pin_internal_temp)
+        return round(analog_to_temperature(analog), 3)
 
     def write_pwm(self, pin: int, duty: int, frequency: int):
         """

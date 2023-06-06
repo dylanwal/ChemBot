@@ -34,7 +34,9 @@ def get_attrs(class_) -> set:
     results = set()
     for func in dir(class_):
         if callable(getattr(class_, func)) and func.startswith("read_"):
-            attr = func.strip("read_")
+            attr = func[5:]
+            if attr == "all":
+                continue
             if hasattr(class_, attr):
                 results.add(attr)
 
@@ -57,7 +59,8 @@ class Equipment(abc.ABC):
         self.state: EquipmentState = EquipmentState.OFFLINE
         self.rabbit = RabbitMQConnection(name)
         self.actions = get_actions_list(self)
-        self.attrs = get_attrs(self)
+        self.attrs = []
+        self.update = ["state"]
         self._deactivate_event = False
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
@@ -74,8 +77,6 @@ class Equipment(abc.ABC):
             raise ValueError("No MasterController found on the server.")
 
         # update parameters
-        self.equipment_interface.parameters = self.read_all()
-
         message = RabbitMessageRegister(self.name, self.equipment_interface)
         self.rabbit.send(message)
         self.watchdog.set_watchdog(message, 5)
@@ -86,7 +87,7 @@ class Equipment(abc.ABC):
             self._activate()
             self._register_equipment()
             logger.info(config.log_formatter(self, self.name, "Activated"))
-            self.equipment_config.state = self.equipment_config.states.STANDBY
+            self.state = self.equipment_config.states.STANDBY
 
             self._run()  # infinite loop
 
@@ -146,9 +147,9 @@ class Equipment(abc.ABC):
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
             self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
 
-    def read_all(self) -> dict:
+    def read_all_attributes(self) -> dict:
         """
-        returns values off all properties that can be 'read'
+        returns attributes of the equipment
 
         Returns
         -------
@@ -156,6 +157,17 @@ class Equipment(abc.ABC):
 
         """
         return {attr: getattr(self, attr) for attr in self.attrs}
+
+    def read_update(self) -> dict:
+        """
+        returns attributes of the equipment
+
+        Returns
+        -------
+        results:
+
+        """
+        return {attr: getattr(self, attr) for attr in self.update}  # TODO: add sensors a
 
     def read_state(self) -> EquipmentState:
         """

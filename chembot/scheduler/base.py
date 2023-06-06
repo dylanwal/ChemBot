@@ -1,20 +1,26 @@
-import sched
 import time
 
+from chembot.scheduler.triggers import Trigger
 from chembot.scheduler.event import Event
-from chembot.rabbitmq.messages import RabbitMessageAction
+from chembot.scheduler.job import Job
+from chembot.scheduler.resource import Resource
 
 
-class ScheduleParent:
+class Schedule:
+    def __init__(self):
+        self.jobs: list[Job] = []
 
-    def write_event(self, message: RabbitMessageAction):
-        ...
+    def submit_job(self, job: Job):
+        pass
 
 
-class Schedule(sched.scheduler):
-    def __init__(self, parent: ScheduleParent):
-        super().__init__(time.monotonic, time.sleep)
-        self.parent = parent
+class Schedular:
+    def __init__(self, timer: callable = None):
+        self.timer = timer if timer is None else time.monotonic
+        self.schedule = Schedule()
+        self.resources: set[Resource] = set()
 
-    def add_event(self, event: Event):
-        self.enter(event.time_, event.priority, self.parent.write_event, (event.message,))
+    def register_resources(self):
+        pass
+
+

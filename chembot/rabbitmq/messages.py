@@ -1,12 +1,7 @@
-from __future__ import annotations
-
-import inspect
-import json
-import sys
 import uuid
 
 from chembot import registry
-from chembot.utils.serializer import serialize_try, deserialize_try
+from chembot.utils.serializer import to_JSON
 
 
 class RabbitMessage:
@@ -14,7 +9,6 @@ class RabbitMessage:
         self.id_: int = uuid.uuid4().int
         self.destination = destination
         self.source = source
-        # self.type_ = type(self).__name__
 
     def __str__(self):
         return self.to_str()
@@ -23,8 +17,7 @@ class RabbitMessage:
         return self.__str__()
 
     def to_JSON(self) -> str:  # noqa
-        dict_ = serialize_try(self)
-        return json.dumps(dict_)
+        return to_JSON(self)
 
     def to_str(self) -> str:
         return f"\n\t{type(self).__name__} | {self.source} -> {self.destination} (id: {self.id_})"
@@ -90,17 +83,6 @@ class RabbitMessageRegister(RabbitMessage):
 
     def to_str(self) -> str:
         return super().to_str()
-
-
-# automatically grab all messages
-class_in_file = inspect.getmembers(sys.modules[__name__], inspect.isclass)
-message_factory = {k: v for k, v in class_in_file}
-
-
-def JSON_to_class(data: str | dict[str, object]):
-    if isinstance(data, str):
-        data = json.loads(data)
-    return deserialize_try(data, registry)
 
 
 registry.register(RabbitMessage)

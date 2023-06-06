@@ -27,9 +27,17 @@ class Serial(Communication):
             raise ValueError(f"Port '{port}' is not connected to computer.")
         self.serial = serial.Serial(port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
                                     parity=parity, timeout=timeout)
+        self.port = port
+        self.baud_rate = baud_rate
+        self.stop_bits = stop_bits
+        self.bytes_ = bytes_
+        self.parity = parity
+        self.timeout = timeout
+
+        self.attrs += ['port', "baud_rate", "stop_bits", "bytes_", "parity", "timeout"]
 
     def __repr__(self):
-        return self.name + f" || port: {self.port}"
+        return self.name + f" || port: {self.serial.port}"
 
     def _activate(self):
         self._write_flush_buffer()
@@ -52,7 +60,7 @@ class Serial(Communication):
 
     def read_port(self) -> str:
         """ read_port """
-        return self.port
+        return self.serial.port
 
     def read_parity(self) -> str:
         """

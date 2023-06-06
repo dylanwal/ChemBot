@@ -103,15 +103,13 @@ class Action:
 
 
 class EquipmentInterface:
-    def __init__(self, name: str, class_, actions: list[Action], state: EquipmentState):
+    def __init__(self, name: str, class_, actions: list[Action]):
         self.name = name
         self.class_ = class_
-        self.state = state
         self.actions = actions
-        self.parameters = {}
 
     def __str__(self):
-        return self.name + f" ({self.state.name}) || " + str(len(self.actions))
+        return self.name + f"|| " + str(len(self.actions))
 
     def __repr__(self):
         return self.__str__()
@@ -124,7 +122,7 @@ class EquipmentInterface:
         raise ValueError(f"Action ({name}) not found in EquipmentInterface ({self.name}).")
 
     def data_row(self) -> dict:
-        return {"name": self.name, "class": self.class_, "state": self.state.name, "actions": len(self.actions)}
+        return {"name": self.name, "class": self.class_, "actions": len(self.actions)}
 
 
 def get_equipment_interface(class_) -> EquipmentInterface:
@@ -142,7 +140,7 @@ def get_equipment_interface(class_) -> EquipmentInterface:
                          f"function: {func if 'func' in locals() else None}")
         raise e
 
-    return EquipmentInterface(class_.name, type(class_).__name__, actions, class_.state)
+    return EquipmentInterface(class_.name, type(class_).__name__, actions)
 
 
 def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParameter]:

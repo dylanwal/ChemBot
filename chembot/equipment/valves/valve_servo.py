@@ -24,7 +24,7 @@ Valve Class
 #         :param servo_timing:
 #         :param pin:
 #         :param comm_port: COM port; format COM#
-#         :param args:
+#         :param hover_text:
 #         :param kwargs:
 #         """
 #         super().__init__(**kwargs)
