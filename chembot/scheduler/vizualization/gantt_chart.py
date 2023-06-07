@@ -71,6 +71,10 @@ class ConfigPlot:
         self.hover = True
         self.max_rows = 6
 
+        # time
+        self.past_time_color = "rgba(200,200,200,0.4)"
+        self.now_line_color = "rgba(0,0,0,0.8)"
+
         # window
         self.background_color = 'rgba(255,255,255,1)'
         self.show_axis = True
@@ -90,8 +94,8 @@ class ConfigPlot:
 
         # attributes set by data
         self.num_rows = 1
-        self.min_time = datetime.now()
-        self.max_time = datetime.now()
+        self.min_time = None
+        self.max_time = None
         self.y_axis_labels = []
 
     @property
@@ -125,6 +129,7 @@ class ConfigPlot:
             "plot_bgcolor": self.background_color,
             "paper_bgcolor": self.background_color,
             "width": self.width,
+            "showlegend": False,
             "height": self.get_height(),
             "margin": self.margin,
             "xaxis": self.x_axis_layout(),
@@ -144,6 +149,7 @@ class ConfigPlot:
             "gridcolor": "lightgray",
             "mirror": True,
             "type": "date",
+            "range": (self.min_time, self.max_time),
             "rangeselector": self.layout_range_slider(),
             "rangeslider": dict(visible=True, bordercolor="black", borderwidth=3, thickness=0.1)
         }
@@ -220,7 +226,6 @@ class ConfigPlot:
         elif position > self.y_max - self.step * half_rows:
             # top limit of window
             return self.y_max - self.step * self.max_rows, self.y_max + self.step
-        print("e")
         return position - half_rows * self.step-1, position + half_rows * self.step
 
 
@@ -262,7 +267,23 @@ def create_box(fig: go.Figure, time_block: TimeBlock, y: float, config: ConfigPl
     )
 
 
-def create_gantt_chart(data: Sequence[Row], config: ConfigPlot = None) -> go.Figure:
+def add_current_time(fig: go.Figure, current_time: datetime, config: ConfigPlot):
+    x_min = config.min_time
+    x_max = current_time
+    y_min = config.y_min - config.step
+    y_max = config.y_max + config.step
+    fig.add_trace(
+        go.Scatter(
+            x=[x_min, x_max, x_max, x_min, x_min],
+            y=[y_min, y_min, y_max, y_max, y_min],
+            fill="toself",
+            fillcolor=config.past_time_color,
+            line=dict(color=config.now_line_color)
+        )
+    )
+
+
+def create_gantt_chart(data: Sequence[Row], current_time: datetime = None, config: ConfigPlot = None) -> go.Figure:
     """ main function """
     if config is None:
         config = ConfigPlot()
@@ -280,6 +301,9 @@ def create_gantt_chart(data: Sequence[Row], config: ConfigPlot = None) -> go.Fig
                     create_box(fig, time_block, y=i, config=config)
                 else:
                     create_bar(fig, time_block, y=i, config=config)
+
+    if current_time is not None:
+        add_current_time(fig, current_time, config)
 
     # Set custom layout
     fig.update_layout(**config.layout_kwargs())

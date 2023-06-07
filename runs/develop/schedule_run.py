@@ -7,6 +7,7 @@ from chembot.scheduler.event import EventCallable, EventResource
 from chembot.scheduler.job import Job
 from chembot.scheduler.resource import Resource, ResourceGroup
 from chembot.scheduler.base import Schedular
+from chembot.scheduler.tree_to_gantt import convert
 
 scheduler = Schedular()
 
@@ -19,7 +20,7 @@ def led_off():
     print("led off")
 
 
-def valve_pos(pos: int):
+def valve_position(pos: int):
     print(f"valve position: {pos}")
     time.sleep(0.5)
 
@@ -37,7 +38,7 @@ def led_blink(time_: float, trigger: Trigger = None):
             EventCallable(led_off, TriggerTimeRelative(time_), name="off"),
         ],
         trigger=trigger,
-        name="led_blink"
+        name=led_blink.__name__
     )
 
 
@@ -47,11 +48,12 @@ def refill_pump(vol: float, flow_rate: float, trigger: Trigger = None, completio
 
     return Job(
         [
-            EventCallable(valve_pos(1), TriggerNow(), name="valve pos 1", completion_signal=trigger1),
-            EventCallable(pump_flow(vol, flow_rate), trigger1, name="off", completion_signal=trigger2),
-            EventCallable(valve_pos(2), trigger2, name="valve pos 1", completion_signal=completion_signal),
+            EventCallable(valve_position, TriggerNow(), kwargs={"pos": 1}, completion_signal=trigger1),
+            EventCallable(pump_flow, trigger1, kwargs={"vol": vol, "flow_rate": flow_rate}, name="off",
+                          completion_signal=trigger2),
+            EventCallable(valve_position, trigger2, kwargs={"pos": 2}, completion_signal=completion_signal),
         ],
-        name="led_blink_long",
+        name=refill_pump.__name__,
         trigger=trigger
     )
 
@@ -59,12 +61,13 @@ def refill_pump(vol: float, flow_rate: float, trigger: Trigger = None, completio
 ###################################################
 trigger_refill_done = TriggerSignal()
 
-job1 = Job(
+full_job = Job(
     [
         led_blink(1),
         refill_pump(1, 0.1, completion_signal=trigger_refill_done),
         led_blink(1, trigger=trigger_refill_done)
-    ]
+    ],
+    name="full_job"
 )
 
-# fig = plot_jobs(job1)
+convert(full_job)

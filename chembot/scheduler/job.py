@@ -11,9 +11,9 @@ from chembot.scheduler.event import Event
 class Job:
     def __init__(self, events: Collection[Event | Job], trigger: Trigger = None, name: str = None):
         self.events = events
-        self.trigger = trigger if trigger is None else TriggerNow()
+        self.trigger = trigger if trigger is not None else TriggerNow()
         self.id_ = uuid.uuid4().int
-        self.name = name if name is not None else str(self.id_)
+        self.name = name
 
         self._start_time = None
 
@@ -22,7 +22,18 @@ class Job:
         return self._start_time
 
     def __str__(self):
-        return f"{type(self).__name__} | # events: {len(self)} | trigger: {self.trigger}"
+        text = ""
+        if self.name is not None:
+            text += self.name + " | "
+        text += f"# events: {len(self)} | "
+        return text + f"{self.trigger}"
 
-    def __len__(self):
-        return len(self.events)
+    def __len__(self) -> int:
+        count = 0
+        for ev in self.events:
+            if isinstance(ev, Job):
+                count += len(ev)
+            else:
+                count += 1
+
+        return count

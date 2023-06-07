@@ -15,7 +15,7 @@ class Event(abc.ABC):
                  estimated_time: int | float = None
                  ):
         self.id_ = uuid.uuid4().int
-        self.name = name if name is None else str(self.id_)
+        self.name = name
         self.trigger = trigger
         self.priority = priority
         self.args = args
@@ -24,6 +24,24 @@ class Event(abc.ABC):
             self.completion_signal = completion_signal.signal
         self.completion_signal = completion_signal
         self.estimated_time = estimated_time
+
+    def __repr__(self):
+        return self.__str__()
+
+    # def __eq__(self, obj):
+    #     return (self.time_, self.priority) == (obj.time_, obj.priority)
+    #
+    # def __lt__(self, obj):
+    #     return (self.time_, self.priority) < (obj.time_, obj.priority)
+    #
+    # def __le__(self, obj):
+    #     return (self.time_, self.priority) <= (obj.time_, obj.priority)
+    #
+    # def __gt__(self, obj):
+    #     return (self.time_, self.priority) > (obj.time_, obj.priority)
+    #
+    # def __ge__(self, obj):
+    #     return (self.time_, self.priority) >= (obj.time_, obj.priority)
 
     def run(self):
         func = self._run()
@@ -57,7 +75,13 @@ class EventCallable(Event):
         self.callable_ = callable_
 
     def __str__(self):
-        return f"{type(self).__name__} | {self.callable_.__name__}({self.args},{self.kwargs}) | trigger: {self.trigger}"
+        text = self.callable_.__name__ + "("
+        if self.args is not None:
+            text += ", ".join(self.args)
+        if self.kwargs is not None:
+            text += ",".join(f"{k}: {v}" for k, v in self.kwargs.items())
+        text += ")"
+        return text + f" | {self.trigger}"
 
     def _run(self) -> callable:
         return self.callable_
@@ -82,8 +106,13 @@ class EventResource(Event):
         self.callable_ = callable_
 
     def __str__(self):
-        return f"{type(self).__name__} | {self.resource}.{self.callable_}({self.args},{self.kwargs})" \
-               f" | trigger: {self.trigger}"
+        text = f"{self.resource}.{self.callable_}("
+        if self.args is not None:
+            text += ", ".join(self.args)
+        if self.kwargs is not None:
+            text += ",".join(f"{k}: {v}" for k, v in self.kwargs.items())
+        text += ")"
+        return text + f" | {self.trigger}"
 
     def _run(self):
         pass
@@ -103,7 +132,7 @@ class EventNoOp(Event):
                          completion_signal=completion_signal, estimated_time=estimated_time)
 
     def __str__(self):
-        return f"{type(self).__name__} | No op | trigger: {self.trigger}"
+        return f"No op | {self.trigger}"
 
     def _run(self):
         pass

@@ -1,4 +1,5 @@
 from typing import Sequence
+from datetime import datetime
 
 import dash
 from dash import dcc, html, Input, Output, State
@@ -7,13 +8,17 @@ import plotly.graph_objects as go
 from chembot.scheduler.vizualization.gantt_chart import Row, ConfigPlot, create_gantt_chart
 
 
-def gantt_chart_component(app: dash.Dash, data: Sequence[Row], config: ConfigPlot = None) -> html.Div:
+def gantt_chart_component(
+        app: dash.Dash, data: Sequence[Row],
+        current_time: datetime = None,
+        config: ConfigPlot = None
+) -> html.Div:
     """
     app.run_server(debug=True)
     """
     if config is None:
         config = ConfigPlot()
-        config.num_rows = len(data)
+        config.set_data_attributes(data)
 
     if config.num_rows < config.max_rows:
         return html.Div()
@@ -22,7 +27,7 @@ def gantt_chart_component(app: dash.Dash, data: Sequence[Row], config: ConfigPlo
     layout = html.Div([
         html.Div(create_slider(app, data, config), style={'float': 'left', 'height': '450px', 'margin-top': '10px'}),
         html.Div([
-            dcc.Graph(id='scatter-plot', figure=create_gantt_chart(data))
+            dcc.Graph(id='scatter-plot', figure=create_gantt_chart(data, current_time, config))
         ], style={'margin-left': '60px'})
     ])
 
@@ -44,7 +49,6 @@ def create_slider(app: dash.Dash, data: Sequence[Row], config: ConfigPlot):
                 vertical=True
             )
 
-    # Define the callback function to update the scatter plot based on the slider value
     @app.callback(
         Output('scatter-plot', 'figure'),
         [Input('slider', 'value')],
@@ -58,11 +62,11 @@ def create_slider(app: dash.Dash, data: Sequence[Row], config: ConfigPlot):
     return slider
 
 
-def create_app(data: Sequence[Row], config: ConfigPlot = None) -> dash.Dash:
+def create_app(data: Sequence[Row], current_time: datetime = None, config: ConfigPlot = None) -> dash.Dash:
     """
     app.run_server(debug=True)
     """
     app = dash.Dash(__name__)
-    app.layout = gantt_chart_component(app, data, config)
+    app.layout = gantt_chart_component(app, data, current_time, config)
 
     return app

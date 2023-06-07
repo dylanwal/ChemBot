@@ -63,7 +63,7 @@ def run():
                 )
             ]
             ),
-        Row("LED (serial)",
+        Row("Pico (serial)",
             [
                 TimeBlock(
                     start=datetime(year=2023, month=6, day=1, hour=13, minute=23, second=6),
@@ -73,7 +73,7 @@ def run():
                 )
             ]
             ),
-        Row("LED2 (serial)",
+        Row("Pump1 (serial)",
             [
                 TimeBlock(
                     start=datetime(year=2023, month=6, day=1, hour=13, minute=23, second=6),
@@ -83,7 +83,7 @@ def run():
                 )
             ]
             ),
-        Row("LED3 (serial)",
+        Row("Pump2 (serial)",
             [
                 TimeBlock(
                     start=datetime(year=2023, month=6, day=1, hour=13, minute=23, second=6),
@@ -93,7 +93,7 @@ def run():
                 )
             ]
             ),
-        Row("LED4 (serial)",
+        Row("Pump3 (serial)",
             [
                 TimeBlock(
                     start=datetime(year=2023, month=6, day=1, hour=13, minute=23, second=6),
@@ -107,8 +107,8 @@ def run():
 
     # fig = create_gantt_chart(data)
     # fig.write_html("temp.html", auto_open=True)
-
-    app = create_app(data)
+    now = datetime(year=2023, month=6, day=1, hour=13, minute=20, second=6)
+    app = create_app(data, now)
     app.run(debug=True)
 
 
