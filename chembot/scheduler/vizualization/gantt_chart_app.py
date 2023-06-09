@@ -3,7 +3,7 @@ import dash
 from dash import dcc, html, Input, Output, State
 import plotly.graph_objects as go
 
-from scheduler.gantt_chart import GanttChart
+from scheduler.vizualization.gantt_chart import GanttChart
 from chembot.scheduler.vizualization.gantt_chart_plot import ConfigPlot, create_gantt_chart
 
 

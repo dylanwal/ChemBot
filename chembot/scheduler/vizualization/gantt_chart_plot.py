@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 
 import plotly.graph_objs as go
 
-from scheduler.gantt_chart import GanttChart, TimeBlock
+from scheduler.vizualization.gantt_chart import GanttChart, TimeBlock
 
 
 def linspace_datetime(start: datetime, end: datetime, n: int) -> list[datetime]:

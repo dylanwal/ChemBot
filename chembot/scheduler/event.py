@@ -1,6 +1,6 @@
 import abc
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from chembot.scheduler.triggers import Trigger, TriggerSignal
 
@@ -13,7 +13,7 @@ class Event(abc.ABC):
                  priority: int = 0,
                  name: str = None,
                  completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
+                 estimated_time: timedelta = None
                  ):
         self.id_ = uuid.uuid4().int
         self.name = name
@@ -26,35 +26,25 @@ class Event(abc.ABC):
         self.completion_signal = completion_signal
         self.estimated_time = estimated_time
 
+        self.completed = False
+
     def __repr__(self):
         return self.__str__()
 
-    def __eq__(self, obj):
-        return (self.time_start, self.priority) == (obj.time_, obj.priority)
-
-    def __lt__(self, obj):
-        return (self.time_start, self.priority) < (obj.time_, obj.priority)
-
-    def __le__(self, obj):
-        return (self.time_start, self.priority) <= (obj.time_, obj.priority)
-
-    def __gt__(self, obj):
-        return (self.time_start, self.priority) > (obj.time_, obj.priority)
-
-    def __ge__(self, obj):
-        return (self.time_start, self.priority) >= (obj.time_, obj.priority)
-
-    @property
-    def time_start(self) -> datetime | None:
-        return None
-
-    @property
-    def time_end(self) -> datetime | None:
-        return None
-
-    @property
-    def hover_text(self) -> str:
-        return self.__str__()
+    # def __eq__(self, obj):
+    #     return (self.time_start, self.priority) == (obj.time_, obj.priority)
+    #
+    # def __lt__(self, obj):
+    #     return (self.time_start, self.priority) < (obj.time_, obj.priority)
+    #
+    # def __le__(self, obj):
+    #     return (self.time_start, self.priority) <= (obj.time_, obj.priority)
+    #
+    # def __gt__(self, obj):
+    #     return (self.time_start, self.priority) > (obj.time_, obj.priority)
+    #
+    # def __ge__(self, obj):
+    #     return (self.time_start, self.priority) >= (obj.time_, obj.priority)
 
     def run(self):
         func = self._run()
@@ -81,8 +71,10 @@ class EventCallable(Event):
                  priority: int = 0,
                  name: str = None,
                  completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
+                 estimated_time: timedelta = None
                  ):
+        if name is None:
+            name = callable_.__name__
         super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
                          completion_signal=completion_signal, estimated_time=estimated_time)
         self.callable_ = callable_
@@ -111,7 +103,7 @@ class EventResource(Event):
                  priority: int = 0,
                  name: str = None,
                  completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
+                 estimated_time: timedelta = None
                  ):
         super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
                          completion_signal=completion_signal, estimated_time=estimated_time)
@@ -139,7 +131,7 @@ class EventNoOp(Event):
                  *,
                  priority: int = 0,
                  completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
+                 estimated_time: timedelta = None
                  ):
         super().__init__(trigger=trigger, name=self.name, priority=priority,
                          completion_signal=completion_signal, estimated_time=estimated_time)

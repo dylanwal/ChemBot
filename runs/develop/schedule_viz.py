@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from scheduler.gantt_chart import Row, TimeBlock, GanttChart
+from scheduler.vizualization.gantt_chart import Row, TimeBlock, GanttChart
 from chembot.scheduler.vizualization.gantt_chart_app import create_app
 
 

@@ -139,7 +139,6 @@ def get_min_max_time(data: Sequence[Row]) -> tuple[datetime | None, datetime | N
     max_time = min_time
     for row in data:
         for time_block in row.time_blocks:
-            if time_block.
             if time_block.time_start < min_time:
                 min_time = time_block.time_start
                 continue
