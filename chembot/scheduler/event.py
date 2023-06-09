@@ -1,5 +1,6 @@
 import abc
 import uuid
+from datetime import datetime
 
 from chembot.scheduler.triggers import Trigger, TriggerSignal
 
@@ -28,20 +29,32 @@ class Event(abc.ABC):
     def __repr__(self):
         return self.__str__()
 
-    # def __eq__(self, obj):
-    #     return (self.time_, self.priority) == (obj.time_, obj.priority)
-    #
-    # def __lt__(self, obj):
-    #     return (self.time_, self.priority) < (obj.time_, obj.priority)
-    #
-    # def __le__(self, obj):
-    #     return (self.time_, self.priority) <= (obj.time_, obj.priority)
-    #
-    # def __gt__(self, obj):
-    #     return (self.time_, self.priority) > (obj.time_, obj.priority)
-    #
-    # def __ge__(self, obj):
-    #     return (self.time_, self.priority) >= (obj.time_, obj.priority)
+    def __eq__(self, obj):
+        return (self.time_start, self.priority) == (obj.time_, obj.priority)
+
+    def __lt__(self, obj):
+        return (self.time_start, self.priority) < (obj.time_, obj.priority)
+
+    def __le__(self, obj):
+        return (self.time_start, self.priority) <= (obj.time_, obj.priority)
+
+    def __gt__(self, obj):
+        return (self.time_start, self.priority) > (obj.time_, obj.priority)
+
+    def __ge__(self, obj):
+        return (self.time_start, self.priority) >= (obj.time_, obj.priority)
+
+    @property
+    def time_start(self) -> datetime | None:
+        return None
+
+    @property
+    def time_end(self) -> datetime | None:
+        return None
+
+    @property
+    def hover_text(self) -> str:
+        return self.__str__()
 
     def run(self):
         func = self._run()

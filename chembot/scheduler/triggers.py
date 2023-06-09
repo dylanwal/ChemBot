@@ -2,7 +2,7 @@ import uuid
 from typing import Collection
 import abc
 import time
-import datetime
+from datetime import datetime, timedelta
 
 
 class Trigger(abc.ABC):
@@ -27,7 +27,7 @@ class TriggerNow(Trigger):
 class TriggerTimeRelative(Trigger):
     """ also called interval """
 
-    def __init__(self, trigger_time: int | float | datetime.datetime):
+    def __init__(self, trigger_time: int | float | timedelta):
         self.trigger_time = trigger_time  # TODO: convert datetime
         self._start_time = None
 
@@ -39,14 +39,14 @@ class TriggerTimeRelative(Trigger):
 
 
 class TriggerTimeAbsolute(Trigger):
-    def __init__(self, trigger_time: int | float | datetime.datetime):
+    def __init__(self, trigger_time: datetime):
         self.trigger_time = trigger_time  # TODO: convert datetime
 
     def __str__(self):
         return f"{type(self).__name__} | trigger_time: {self.trigger_time}"
 
     def triggered(self) -> bool:
-        return self.trigger_time > time.time()
+        return self.trigger_time > datetime.now()
 
 
 class TriggerSignal(Trigger):

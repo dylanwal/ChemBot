@@ -1,31 +1,24 @@
-
-import plotly.graph_objs as go
-
-from chembot.scheduler.triggers import Trigger
 from chembot.scheduler.event import Event, EventResource, EventCallable, EventNoOp
 from chembot.scheduler.job import Job
-from chembot.scheduler.vizualization.gantt_chart import Row, TimeBlock
+from chembot.scheduler.gantt_chart import GanttChart, Row, TimeBlock
 
 
-def convert(job: Job) -> list[Row]:
-    rows = get_rows(job)
-    rows = list(rows)
-    rows.sort()
-    print(rows)
+def convert(job: Job) -> GanttChart:
+    gantt_chart = GanttChart()
+    loop_through_jobs(gantt_chart, job)
+    return gantt_chart
 
 
-def get_rows(obj: Job | Event) -> set[str]:
+def loop_through_jobs(gantt_chart: GanttChart, obj: Job | Event):
     if isinstance(obj, Event):
         if isinstance(obj, EventCallable):
-            return {obj.callable_.__name__, }
-        if isinstance(obj, EventResource):
-            return {obj.name, }
-        if isinstance(obj, EventNoOp):
-            return {obj.name, }
-    if isinstance(obj, Job):
-        set_ = set()
+            gantt_chart.add_time_block(obj.callable_.__name__, obj)
+        elif isinstance(obj, EventResource):
+            gantt_chart.add_time_block(obj.resource, obj)
+        elif isinstance(obj, EventNoOp):
+            gantt_chart.add_time_block(obj.name, obj)
+    elif isinstance(obj, Job):
         for obj_ in obj.events:
-            set_ = set_.union(get_rows(obj_))
-        return set_
-
-    raise ValueError("Not valid event.")
+            loop_through_jobs(gantt_chart, obj_)
+    else:
+        raise ValueError("Not valid event.")

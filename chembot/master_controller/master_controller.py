@@ -8,7 +8,7 @@ from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction, Rabbit
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 from chembot.master_controller.registry import EquipmentRegistry
-from chembot.scheduler.base import Schedule
+from chembot.scheduler.schedular import Schedule
 from chembot.scheduler.event import Event
 
 logger = logging.getLogger(config.root_logger_name + ".controller")

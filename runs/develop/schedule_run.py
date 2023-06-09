@@ -6,8 +6,9 @@ from chembot.scheduler.triggers import Trigger, TriggerTimeAbsolute, TriggerTime
 from chembot.scheduler.event import EventCallable, EventResource
 from chembot.scheduler.job import Job
 from chembot.scheduler.resource import Resource, ResourceGroup
-from chembot.scheduler.base import Schedular
+from chembot.scheduler.schedular import Schedular
 from chembot.scheduler.tree_to_gantt import convert
+from chembot.scheduler.vizualization.gantt_chart_plot import create_gantt_chart
 
 scheduler = Schedular()
 
@@ -70,4 +71,6 @@ full_job = Job(
     name="full_job"
 )
 
-convert(full_job)
+chart = convert(full_job)
+fig = create_gantt_chart(chart)
+fig.show()
