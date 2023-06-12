@@ -22,11 +22,14 @@ class Event(abc.ABC):
         self.args = args
         self.kwargs = kwargs
         if isinstance(completion_signal, TriggerSignal):
-            self.completion_signal = completion_signal.signal
+            completion_signal = completion_signal.signal
         self.completion_signal = completion_signal
         self.estimated_time = estimated_time
+        self.parent = None
 
         self.completed = False
+        self.time_start = None
+        self.time_end = None
 
     def __repr__(self):
         return self.__str__()
@@ -105,6 +108,8 @@ class EventResource(Event):
                  completion_signal: TriggerSignal | str | int = None,
                  estimated_time: timedelta = None
                  ):
+        if name is None:
+            name = f"{resource}.{callable_}"
         super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
                          completion_signal=completion_signal, estimated_time=estimated_time)
         self.resource = resource

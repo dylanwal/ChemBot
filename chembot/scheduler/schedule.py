@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta
 from typing import Callable, Iterator, Sequence
 
 from chembot.scheduler.event import Event, EventResource, EventCallable, EventNoOp
@@ -25,25 +24,17 @@ def loop_through_jobs(schedule: Schedule, obj: Job | Event):
 
 
 class Schedule:
-    delay = timedelta(seconds=15)  # delay if no jobs are in queue
 
-    def __init__(self, time_now: Callable[[], datetime] = None):
+    def __init__(self):
         self._resources: list[Resource] = []
         self._resources_labels = []
-        self._job_running = None
-        self._jobs_completed = []
-        self._jobs_in_queue = []
-        self._time_now = time_now if time_now is not None else datetime.now
-        self._time_min = None
-        self._time_max = None
-        self._up_to_date = False
+        self._jobs = []
+
+    def __str__(self):
+        return f"jobs: {len(self._jobs)} | resources: {len(self._resources)}"
 
     def __iter__(self):
         return iter(self._resources)
-
-    @property
-    def time_now(self) -> datetime:
-        return self._time_now()
 
     @property
     def resources(self) -> list[Resource]:
@@ -51,19 +42,7 @@ class Schedule:
 
     @property
     def jobs(self) -> list[Job]:
-        return self.jobs_in_queue + [self.job_running] + self.jobs_completed
-
-    @property
-    def jobs_completed(self) -> list[Job]:
-        return self._jobs_completed
-
-    @property
-    def job_running(self) -> Job | None:
-        return self._job_running
-
-    @property
-    def jobs_in_queue(self) -> list[Job]:
-        return self._jobs_in_queue
+        return self._jobs
 
     @property
     def number_of_resources(self) -> int:
@@ -71,42 +50,13 @@ class Schedule:
 
     @property
     def resources_labels(self) -> list[str]:
-        if not self._up_to_date:
-            self._update()
-        return self._resources_labels
-
-    @property
-    def time_min(self) -> datetime | None:
-        if not self._up_to_date:
-            self._update()
-        return self._time_min
-
-    @property
-    def time_max(self) -> datetime | None:
-        if not self._up_to_date:
-            self._update()
-        return self._time_max
-
-    @property
-    def time_range(self) -> timedelta | None:
-        if self.time_max is None or self.time_min is None:
-            return None
-
-        return self.time_max - self.time_min
-
-    def _update(self):
-        if self._resources:
-            self._time_min, self._time_max = get_min_max_time(self.resources)
-
-        self._resources_labels = [resources.name for resources in self.resources]
-        self._up_to_date = True
+        return [resources.name for resources in self.resources]
 
     def get_resources(self, name: str) -> Resource:
         index = self.resources_labels.index(name)
         return self._resources[index]
 
     def add_resource(self, resource: Resource | Iterator[Resource]):
-        self._up_to_date = False
         if isinstance(resource, Resource):
             resource = [resource]
         self._resources += resource
@@ -115,14 +65,13 @@ class Schedule:
         pass
 
     def add_job(self, job: Job):
-        self._jobs_in_queue.append(job)
+        self._jobs.append(job)
         # determine job time
 
         loop_through_jobs(self, job)
-        self._up_to_date = False
 
     def get_event(self, event: str | int) -> Event:
-        pass
+        raise NotImplementedError
 
     def add_event(self, resource: str | Resource, event: Event):
         if isinstance(resource, str):
@@ -157,27 +106,8 @@ class Schedule:
     # def delete_event(self, event: Event, Iterator[Event]):
     #     pass
 
-
-def get_min_max_time(resources: Sequence[Resource]) -> tuple[datetime | None, datetime | None]:
-    min_time = resources[0].time_start
-    max_time = min_time
-    for event in resources:
-        if event.time_start < min_time:
-            min_time = event.time_start
-            continue
-        if event.time_end is not None and event.time_end > max_time:
-            max_time = event.time_end
-
-    return min_time, max_time
-
-
-def get_time_delta_label(time_delta: timedelta) -> str:
-    if time_delta >= timedelta(days=1):
-        return f"{time_delta.days} d"
-    if time_delta >= timedelta(hours=1):
-        return f"{int(time_delta.seconds / 60 / 60)} h"
-    if time_delta >= timedelta(minutes=1):
-        return f"{int(time_delta.seconds / 60)} min"
-    if time_delta >= timedelta(seconds=1):
-        return f"{time_delta.seconds} s"
-    return f"{time_delta.microseconds} ms"
+    @classmethod
+    def from_job(cls, job: Job) -> Schedule:
+        schedule = cls()
+        schedule.add_job(job)
+        return schedule

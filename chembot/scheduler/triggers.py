@@ -51,7 +51,7 @@ class TriggerTimeAbsolute(Trigger):
 
 class TriggerSignal(Trigger):
     def __init__(self, signal: int | float | str = None):
-        self.signal = signal if signal is not None else uuid.uuid4()
+        self.signal = signal if signal is not None else uuid.uuid4().int
         self._signaled = False
 
     def __str__(self):

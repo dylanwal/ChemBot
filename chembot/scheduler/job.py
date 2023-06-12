@@ -2,9 +2,8 @@ from __future__ import annotations
 
 from typing import Collection
 import uuid
-from datetime import datetime
 
-from chembot.scheduler.triggers import Trigger, TriggerSignal
+from chembot.scheduler.triggers import Trigger, TriggerSignal, TriggerNow
 from chembot.scheduler.event import Event
 
 
@@ -22,21 +21,29 @@ class Job:
         if events is not None:
             self.add_event(events)
 
-        self.trigger = trigger  # if None will be filled with TriggerNow()
+        self.trigger: Trigger = trigger if trigger is not None else TriggerNow()
 
         if isinstance(completion_signal, TriggerSignal):
-            self.completion_signal = completion_signal.signal
+            completion_signal = completion_signal.signal
         self.completion_signal = completion_signal
 
-        self._start_time = None
+        self.parent = None
         self.completed = False
+        self.time_start = None
+        self.time_end = None
 
     def __str__(self):
         text = ""
         if self.name is not None:
             text += self.name + " | "
         text += f"# events: {len(self)} | "
-        return text + f"{self.trigger}"
+        if self.trigger is not None:
+            text += f"{self.trigger}"
+        text += f" | completed: {self.completed}"
+        return text
+
+    def __repr__(self):
+        return self.__str__()
 
     def __len__(self) -> int:
         count = 0
@@ -52,12 +59,10 @@ class Job:
     def events(self) -> list[Event | Job, ...]:
         return self._events
 
-    @property
-    def start_time(self) -> datetime | None:
-        return self._start_time
-
     def add_event(self, event: Collection[Event | Job, ...] | Event | Job):
         if isinstance(event, Job) or isinstance(event, Event):
             event = [event]
 
         self._events += event
+        for event_ in event:
+            event_.parent = self

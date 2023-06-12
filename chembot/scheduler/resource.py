@@ -1,5 +1,3 @@
-from typing import Collection
-from datetime import timedelta
 import bisect
 
 from chembot.scheduler.event import Event
@@ -17,36 +15,20 @@ class Resource:
     """
     def __init__(self, name: str):
         self.name = name
-        self._events = []
+        self._events: list[Event] = []
+
+    def __str__(self):
+        return f"{self.name} | # events: {len(self._events)}"
+
+    def __repr__(self):
+        return self.__str__()
 
     @property
     def events(self) -> list[Event]:
         return self._events
 
     def add_event(self, event: Event):
-        # TODO: event validation with equipment interface
-        self._events += event
+        self._events.append(event)
 
-    @property
-    def time_start(self):
+    def validate_event(self, event: Event):
         pass
-
-    @property
-    def time_end(self):
-        pass
-
-    @property
-    def time_till_next_event(self) -> timedelta | None:
-        pass
-
-    @property
-    def next_event(self) -> Event | None:
-        pass
-
-def d():
-    for time_block in row.time_blocks:
-        if time_block.time_start < min_time:
-            min_time = time_block.time_start
-            continue
-        if time_block.time_end is not None and time_block.time_end > max_time:
-            max_time = time_block.time_end
