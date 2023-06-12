@@ -85,8 +85,17 @@ class RabbitMessageRegister(RabbitMessage):
         return super().to_str()
 
 
+class RabbitMessageUnRegister(RabbitMessage):
+    def __init__(self, source: str):
+        super().__init__("master_controller", source)
+
+    def to_str(self) -> str:
+        return super().to_str()
+
+
 registry.register(RabbitMessage)
 registry.register(RabbitMessageRegister)
+registry.register(RabbitMessageUnRegister)
 registry.register(RabbitMessageCritical)
 registry.register(RabbitMessageError)
 registry.register(RabbitMessageAction)

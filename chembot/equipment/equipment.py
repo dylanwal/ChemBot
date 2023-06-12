@@ -3,15 +3,30 @@ import logging
 
 from unitpy import Quantity
 
+from chembot import registry
 from chembot.configuration import config
 from chembot.utils.class_building import get_actions_list
 from chembot.equipment.equipment_interface import EquipmentState, get_equipment_interface
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitMessageAction, RabbitMessageRegister, \
-    RabbitMessageError, RabbitMessageCritical
+    RabbitMessageError, RabbitMessageCritical, RabbitMessageUnRegister
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
+
+
+class NotDefinedAttribute:
+    def __init__(self):
+        pass
+
+    def __str__(self):
+        return type(self).__name__
+
+    def __repr__(self):
+        return self.__str__()
+
+
+registry.register(NotDefinedAttribute)
 
 
 class EquipmentConfig:
@@ -28,19 +43,6 @@ class EquipmentConfig:
         self.min_pressure = min_pressure
         self.max_temperature = max_temperature
         self.min_temperature = min_temperature
-
-
-def get_attrs(class_) -> set:
-    results = set()
-    for func in dir(class_):
-        if callable(getattr(class_, func)) and func.startswith("read_"):
-            attr = func[5:]
-            if attr == "all":
-                continue
-            if hasattr(class_, attr):
-                results.add(attr)
-
-    return results
 
 
 class Equipment(abc.ABC):
@@ -66,18 +68,29 @@ class Equipment(abc.ABC):
         self.equipment_config = EquipmentConfig()
         self.equipment_interface = get_equipment_interface(self)
         self.watchdog = RabbitWatchdog(self)
+        self.action_in_progress = None
 
         if kwargs:
             for k, v in kwargs:
                 setattr(self, k, v)
 
-    def _register_equipment(self, _: RabbitMessage = None):
+    def _register_equipment(self):
         if not self.rabbit.queue_exists("master_controller"):
             logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
             raise ValueError("No MasterController found on the server.")
 
         # update parameters
         message = RabbitMessageRegister(self.name, self.equipment_interface)
+        self.rabbit.send(message)
+        self.watchdog.set_watchdog(message, 5)
+
+    def _unregister_equipment(self):
+        if not self.rabbit.queue_exists("master_controller"):
+            logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
+            raise ValueError("No MasterController found on the server.")
+
+        # update parameters
+        message = RabbitMessageUnRegister(self.name)
         self.rabbit.send(message)
         self.watchdog.set_watchdog(message, 5)
 
@@ -102,27 +115,21 @@ class Equipment(abc.ABC):
 
     def _run(self):
         # infinite loop
-        while True:
+        while self._deactivate_event:
             self.watchdog.check_watchdogs()
             message = self.rabbit.consume(self.pulse)
             if message:
                 self._process_message(message)
-            if self._deactivate_event:
-                break
 
     def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
             self._deactivate_event = True
-
         elif isinstance(message, RabbitMessageError):
             self._deactivate_event = True
-
-        elif isinstance(message, RabbitMessageAction):
-            self._execute_action(message)
-
         elif isinstance(message, RabbitMessageReply):
             self.watchdog.deactivate_watchdog(message)
-
+        elif isinstance(message, RabbitMessageAction):
+            self._execute_action(message)
         else:
             logger.warning("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
@@ -135,11 +142,13 @@ class Equipment(abc.ABC):
         try:
             func = getattr(self, message.action)
             if func.__code__.co_argcount == 1:  # the '1' is 'self'
-                # function with no inputs
                 reply = func()
             else:
                 reply = func(**message.kwargs)
-            self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+
+            if reply is not None:
+                self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+
             logger.info(
                 config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"))
 
@@ -202,7 +211,7 @@ class Equipment(abc.ABC):
 
     def _deactivate_(self):
         self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
-        # TODO un-register
+        self._unregister_equipment()
         self.rabbit.deactivate()
 
     @abc.abstractmethod

@@ -28,30 +28,6 @@ class Schedular:
         return self._jobs_in_queue
 
     def run(self):
-
-        while True:
-            pass
-
-# def get_min_max_time(resources: Sequence[Resource]) -> tuple[datetime | None, datetime | None]:
-#     min_time = resources[0].time_start
-#     max_time = min_time
-#     for event in resources:
-#         if event.time_start < min_time:
-#             min_time = event.time_start
-#             continue
-#         if event.time_end is not None and event.time_end > max_time:
-#             max_time = event.time_end
-#
-#     return min_time, max_time
-
-
-def get_time_delta_label(time_delta: timedelta) -> str:
-    if time_delta >= timedelta(days=1):
-        return f"{time_delta.days} d"
-    if time_delta >= timedelta(hours=1):
-        return f"{int(time_delta.seconds / 60 / 60)} h"
-    if time_delta >= timedelta(minutes=1):
-        return f"{int(time_delta.seconds / 60)} min"
-    if time_delta >= timedelta(seconds=1):
-        return f"{time_delta.seconds} s"
-    return f"{time_delta.microseconds} ms"
+        # check if any events need to run
+        # send messages out
+        ...

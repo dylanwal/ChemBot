@@ -1,31 +1,34 @@
 import logging
-from functools import partial
+from datetime import datetime, timedelta
 
 from chembot.configuration import config
 from chembot.utils.class_building import get_actions_list
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction, RabbitMessageCritical, RabbitMessageError, \
-    RabbitMessageRegister, RabbitMessageReply
+    RabbitMessageRegister, RabbitMessageReply, RabbitMessageUnRegister
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 from chembot.master_controller.registry import EquipmentRegistry
-from chembot.scheduler.schedular import Schedule
-from chembot.scheduler.event import Event
+from chembot.scheduler.schedule import Schedule
+from chembot.scheduler.schedular import Schedular
+from chembot.scheduler.job import Job
 
-logger = logging.getLogger(config.root_logger_name + ".controller")
+logger = logging.getLogger(config.root_logger_name + ".master_controller")
 
 
 class MasterController:
     """ Master Controller """
     name = "master_controller"
     pulse = 0.01  # time of each loop in seconds
+    status_update_time = timedelta(seconds=1)  # update all equipment status every 1 seconds
 
     def __init__(self):
         self.actions = get_actions_list(self)
         self.rabbit = RabbitMQConnection(self.name)
         self.watchdog = RabbitWatchdog(self)
         self.registry = EquipmentRegistry()
-        self.schedule = Schedule(self)
+        self.scheduler = Schedular()
         self._deactivate_event = False
+        self._next_update = datetime.now()
 
     def _deactivate(self):
         self.rabbit.deactivate()
@@ -41,34 +44,33 @@ class MasterController:
 
     def _run(self):
         # infinite loop
-        while True:
+        while self._deactivate_event:
             self.watchdog.check_watchdogs()
             message = self.rabbit.consume(self.pulse)
             if message:
                 self._process_message(message)
-            self.schedule.run(blocking=False)  # check if event needs to be run
-            if self._deactivate_event:
-                break
+
+            self.scheduler.run()
+
+            if datetime.now() > self._next_update:
+                self._status_update()
 
     def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
             self._error_handling()
             self._deactivate_event = True
-
         elif isinstance(message, RabbitMessageError):
             self._error_handling()
             self._deactivate_event = True
-
         elif isinstance(message, RabbitMessageRegister):
             self.registry.register(message)
             self.rabbit.send(RabbitMessageReply.create_reply(message, None))
-
+        elif isinstance(message, RabbitMessageUnRegister):
+            self.registry.unregister(message.source)
         elif isinstance(message, RabbitMessageAction):
             self._execute_action(message)
-
         elif isinstance(message, RabbitMessageReply):
             self.watchdog.deactivate_watchdog(message)
-
         else:
             logger.warning("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
@@ -81,7 +83,6 @@ class MasterController:
         try:
             func = getattr(self, message.action)
             if func.__code__.co_argcount == 1:  # the '1' is 'self'
-                # function with no inputs
                 reply = func()
             else:
                 reply = func(**message.kwargs)
@@ -91,7 +92,7 @@ class MasterController:
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
+            logger.exception("master controller continues to operate as nothing happened.")
 
     def _error_handling(self):
         """ Deactivate all equipment """
@@ -99,24 +100,26 @@ class MasterController:
             self.rabbit.send(RabbitMessageAction(equip, self.name, ""))
         self._deactivate()
 
+    def _status_update(self):
+        self._next_update = datetime.now() + self.status_update_time
+
+        # for equipment in self.registry.equipment:
+        #     message = RabbitMessageUpdate(equipment.name)
+        #     self.rabbit.send(message)
+        #     self.watchdog.set_watchdog(message, delay=1)
+
     def read_equipment_registry(self) -> EquipmentRegistry:
         """ read equipment status"""
         return self.registry
 
-    def write_event_to_schedule(self, event: Event):
-        self.schedule.add_event(event)
+    def read_schedule(self) -> Schedule:
+        return self.scheduler.schedule
 
-    def write_event(self, message: RabbitMessageAction, forward: bool = False):
-        self.rabbit.send(message)
-        if forward:
-            self.watchdog.set_watchdog(message, 1,
-                                       reply_callback=partial(self.write_forward_reply, destination="GUI"))
-        else:
-            self.watchdog.set_watchdog(message, 1)
+    def write_add_job(self, job: Job):
+        self.scheduler.add_job(job)
 
     def write_forward_reply(self, message: RabbitMessageReply, destination: str):
         message.destination = destination
-        logger.warning(f"forwarding: {message}")
         self.rabbit.send(message)
 
     def write_deactivate(self):

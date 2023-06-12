@@ -4,6 +4,7 @@ from unitpy import Quantity
 
 from chembot.reference_data.pico_pins import PicoHardware
 from chembot.configuration import config
+from chembot.equipment.equipment import NotDefinedAttribute
 from chembot.equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction
 
@@ -24,7 +25,7 @@ class LightPico(Light):
                  frequency: int = 10_000,
                  ):
         super().__init__(name)
-        self.color = color
+        self.color = color if color is not None else NotDefinedAttribute()
         self.communication = communication
         self.pin = pin
         self.frequency = frequency
@@ -45,13 +46,9 @@ class LightPico(Light):
         self.rabbit.send(message)
         self.watchdog.set_watchdog(message, 5)
 
-    def read_color(self) -> Quantity | None:
+    def read_color(self) -> Quantity | NotDefinedAttribute:
         """ read_color """
         return self.color
-
-    # def write_color(self, color: int | Quantity | float | str):
-    #     """ write_color """
-    #     self.color = color
 
     def read_communication(self) -> str:
         """ read_communication """
@@ -133,7 +130,7 @@ class LightPico(Light):
         self.rabbit.send(message)
 
         # get reply
-        self.watchdog.set_watchdog(message, 5)
+        self.watchdog.set_watchdog(message, 1)
 
     def _deactivate(self):
         # write to pico

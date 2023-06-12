@@ -52,7 +52,7 @@ scheduler.schedule.add_resource(Resource("pump"))
 def led_blink(time_: timedelta, trigger: Trigger = None, completion_signal: TriggerSignal = None):
     return Job(
         [
-            EventResource("LED-red", LED.on.__name__, TriggerNow()),
+            EventResource("LED-red", LED.on.__name__, TriggerNow(), estimated_time=timedelta(milliseconds=10)),
             EventResource("LED-red", LED.off.__name__, TriggerTimeRelative(time_)),
         ],
         trigger=trigger,
@@ -94,6 +94,7 @@ def reaction(vol: float, flow_rate: float, trigger: Trigger = None, completion_s
         trigger=trigger,
         completion_signal=completion_signal
     )
+
 
 ###################################################
 trigger_refill_done = TriggerSignal()
