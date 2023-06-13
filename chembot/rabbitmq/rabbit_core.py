@@ -22,6 +22,9 @@ def get_rabbit_channel():
 
 
 def create_queue(channel, topic):
+    if queue_exists(channel, topic):
+        raise ValueError("Queue already exists with same 'name'/'topic'. ")
+
     result = channel.queue_declare(topic, auto_delete=True)
     channel.queue_bind(
         exchange=config.rabbit_exchange,

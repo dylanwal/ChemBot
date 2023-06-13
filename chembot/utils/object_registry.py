@@ -6,7 +6,12 @@ import inspect
 
 class ObjectRegistry:
     def __init__(self):
-        self.objects = {}
+        self.objects: dict[str, object] = {}
+
+    def __contains__(self, item: str) -> bool:
+        if item in self.objects:
+            return True
+        return False
 
     def register(self, obj: type):
         if obj.__name__ in self.objects:

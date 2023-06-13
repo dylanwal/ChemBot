@@ -5,6 +5,26 @@ from chembot.scheduler.job import Job
 from chembot.scheduler.schedule import Schedule
 
 
+class JobSubmitResult:
+
+    def __init__(self,
+                 success: bool = None,
+                 time_start: datetime = None,
+                 position_in_queue: int = None,
+                 length_of_queue: int = None,
+                 errors: list[Exception] = None
+                 ):
+        self.success = success
+        self.time_start = time_start
+        self.position_in_queue = position_in_queue
+        self.length_of_queue = length_of_queue
+        self.errors = errors if errors is not None else []
+
+    def register_error(self, error: Exception):
+        self.success = False
+        self.errors.append(error)
+
+
 class Schedular:
     delay = timedelta(seconds=15)  # delay if no jobs are in queue
 
@@ -30,4 +50,12 @@ class Schedular:
     def run(self):
         # check if any events need to run
         # send messages out
+        ...
+
+    def add_job(self, job: Job) -> JobSubmitResult:
+        # validate equipment, actions
+        # validate no overlapping events
+        # determine available time
+        # add
+        # return result
         ...

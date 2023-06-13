@@ -29,7 +29,7 @@ class ConfigPlot:
         # window
         self.background_color = 'rgba(255,255,255,1)'
         self.show_axis = True
-        self.margin = dict(l=10, r=10, b=10, t=50, pad=0)
+        self.margin = dict(l=10, r=10, b=10, t=40, pad=0)
         self.width = 1200
         self.height_per_row = 50
         self.height = None
@@ -42,6 +42,7 @@ class ConfigPlot:
 
         # box figure
         self.box_line_width = 30
+        self.box_width = self.step/3
 
     def get_y_values(self, num_rows: int) -> Iterator[int | float]:
         return range(1, num_rows + 1, self.step)
@@ -50,7 +51,7 @@ class ConfigPlot:
         if self.height is not None:
             return self.height
 
-        return self.height_per_row * num_rows + 100
+        return self.height_per_row * num_rows + 150
 
     def layout_kwargs(self, data: GanttChart) -> dict:
         kwargs = {
@@ -143,6 +144,14 @@ class ConfigPlot:
 
         return kwargs
 
+    def box_kwargs(self, text: str = None) -> dict:
+        kwargs = {}
+        if self.hover and text is not None:
+            # kwargs["text"] = text
+            kwargs["hovertext"] = text
+
+        return kwargs
+
     def current_time_kwargs(self) -> dict:
         return {
             "fillcolor": self.past_time_color,
@@ -188,6 +197,19 @@ def create_box(fig: go.Figure, time_block: TimeBlock, y: float, config: ConfigPl
     )
 
 
+def create_box2(fig: go.Figure, time_block: TimeBlock, y: float, config: ConfigPlot):
+    delta = (time_block.time_end - time_block.time_start) * 0.05
+    fig.add_shape(type="rect",
+                  x0=time_block.time_start + delta,
+                  y0=y-config.box_width,
+                  x1=time_block.time_end - delta,
+                  y1=y+config.box_width,
+                  line={"color": "black", "width": 1},
+                  fillcolor="black",
+                  )
+    #
+
+
 def add_current_time(fig: go.Figure, x_min: datetime, x_max: datetime, num_rows: int, config: ConfigPlot):
     fig.add_trace(
         go.Scatter(
@@ -213,6 +235,7 @@ def create_gantt_chart(data: GanttChart, config: ConfigPlot = None) -> go.Figure
                 create_line(fig, time_block, y=i, config=config)
             else:
                 if config.mode == ConfigPlot.BOX:
+                    create_box2(fig, time_block, y=i, config=config)
                     create_box(fig, time_block, y=i, config=config)
                 else:
                     create_bar(fig, time_block, y=i, config=config)

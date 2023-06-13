@@ -1,6 +1,7 @@
 import enum
 import json
 import logging
+from datetime import datetime, timedelta
 
 from unitpy import Quantity, Unit
 
@@ -11,9 +12,9 @@ from chembot.configuration import config
 logger = logging.getLogger(config.root_logger_name + ".serialize")
 
 
-def to_JSON(obj):
+def to_JSON(obj, indent: int = None) -> str:
     try:
-        return json.dumps(serialize(obj))
+        return json.dumps(serialize(obj), indent=indent)
     except Exception as e:
         logger.exception(f"Exception raise while serializing: {obj}")
         raise e
@@ -30,8 +31,12 @@ def serialize(obj):
         return {"class": Quantity.__name__, "value": str(obj)}
     elif isinstance(obj, Unit):
         return {"class": Unit.__name__, "unit": str(obj)}
+    elif isinstance(obj, datetime):
+        return {"datetime": str(obj)}
+    elif isinstance(obj, timedelta):
+        return {"timedelta": obj.total_seconds()}
     elif hasattr(obj, '__dict__'):
-        keys = {k.lstrip("_") for k in vars(obj) if not k.startswith("__")}
+        keys = {k for k in vars(obj) if not k.startswith("_")}.union(get_property_keys(obj))
         dict_ = {k: serialize(getattr(obj, k)) for k in keys}
         dict_["class"] = type(obj).__name__
         return dict_
@@ -41,6 +46,10 @@ def serialize(obj):
         dict_["class"] = type(obj).__name__
     else:
         return obj
+
+
+def get_property_keys(obj) -> set[str]:
+    return {p for p in dir(type(obj)) if isinstance(getattr(type(obj), p), property)}
 
 
 #######################################################################################################################
@@ -61,6 +70,10 @@ def deserialize(json_data: dict, registry_: ObjectRegistry = registry):
     elif isinstance(json_data, dict):
         if "enum" in json_data:
             return registry_.get(json_data["enum"])(json_data["value"])
+        if "datetime" in json_data:
+            return datetime.fromisoformat(json_data["datetime"])
+        if "timedelta" in json_data:
+            return timedelta(seconds=json_data["timedelta"])
         if "class" in json_data:
             class_ = registry_.get(json_data.pop("class"))
             __init__param = class_.__init__.__code__.co_varnames

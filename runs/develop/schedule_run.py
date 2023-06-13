@@ -1,15 +1,17 @@
-from datetime import timedelta
+from datetime import timedelta, datetime
 import time
 
-from unitpy import Unit
+from unitpy import Quantity, Unit
 
-from chembot.scheduler.triggers import Trigger, TriggerTimeAbsolute, TriggerTimeRelative, TriggerSignal, TriggerNow
-from chembot.scheduler.event import EventCallable, EventResource
-from chembot.scheduler.job import Job
+from chembot.scheduler.event import EventResource
+from chembot.scheduler.job import JobSequence, JobConcurrent
 from chembot.scheduler.resource import Resource
 from chembot.scheduler.schedule import Schedule
 from chembot.scheduler.schedular import Schedular
-from chembot.scheduler.vizualization.job_tree import generate_job_flowchart, generate_trigger_flowchart
+from chembot.scheduler.vizualization.job_tree import generate_job_flowchart
+from chembot.scheduler.vizualization.schedule_to_gantt_chart import schedule_to_gantt_chart
+from chembot.scheduler.vizualization.gantt_chart_plot import create_gantt_chart
+from chembot.scheduler.vizualization.gantt_chart_app import create_app
 
 scheduler = Schedular()
 
@@ -18,11 +20,20 @@ class LED:
     def __init__(self, name: str):
         self.name = name
 
+    @property
+    def tt(self):
+        return "tt"
+
     def on(self):
         print("led on")
 
     def off(self):
         print("led off")
+
+    def duration(self, duration: timedelta):
+        self.on()
+        # duration
+        self.off()
 
 
 class Valve:
@@ -42,6 +53,15 @@ class Pump:
         print(f"pump flow: {vol}; {flow_rate}")
         time.sleep(1)
 
+    @staticmethod
+    def calculate_duration(volume: Quantity, flow_rate: Quantity) -> timedelta:
+        if volume.unit.dimensionality != Unit("L").dimensionality:
+            raise ValueError(f"'volume' must have a volume unit. Given: {volume.dimensionality}")
+        if flow_rate.unit.dimensionality != Unit("L/min").dimensionality:
+            raise ValueError(f"'flow rate' must have a volume unit. Given: {flow_rate.dimensionality}")
+
+        return timedelta(minutes=(volume/flow_rate).to("min").value)
+
 
 scheduler.schedule.add_resource(Resource("LED-red"))
 scheduler.schedule.add_resource(Resource("valve"))
@@ -49,80 +69,62 @@ scheduler.schedule.add_resource(Resource("pump"))
 
 
 ##########################################################
-def led_blink(time_: timedelta, trigger: Trigger = None, completion_signal: TriggerSignal = None):
-    return Job(
+def refill_pump(vol: Quantity, flow_rate: Quantity):
+    return JobSequence(
         [
-            EventResource("LED-red", LED.on.__name__, TriggerNow(), estimated_time=timedelta(milliseconds=10)),
-            EventResource("LED-red", LED.off.__name__, TriggerTimeRelative(time_)),
+            EventResource("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 1}),
+            EventResource("pump", Pump.flow.__name__, Pump.calculate_duration(vol, flow_rate),
+                          kwargs={"vol": vol, "flow_rate": flow_rate}),
+            EventResource("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 2}),
         ],
-        trigger=trigger,
-        name=led_blink.__name__,
-        completion_signal=completion_signal
+        name=refill_pump.__name__
     )
 
 
-def refill_pump(vol: float, flow_rate: float, trigger: Trigger = None, completion_signal: TriggerSignal = None):
-    trigger1 = TriggerSignal()
-    trigger2 = TriggerSignal()
+def reaction(vol: Quantity, flow_rate: Quantity):
+    duration = Pump.calculate_duration(vol, flow_rate)
 
-    return Job(
+    return JobConcurrent(
         [
-            EventResource("valve", Valve.position.__name__, TriggerNow(), kwargs={"pos": 1},
-                          completion_signal=trigger1),
-            EventResource("pump", Pump.flow.__name__, trigger1, kwargs={"vol": vol, "flow_rate": flow_rate},
-                          completion_signal=trigger2),
-            EventResource("valve", Valve.position.__name__, trigger2, kwargs={"pos": 2}),
-        ],
-        name=refill_pump.__name__,
-        trigger=trigger,
-        completion_signal=completion_signal
-    )
-
-
-def reaction(vol: float, flow_rate: float, trigger: Trigger = None, completion_signal: TriggerSignal = None):
-    trigger1 = TriggerSignal()
-
-    return Job(
-        [
-            EventResource("LED-red", LED.on.__name__, TriggerNow()),
-            EventResource("pump", Pump.flow.__name__, TriggerNow(), kwargs={"vol": vol, "flow_rate": flow_rate},
-                          completion_signal=trigger1),
-            EventResource("LED-red", LED.off.__name__, trigger1),
-            refill_pump(vol=10, flow_rate=1, trigger=trigger1)
+            EventResource("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration}),
+            EventResource("pump", Pump.flow.__name__, duration, kwargs={"vol": vol, "flow_rate": flow_rate}),
         ],
         name=reaction.__name__,
-        trigger=trigger,
-        completion_signal=completion_signal
+    )
+
+
+def grouping():
+    duration = timedelta(seconds=1)
+    return JobConcurrent(
+        [
+            EventResource("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration},
+                          delay=timedelta(seconds=0.5)),
+            refill_pump(1 * Unit.mL, 0.5 * Unit("mL/min")),
+        ],
+        name="grouping"
     )
 
 
 ###################################################
-trigger_refill_done = TriggerSignal()
-trigger_reaction_done = TriggerSignal()
-
-full_job = Job(
+full_job = JobSequence(
     [
-        led_blink(timedelta(seconds=1)),
-        refill_pump(1, 0.1, completion_signal=trigger_refill_done),
-        reaction(1, 0.01, trigger=trigger_refill_done, completion_signal=trigger_reaction_done),
-        led_blink(timedelta(seconds=1), trigger=trigger_reaction_done)
+        grouping(),
+        reaction(1 * Unit.mL, 0.1 * Unit("mL/min")),
+        grouping()
     ],
+    time_start=datetime(year=2023, month=1, day=1, hour=1, minute=1),
     name="full_job"
 )
 
-# print(generate_job_flowchart(full_job))
-# print(generate_trigger_flowchart(full_job))
+print(generate_job_flowchart(full_job))
 job_schedule = Schedule.from_job(full_job)
-print(job_schedule)
-#
+
+chart = schedule_to_gantt_chart(job_schedule)
+# fig = create_gantt_chart(chart)
+# fig.write_html("temp.html", auto_open=True)
+
+app = create_app(chart)
+app.run_server(debug=True)
+
 # scheduler.validate(full_job)
 # scheduler.next_time(full_job)
-
-# scheduler.schedule.add_job(full_job)
-# print(scheduler.schedule)
-# chart = schedule_to_gantt_chart(scheduler.schedule)
-# fig = create_gantt_chart(chart)
-# fig.show()
-
-
-

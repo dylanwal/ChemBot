@@ -31,9 +31,9 @@ class TimeBlock:
 
 
 class Row:
-    def __init__(self, name: str, time_blocks: list[TimeBlockInterface]):
+    def __init__(self, name: str, time_blocks: list[TimeBlockInterface] = None):
         self.name = name
-        self.time_blocks = time_blocks  # sorted by time
+        self.time_blocks = time_blocks if time_blocks is not None else []  # sorted by time
 
     def __len__(self) -> int:
         return len(self.time_blocks)

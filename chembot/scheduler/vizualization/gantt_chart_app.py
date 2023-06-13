@@ -18,9 +18,6 @@ def gantt_chart_component(
     if config is None:
         config = ConfigPlot()
 
-    if data.number_of_rows < config.max_rows:
-        return html.Div()
-
     # Define the layout of the app
     layout = html.Div([
         html.Div(create_slider(app, data, config), style={'float': 'left', 'height': '450px', 'margin-top': '10px'}),

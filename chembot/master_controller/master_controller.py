@@ -9,7 +9,7 @@ from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.scheduler.schedule import Schedule
-from chembot.scheduler.schedular import Schedular
+from chembot.scheduler.schedular import Schedular, JobSubmitResult
 from chembot.scheduler.job import Job
 
 logger = logging.getLogger(config.root_logger_name + ".master_controller")
@@ -86,7 +86,10 @@ class MasterController:
                 reply = func()
             else:
                 reply = func(**message.kwargs)
-            self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+
+            if reply is not None:
+                self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+
             logger.info(
                 config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"))
 
@@ -115,8 +118,11 @@ class MasterController:
     def read_schedule(self) -> Schedule:
         return self.scheduler.schedule
 
-    def write_add_job(self, job: Job):
-        self.scheduler.add_job(job)
+    def write_add_job(self, job: Job) -> JobSubmitResult:
+        result = JobSubmitResult()
+        schedule = Schedule.from_job(job)
+        result = validate_job(schedule, self.registry, result)
+        return self.scheduler.add_job(job)
 
     def write_forward_reply(self, message: RabbitMessageReply, destination: str):
         message.destination = destination

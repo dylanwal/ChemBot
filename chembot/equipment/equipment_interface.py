@@ -1,3 +1,4 @@
+import abc
 import logging
 import enum
 from typing import Iterable
@@ -26,8 +27,11 @@ class ActionType(enum.Enum):
     WRITE = 1
 
 
-class ParameterRange:
-    ...
+class ParameterRange(abc.ABC):
+
+    @abc.abstractmethod
+    def valid_value(self, value) -> bool:
+        ...
 
 
 class NumericalRange(ParameterRange):
@@ -42,6 +46,11 @@ class NumericalRange(ParameterRange):
             text += f"{self.step}:"
         return text + f"{self.max_}]"
 
+    def valid_value(self, value) -> bool:
+        if self.min_ < value < self.max_:
+            return True
+        return False
+
 
 class CategoricalRange(ParameterRange):
     def __init__(self, options: Iterable[int] | Iterable[float] | Iterable[str]):
@@ -49,6 +58,12 @@ class CategoricalRange(ParameterRange):
 
     def __str__(self):
         return str(self.options)
+
+    def valid_value(self, value) -> bool:
+        if value in self.options:
+            return True
+
+        return False
 
 
 class NotDefinedParameter:
@@ -78,6 +93,18 @@ class ActionParameter:
     def __repr__(self):
         return self.__str__()
 
+    @property
+    def required(self) -> bool:
+        if isinstance(self.default, NotDefinedParameter):
+            return False
+        return True
+
+    def valid_value(self) -> bool:
+        pass
+        # validate type
+        # validate unit
+        # validate range
+
 
 class Action:
     def __init__(self,
@@ -101,6 +128,10 @@ class Action:
     def __repr__(self):
         return self.__str__()
 
+    @property
+    def required_inputs(self) -> list[ActionParameter]:
+        return [action for action in self.inputs if action.required]
+
 
 class EquipmentInterface:
     def __init__(self, name: str, class_, actions: list[Action]):
@@ -113,6 +144,10 @@ class EquipmentInterface:
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def action_names(self) -> set[str]:
+        return {action.name for action in self.actions}
 
     def get_action(self, name: str):
         for action in self.actions:
@@ -147,10 +182,11 @@ def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParamete
     results = []
     for parms in list_:
         description, range_, unit = parse_description(parms.description)
+        type_ = parse_type(parms.type_)
         results.append(
             ActionParameter(
                 parms.name,
-                parms.type_,
+                type_,
                 description,
                 range_,
                 unit
@@ -221,6 +257,26 @@ def parse_numerical_range(text: str) -> NumericalRange | CategoricalRange:
         return NumericalRange(float(text[0]), float(text[2]), float(text[1]))
 
     raise ValueError("Invalid doc sting range.")
+
+
+def parse_type(type_: str) -> list[type] | type:
+
+    # get built in python types; int, str, byte, etc.
+    global __builtins__
+    if type_ in __builtins__:
+        return __builtins__[type_]
+
+    if type_ in registry:
+        return registry.get(type_)
+
+    if type_.startswith("list"):
+        pass
+    if type_.startswith("tuple"):
+        pass
+    if type_.startswith("set"):
+        pass
+    if type_.startswith("dict"):
+        pass
 
 
 registry.register(EquipmentInterface)

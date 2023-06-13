@@ -1,4 +1,5 @@
 import uuid
+from typing import Callable
 
 from chembot import registry
 from chembot.utils.serializer import to_JSON
@@ -42,8 +43,11 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    def __init__(self, destination: str, source: str, action: str, kwargs: dict = None):
+    def __init__(self, destination: str, source: str, action: str | Callable, kwargs: dict = None):
         super().__init__(destination, source)
+
+        if isinstance(action, Callable):
+            action = action.__name__
         self.action = action
         self.kwargs = kwargs
 

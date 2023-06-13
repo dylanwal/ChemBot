@@ -1,13 +1,12 @@
-from chembot.scheduler.triggers import TriggerNow, TriggerSignal, TriggerOr, TriggerAnd, \
-    TriggerTimeRelative, TriggerTimeAbsolute
 from chembot.scheduler.event import Event
-from chembot.scheduler.job import Job
+from chembot.scheduler.job import Job, JobConcurrent, JobSequence
 
 
 class ConfigMermaidFlowchart:
     def __init__(self):
-        self.color_event = "#005f73"
-        self.color_job = "#758E4F"
+        self.color_event = "#005f73"  # blue
+        self.color_job_sequence = "#758E4F"  # green
+        self.color_job_concurrent = "#9b2226"  # red
         self.color_background = "#404e4d"
         self.color_arrow = "#ca6702"
         self.color_trigger_arrows = "#758E4F"
@@ -39,7 +38,8 @@ class ConfigMermaidFlowchart:
     def post_text(self) -> str:
         return "".join(
             [
-                f"\tclassDef job fill:{self.color_job}\n",
+                f"\tclassDef job_sequence fill:{self.color_job_sequence}\n",
+                f"\tclassDef job_concurrent fill:{self.color_job_concurrent}\n",
                 f"\tclassDef event fill:{self.color_event}\n"
             ]
         )
@@ -70,9 +70,11 @@ class MermaidFlowchartData:
         self.index += 1
         self.label_map[obj.id_] = f"{index}({obj.name})"
 
-        if isinstance(obj, Job):
-            return f"{index}({obj.name}):::job"
-        if isinstance(obj, Job):
+        if isinstance(obj, JobConcurrent):
+            return f"{index}({obj.name}):::job_concurrent"
+        if isinstance(obj, JobSequence):
+            return f"{index}({obj.name}):::job_sequence"
+        if isinstance(obj, Event):
             return f"{index}({obj.name}):::event"
         return f"{index}({obj.name})"
 
@@ -90,22 +92,6 @@ class MermaidFlowchartData:
             return " --> "
         return f" -- {text} --> "
 
-    def add_signal_trigger_arrow(self, obj):
-        trigger: TriggerSignal = obj.trigger
-        if trigger.signal in self.signal_map:
-            for obj_ in self.signal_map[trigger.signal]:
-                arrow_index = self.add_arrow(obj_, obj, "signal")
-                if isinstance(obj_, Job) and isinstance(obj, Job):
-                    self.add_line_style(arrow_index)
-        else:
-            self.add_arrow("signal_out_scope", obj)  # zero is invalid id_ and will return out of scope
-
-    def register_signal(self, obj):
-        if obj.completion_signal in self.signal_map:
-            self.signal_map[obj.completion_signal.signal].append(obj)
-        else:
-            self.signal_map[obj.completion_signal] = [obj]
-
 
 def generate_job_flowchart(job: Job, depth: int = 5) -> str:
     data = MermaidFlowchartData(depth)
@@ -122,28 +108,3 @@ def loop_generate_mermaid_flowchart(job: Job, data: MermaidFlowchartData, depth:
 
         if hasattr(event, "events"):
             loop_generate_mermaid_flowchart(event, data, depth + 1)
-
-
-def generate_trigger_flowchart(job: Job, depth: int = 5) -> str:
-    data = MermaidFlowchartData(depth)
-    loop_generate_trigger_arrows(job, data)
-    return data.final_text
-
-
-def loop_generate_trigger_arrows(job: Job, data: MermaidFlowchartData, depth: int = 0):
-    if depth > data.depth:
-        return
-
-    for i, event in enumerate(job.events):
-        if isinstance(event.trigger, TriggerNow):
-            data.add_arrow(event.parent, event)
-        if isinstance(event.trigger, TriggerTimeRelative):
-            data.add_arrow(event.parent, event, text=str(event.trigger.trigger_time))
-        if isinstance(event.trigger, TriggerSignal):
-            data.add_signal_trigger_arrow(event)
-
-        if event.completion_signal:
-            data.register_signal(event)
-
-        if hasattr(event, "events"):
-            loop_generate_trigger_arrows(event, data, depth + 1)
