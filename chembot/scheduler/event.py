@@ -23,7 +23,6 @@ class Event:
                  duration: timedelta,
                  *,
                  delay: timedelta = None,
-                 args: list | tuple = None,
                  kwargs: dict[str, object] = None,
                  priority: int = 0,
                  name: str = None,
@@ -38,7 +37,6 @@ class Event:
         self.callable_ = callable_
         self.duration = duration
         self.priority = priority
-        self.args = args
         self.kwargs = kwargs
         self.delay = delay
         self.parent = parent
@@ -50,8 +48,6 @@ class Event:
 
     def __str__(self):
         text = f"{self.resource}.{self.callable_}("
-        if self.args is not None:
-            text += ", ".join(self.args)
         if self.kwargs is not None:
             text += ",".join(f"{k}: {v}" for k, v in self.kwargs.items())
         text += ")"
@@ -62,12 +58,8 @@ class Event:
 
     def __call__(self, *args, **kwargs):
         func = self._call()
-        if self.args and self.kwargs is None:
-            return func(*self.args)
-        elif self.kwargs and self.args is None:
+        if self.kwargs is not None:
             return func(**self.kwargs)
-        elif self.args and self.kwargs:
-            return func(*self.args, **self.kwargs)
         return func()
 
     @property

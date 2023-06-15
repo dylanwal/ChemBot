@@ -10,7 +10,7 @@ serial = chembot.communication.PicoSerial("pico_lights", "COM3")
 red = chembot.equipment.lights.LightPico(
     name="deep_red",
     color=665 * U.nm,
-    pin=0,
+    pin=25, #### 0
     communication="pico_lights"
 )
 

@@ -1,13 +1,11 @@
 import abc
-import logging
 import enum
-from typing import Iterable
+from typing import Iterable, Callable
+
+from unitpy import Unit, Quantity
 
 from chembot import registry
-from chembot.configuration import config
 import chembot.utils.numpy_parser as numpy_parser
-
-logger = logging.getLogger(config.root_logger_name + ".equipment_interface")
 
 
 class EquipmentState(enum.Enum):
@@ -28,13 +26,25 @@ class ActionType(enum.Enum):
 
 
 class ParameterRange(abc.ABC):
-
     @abc.abstractmethod
-    def valid_value(self, value) -> bool:
+    def validate(self, value) -> bool:
         ...
 
 
-class NumericalRange(ParameterRange):
+class NumericalRangeContinuous(ParameterRange):
+    def __init__(self, min_: float | int, max_: float | int):
+        self.min_ = min_
+        self.max_ = max_
+
+    def __str__(self):
+        return f"[{self.min_}:{self.max_}]"
+
+    def validate(self, value):
+        if not (self.min_ < value < self.max_):
+            raise ValueError(f"{type(self).__name__}: Outside Range: [{self.min_}:{self.max_}]")
+
+
+class NumericalRangeDiscretized(ParameterRange):
     def __init__(self, min_: float | int, max_: float | int, step: int | float | None = None):
         self.min_ = min_
         self.max_ = max_
@@ -46,10 +56,9 @@ class NumericalRange(ParameterRange):
             text += f"{self.step}:"
         return text + f"{self.max_}]"
 
-    def valid_value(self, value) -> bool:
-        if self.min_ < value < self.max_:
-            return True
-        return False
+    def validate(self, value):
+        if not (self.min_ < value < self.max_) or (value % self.step) == (self.min_ % self.step):
+            raise ValueError(f"{type(self).__name__}: Outside Range: [{self.min_}:{self.max_}:{self.step}]")
 
 
 class CategoricalRange(ParameterRange):
@@ -59,11 +68,31 @@ class CategoricalRange(ParameterRange):
     def __str__(self):
         return str(self.options)
 
-    def valid_value(self, value) -> bool:
-        if value in self.options:
-            return True
+    def validate(self, value):
+        if value not in self.options:
+            raise ValueError(f"{type(self).__name__}: Invalid option. Expected: {self.options}")
 
-        return False
+
+class TypeOptions:
+    def __init__(self, types: list[type | TypeList] = None):
+        self.types = types if types is not None else []
+
+    def add(self, option: type | TypeList):
+        self.types.append(option)
+
+    def validate(self, value):
+        for type_ in self.types:
+            if isinstance(type_, type):
+                if isinstance(value, type_):
+                    return
+            else:  # TypeList
+                try:
+                    type_.validate(value)
+                    return
+                except TypeError:
+                    pass
+
+        raise TypeError(f"Received: {type(value)} || Expected: {self.types}")
 
 
 class NotDefinedParameter:
@@ -74,7 +103,7 @@ class NotDefinedParameter:
 class ActionParameter:
     def __init__(self,
                  name: str,
-                 types: str | list[str],
+                 types: TypeOptions,
                  descriptions: str = "",
                  range_: ParameterRange | None = None,
                  unit: str = None,
@@ -99,11 +128,17 @@ class ActionParameter:
             return False
         return True
 
-    def valid_value(self) -> bool:
-        pass
-        # validate type
-        # validate unit
-        # validate range
+    def validate(self, value):
+        self.types.validate(value)
+        if self.unit is not None:
+            if not isinstance(value, Quantity):
+                raise TypeError(f"Received: {type(value)} || Expected: Quantity")
+            if Unit(self.unit).dimensionality != value.dimensionality:
+                raise ValueError(f"Wrong unit dimensionality. "
+                                 f"\nReceived: {value.dimensionality} || Expected: {Unit(self.unit).dimensionality} "
+                                 f"({self.unit})")
+
+        self.range_.validate(value)
 
 
 class Action:
@@ -134,13 +169,12 @@ class Action:
 
 
 class EquipmentInterface:
-    def __init__(self, name: str, class_, actions: list[Action]):
-        self.name = name
+    def __init__(self, class_, actions: list[Action]):
         self.class_ = class_
         self.actions = actions
 
     def __str__(self):
-        return self.name + f"|| " + str(len(self.actions))
+        return self.class_.__name__ + f"|| " + str(len(self.actions))
 
     def __repr__(self):
         return self.__str__()
@@ -154,39 +188,52 @@ class EquipmentInterface:
             if action.name == name:
                 return action
 
-        raise ValueError(f"Action ({name}) not found in EquipmentInterface ({self.name}).")
+        raise ValueError(f"Action ({name}) not found in EquipmentInterface ({self.class_}).")
 
-    def data_row(self) -> dict:
-        return {"name": self.name, "class": self.class_, "actions": len(self.actions)}
+    # def data_row(self) -> dict:
+    #     return {"name": self.name, "class": self.class_, "actions": len(self.actions)}
 
 
-def get_equipment_interface(class_) -> EquipmentInterface:
+#######################################################################################################################
+# Additional parsing on docstring
+
+def get_equipment_interface(class_: type) -> EquipmentInterface:
     """ Given an Equipment create and equipment interface. """
+    funcs = get_class_functions(class_)
     actions = []
-    try:
-        for func in dir(class_):
-            if callable(getattr(class_, func)) and (func.startswith("read") or func.startswith("write")):
-                docstring = numpy_parser.get_numpy_style_docstring(getattr(class_, func))
-                inputs_ = parse_parameters(docstring.parameters)
-                outputs_ = parse_parameters(docstring.returns)
-                actions.append(Action(func, docstring.summary, inputs_, outputs_))
-    except Exception as e:
-        logger.exception(f"Exception raise while parsing: {class_.name} ({type(class_)}) "
-                         f"function: {func if 'func' in locals() else None}")
-        raise e
+    for func in funcs:
+        try:
+            actions.append(get_action(getattr(class_, func)))
+        except Exception as e:
+            raise ValueError(f"Exception raise while parsing: ({class_.__name__}) "
+                             f"function: {func if 'func' in locals() else None}") from e
 
-    return EquipmentInterface(class_.name, type(class_).__name__, actions)
+    return EquipmentInterface(class_, actions)
+
+
+def get_class_functions(class_: type) -> list[str]:
+    funcs = []
+    for func in dir(class_):
+        if callable(getattr(class_, func)) and (func.startswith("read") or func.startswith("write")):
+            funcs.append(func)
+    return funcs
+
+
+def get_action(func: Callable) -> Action:
+    docstring = numpy_parser.parse_numpy_docstring_and_typehints(func)
+    inputs_ = parse_parameters(docstring.parameters)
+    outputs_ = parse_parameters(docstring.returns)
+    return Action(func.__name__, "".join(docstring.summary), inputs_, outputs_)
 
 
 def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParameter]:
     results = []
     for parms in list_:
         description, range_, unit = parse_description(parms.description)
-        type_ = parse_type(parms.type_)
         results.append(
             ActionParameter(
                 parms.name,
-                type_,
+                type_conversion(parms.type_),
                 description,
                 range_,
                 unit
@@ -196,10 +243,15 @@ def parse_parameters(list_: list[numpy_parser.Parameter]) -> list[ActionParamete
     return results
 
 
-def parse_description(text: list[str]) -> list[str, str, str]:
-    result = ["", None, None]
+def type_conversion(type_: type | numpy_parser.NOT_DEFINED) -> type | NotDefinedParameter:
+    if isinstance(type_, numpy_parser.NOT_DEFINED):
+        return NotDefinedParameter()
+    return type_
 
-    # text_list = text.split("\n")
+
+def parse_description(text: list[str]) -> list[str, ParameterRange | None, str | None]:
+    result = ["", None, None]  # [description, range, unit]
+
     for line in text:
         if line.startswith("range"):
             result[1] = parse_range(line)
@@ -218,20 +270,12 @@ def parse_range(text: str) -> ParameterRange | None:
     text = text.replace("range:", "").replace(" ", "").replace("[", "").replace("]", "")
 
     if "'" in text or '"' in text:
-        return parse_categorical_range(text)
+        return CategoricalRange(text.replace("'", "").replace('"', "").split(","))
 
     return parse_numerical_range(text)
 
 
-def parse_categorical_range(text: str) -> CategoricalRange | None:
-    options = text.replace("'", "").replace('"', "").split(",")
-    if options:
-        return CategoricalRange(options)
-
-    return None
-
-
-def parse_numerical_range(text: str) -> NumericalRange | CategoricalRange:
+def parse_numerical_range(text: str) -> NumericalRangeContinuous | NumericalRangeDiscretized | CategoricalRange:
     count_collen = text.count(":")
 
     if count_collen == 0:
@@ -245,38 +289,20 @@ def parse_numerical_range(text: str) -> NumericalRange | CategoricalRange:
             except ValueError:
                 if "None" in op:
                     num = None
+                else:
+                    raise ValueError(f"Invalid doc-sting range. \ntext: {text}")
             options_numerical.append(num)
         return CategoricalRange(options_numerical)
 
     if count_collen == 1:
         text = text.split(":")
-        return NumericalRange(float(text[0]), float(text[1]))
+        return NumericalRangeContinuous(float(text[0]), float(text[1]))
 
     if count_collen == 2:
         text = text.split(":")
-        return NumericalRange(float(text[0]), float(text[2]), float(text[1]))
+        return NumericalRangeDiscretized(float(text[0]), float(text[2]), float(text[1]))
 
-    raise ValueError("Invalid doc sting range.")
-
-
-def parse_type(type_: str) -> list[type] | type:
-
-    # get built in python types; int, str, byte, etc.
-    global __builtins__
-    if type_ in __builtins__:
-        return __builtins__[type_]
-
-    if type_ in registry:
-        return registry.get(type_)
-
-    if type_.startswith("list"):
-        pass
-    if type_.startswith("tuple"):
-        pass
-    if type_.startswith("set"):
-        pass
-    if type_.startswith("dict"):
-        pass
+    raise ValueError(f"Invalid doc-sting range. \ntext: {text}")
 
 
 registry.register(EquipmentInterface)
@@ -284,6 +310,7 @@ registry.register(Action)
 registry.register(ActionParameter)
 registry.register(ActionType)
 registry.register(EquipmentState)
-registry.register(NumericalRange)
+registry.register(NumericalRangeContinuous)
+registry.register(NumericalRangeDiscretized)
 registry.register(CategoricalRange)
 registry.register(NotDefinedParameter)

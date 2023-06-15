@@ -11,7 +11,7 @@ from chembot.utils.serializer import from_JSON
 from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, NotDefinedParameter, \
-    NumericalRange, CategoricalRange
+    NumericalRangeContinuous, NumericalRangeDiscretized, CategoricalRange
 from chembot.master_controller.master_controller import MasterController
 
 logger = logging.getLogger(config.root_logger_name + ".gui")

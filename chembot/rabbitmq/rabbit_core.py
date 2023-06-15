@@ -7,6 +7,7 @@ logging.getLogger("pika").setLevel(logging.WARNING)
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply
 from chembot.utils.serializer import from_JSON
+from chembot.rabbitmq.rabbit_http import get_list_queues
 
 logger = logging.getLogger(config.root_logger_name + ".rabbitmq")
 
@@ -23,7 +24,7 @@ def get_rabbit_channel():
 
 def create_queue(channel, topic):
     if queue_exists(channel, topic):
-        raise ValueError("Queue already exists with same 'name'/'topic'. ")
+        raise ValueError(f"Queue {topic} already exists. New one can not be created.")
 
     result = channel.queue_declare(topic, auto_delete=True)
     channel.queue_bind(
@@ -34,11 +35,16 @@ def create_queue(channel, topic):
 
 
 def queue_exists(channel, queue_name: str) -> bool:
-    try:
-        channel.queue_declare(queue=queue_name, passive=True)
+    queues = get_list_queues()
+    if queue_name in queues:
         return True
-    except pika.exceptions.ChannelClosed:
-        return False
+    return False
+
+    # try:
+    #     channel.queue_declare(queue=queue_name, passive=True)
+    #     return True
+    # except pika.exceptions.ChannelClosed:
+    #     return False
 
 
 class RabbitMQConnection:

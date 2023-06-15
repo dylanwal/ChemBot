@@ -1,6 +1,7 @@
+from typing import Any
 
 from chembot.master_controller.registry import EquipmentRegistry
-from chembot.equipment.equipment_interface import EquipmentInterface
+from chembot.equipment.equipment_interface import EquipmentInterface, ActionParameter
 
 from chembot.scheduler.event import Event
 from chembot.scheduler.schedule import Schedule
@@ -20,20 +21,46 @@ def validate_job(schedule: Schedule, registry: EquipmentRegistry, result: JobSub
 
 
 def validate_event(event: Event, equipment_interface: EquipmentInterface, result: JobSubmitResult):
-    event_action = event.callable_.__name__
-    if event_action not in equipment_interface.action_names:
+    action = event.callable_
+    if action not in equipment_interface.action_names:
         result.register_error(
-            ValueError(f"{event.resource}.{event.callable_} not valid action.")
+            ValueError(f"{event.resource}.{action} not valid action.")
         )
         return
 
-    action_inputs = equipment_interface.get_action(event_action)
-    required_actions = a
+    validate_event_arguments(f"{event.resource}.{action}", event.kwargs,
+                             equipment_interface.get_action(action).inputs, result)
 
-    if event.args is not None:
-        for i, args in enumerate(event.args):
-            if not action_inputs[i].valid_value(args):
-                continue
 
-    for kwargs in event.kwargs:
-        pass
+def validate_event_arguments(
+        event_label: str,
+        kwargs: dict[str, Any],
+        inputs: list[ActionParameter],
+        result: JobSubmitResult
+):
+    required_actions = [arg.required for arg in inputs]  # true for required, will be changed to false if provided
+    input_names = [input_.name for input_ in inputs]
+
+    for k, v in kwargs.items():
+        if k not in input_names:
+            result.register_error(
+                ValueError(f"{event_label}: '{k}' is invalid parameter.")
+            )
+            continue
+
+        index = input_names.index(k)
+        required_actions[index] = False
+
+        try:
+            inputs[index].validate(v)
+        except ValueError or TypeError as e:
+            result.register_error(
+                type(e)(f"{event_label}: " + str(e))
+            )
+
+    # check if any required parameters are missing
+    if any(required_actions):
+        result.register_error(
+            ValueError(f"{event_label}: the following are missing required parameters:\n" +
+                       "\n".join(f"\t{kwarg.name}" for v, kwarg in zip(required_actions, inputs) if v))
+        )

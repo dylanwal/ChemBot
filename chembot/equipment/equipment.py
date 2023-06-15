@@ -66,7 +66,7 @@ class Equipment(abc.ABC):
         self._deactivate_event = False
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
-        self.equipment_interface = get_equipment_interface(self)
+        self.equipment_interface = get_equipment_interface(type(self))
         self.watchdog = RabbitWatchdog(self)
         self.action_in_progress = None
 

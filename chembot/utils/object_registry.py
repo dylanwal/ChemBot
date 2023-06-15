@@ -1,12 +1,17 @@
+import copy
 from os import listdir
 from os.path import isfile, join
 import importlib
 import inspect
+import builtins
 
 
 class ObjectRegistry:
+    built_in_types = {name: getattr(builtins, name) for name in dir(builtins) if
+                      isinstance(getattr(builtins, name), type)}
+
     def __init__(self):
-        self.objects: dict[str, object] = {}
+        self.objects: dict[str, object] = copy.deepcopy(self.built_in_types)
 
     def __contains__(self, item: str) -> bool:
         if item in self.objects:

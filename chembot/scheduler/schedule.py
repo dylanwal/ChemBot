@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from typing import Callable, Iterator, Sequence
+from typing import Iterator
 
-from chembot.scheduler.event import Event, EventResource, EventCallable
+from chembot.scheduler.event import Event
 from chembot.scheduler.job import Job
 from chembot.scheduler.resource import Resource
 
@@ -10,10 +10,7 @@ from chembot.scheduler.resource import Resource
 def loop_through_jobs(schedule: Schedule, obj: Job | Event):
     """ depth-first-traverse through job graph """
     if isinstance(obj, Event):
-        if isinstance(obj, EventCallable):
-            schedule.add_event(obj.callable_.__name__, obj)
-        elif isinstance(obj, EventResource):
-            schedule.add_event(obj.resource, obj)
+        schedule.add_event(obj.resource, obj)
     elif isinstance(obj, Job):
         for obj_ in obj.events:
             loop_through_jobs(schedule, obj_)

@@ -3,26 +3,18 @@ import time
 
 from unitpy import Quantity, Unit
 
-from chembot.scheduler.event import EventResource
+from chembot.scheduler.event import Event
 from chembot.scheduler.job import JobSequence, JobConcurrent
-from chembot.scheduler.resource import Resource
 from chembot.scheduler.schedule import Schedule
-from chembot.scheduler.schedular import Schedular
 from chembot.scheduler.vizualization.job_tree import generate_job_flowchart
 from chembot.scheduler.vizualization.schedule_to_gantt_chart import schedule_to_gantt_chart
 from chembot.scheduler.vizualization.gantt_chart_plot import create_gantt_chart
 from chembot.scheduler.vizualization.gantt_chart_app import create_app
 
-scheduler = Schedular()
-
 
 class LED:
     def __init__(self, name: str):
         self.name = name
-
-    @property
-    def tt(self):
-        return "tt"
 
     def on(self):
         print("led on")
@@ -60,22 +52,17 @@ class Pump:
         if flow_rate.unit.dimensionality != Unit("L/min").dimensionality:
             raise ValueError(f"'flow rate' must have a volume unit. Given: {flow_rate.dimensionality}")
 
-        return timedelta(minutes=(volume/flow_rate).to("min").value)
+        return timedelta(minutes=(volume / flow_rate).to("min").value)
 
 
-scheduler.schedule.add_resource(Resource("LED-red"))
-scheduler.schedule.add_resource(Resource("valve"))
-scheduler.schedule.add_resource(Resource("pump"))
-
-
-##########################################################
+##############################################
 def refill_pump(vol: Quantity, flow_rate: Quantity):
     return JobSequence(
         [
-            EventResource("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 1}),
-            EventResource("pump", Pump.flow.__name__, Pump.calculate_duration(vol, flow_rate),
-                          kwargs={"vol": vol, "flow_rate": flow_rate}),
-            EventResource("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 2}),
+            Event("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 1}),
+            Event("pump", Pump.flow.__name__, Pump.calculate_duration(vol, flow_rate),
+                  kwargs={"vol": vol, "flow_rate": flow_rate}),
+            Event("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 2}),
         ],
         name=refill_pump.__name__
     )
@@ -86,8 +73,8 @@ def reaction(vol: Quantity, flow_rate: Quantity):
 
     return JobConcurrent(
         [
-            EventResource("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration}),
-            EventResource("pump", Pump.flow.__name__, duration, kwargs={"vol": vol, "flow_rate": flow_rate}),
+            Event("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration}),
+            Event("pump", Pump.flow.__name__, duration, kwargs={"vol": vol, "flow_rate": flow_rate}),
         ],
         name=reaction.__name__,
     )
@@ -97,8 +84,8 @@ def grouping():
     duration = timedelta(seconds=1)
     return JobConcurrent(
         [
-            EventResource("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration},
-                          delay=timedelta(seconds=0.5)),
+            Event("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration},
+                  delay=timedelta(seconds=0.5)),
             refill_pump(1 * Unit.mL, 0.5 * Unit("mL/min")),
         ],
         name="grouping"
@@ -125,6 +112,3 @@ chart = schedule_to_gantt_chart(job_schedule)
 
 app = create_app(chart)
 app.run_server(debug=True)
-
-# scheduler.validate(full_job)
-# scheduler.next_time(full_job)
