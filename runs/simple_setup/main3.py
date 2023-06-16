@@ -1,14 +1,15 @@
 from datetime import datetime, timedelta
 
-from chembot.scheduler import JobSequence, JobSubmitter, JobConcurrent, Event, Schedule
+from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.equipment.lights import LightPico
+from chembot.scheduler.job_submitter import JobSubmitter
 
 
 def blink(duration: timedelta):
     return JobSequence(
         [
-            Event("deep_red", LightPico.write_on, timedelta(milliseconds=10)),
-            Event("deep_red", LightPico.write_on, timedelta(milliseconds=10), delay=duration),
+            Event("on_board_LED", LightPico.write_off, timedelta(milliseconds=10)),
+            Event("on_board_LED", LightPico.write_on, timedelta(milliseconds=10), delay=duration),
         ]
     )
 

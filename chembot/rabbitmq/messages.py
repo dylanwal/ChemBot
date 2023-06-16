@@ -1,8 +1,9 @@
 import uuid
 from typing import Callable
 
+import jsonpickle
+
 from chembot import registry
-from chembot.utils.serializer import to_JSON
 
 
 class RabbitMessage:
@@ -18,7 +19,7 @@ class RabbitMessage:
         return self.__str__()
 
     def to_JSON(self) -> str:  # noqa
-        return to_JSON(self)
+        return jsonpickle.dumps(self)
 
     def to_str(self) -> str:
         return f"\n\t{type(self).__name__} | {self.source} -> {self.destination} (id: {self.id_})"

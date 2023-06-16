@@ -1,13 +1,13 @@
 import logging
 import time
 
+import jsonpickle
 from dash import Dash, html, dcc, Input, Output
 
 from chembot.configuration import config
 from chembot.gui.gui_data import IDData
 from chembot.gui.gui_actions import get_equipment_registry, get_equipment_attributes
 from chembot.master_controller.registry import EquipmentRegistry
-from chembot.utils.serializer import from_JSON
 
 
 logger = logging.getLogger(config.root_logger_name + ".gui")
@@ -36,7 +36,7 @@ def layout_data_stores(app: Dash) -> html.Div:
         Input(IDData.EQUIPMENT_REGISTRY, "data")
     )
     def update_equipment_attributes(data: dict[str, object]):
-        equipment_registry: EquipmentRegistry = from_JSON(data)
+        equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
         logger.debug("updating equipment attributes")
         return get_equipment_attributes(equipment_registry.equipment.keys())
 

@@ -63,7 +63,7 @@ class Equipment(abc.ABC):
         self.actions = get_actions_list(self)
         self.attrs = []
         self.update = ["state"]
-        self._deactivate_event = False
+        self._deactivate_event = True  # set to False to deactivate
         self._reply_callback = None
         self.equipment_config = EquipmentConfig()
         self.equipment_interface = get_equipment_interface(type(self))
@@ -81,8 +81,7 @@ class Equipment(abc.ABC):
 
         # update parameters
         message = RabbitMessageRegister(self.name, self.equipment_interface)
-        self.rabbit.send(message)
-        self.watchdog.set_watchdog(message, 5)
+        self.rabbit.send_and_consume(message, error_out=True)
 
     def _unregister_equipment(self):
         if not self.rabbit.queue_exists("master_controller"):
@@ -123,9 +122,9 @@ class Equipment(abc.ABC):
 
     def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
-            self._deactivate_event = True
+            self._deactivate_event = False
         elif isinstance(message, RabbitMessageError):
-            self._deactivate_event = True
+            self._deactivate_event = False
         elif isinstance(message, RabbitMessageReply):
             self.watchdog.deactivate_watchdog(message)
         elif isinstance(message, RabbitMessageAction):
@@ -206,7 +205,7 @@ class Equipment(abc.ABC):
         """
         deactivate equipment (shut down)
         """
-        self._deactivate_event = True
+        self._deactivate_event = False
         # self._deactivate is called by self._run
 
     def _deactivate_(self):

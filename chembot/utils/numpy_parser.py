@@ -2,7 +2,6 @@
 
 """
 import inspect
-import re
 import types
 import typing
 
@@ -24,47 +23,24 @@ class ParseError(Exception):
         return message
 
 
-class NotDefined:
-    def __str__(self):
-        return "Not Defined"
-
-
-NOT_DEFINED = NotDefined()
-
-
-class TypeList:
-    outer = list
-
-    def __init__(self, inner: type):
-        self.inner = inner
-
-    def __str__(self):
-        return f"{self.outer.__name__}[{self.inner.__name__}]"
-
-    def __repr__(self):
-        return self.__repr__()
-
-
-class TypeOptions:
-    def __init__(self, types_: list[type | TypeList] = None):
-        self.types = types_ if types_ is not None else []
-
-    def add(self, option: type | TypeList):
-        self.types.append(option)
-
-
 class Parameter:
-    __slots__ = ("name", "type_", "description", "default_value")
+    __slots__ = ("name", "type_", "description", "default")
+    empty = inspect.Parameter.empty
 
-    def __init__(self, name: str, type_: TypeOptions, description: list[str], default_value=NOT_DEFINED):
+    def __init__(self,
+                 name: str,
+                 type_: type | types.UnionType | empty = empty,
+                 description: list[str] = None,
+                 default=empty
+                 ):
         self.name = name
         self.type_ = type_
         self.description = description
-        self.default_value = default_value if default_value is not NOT_DEFINED else NotDefined()
+        self.default = default
 
     @property
     def required(self) -> bool:
-        if self.default_value is NOT_DEFINED:
+        if self.default is Parameter.empty:
             return False
         return True
 
@@ -101,77 +77,116 @@ class NumpyDocString:
         "Examples": "examples",
         "index": "index",
     }
-    section_labels_lower = {k.lower(): v for k, v in sections.items()}
+    _section_labels_lower = {k.lower(): v for k, v in sections.items()}
 
-    def __init__(self):
+    def __init__(self, name: str):
+        self.name = name
         self.signature: str | None = None
         self.summary: str | None = None
-        self.extended_summary: str | None = None
         self.parameters: list[Parameter] | None = None
         self.returns: list[Parameter] | None = None
-        self.yields = None
-        self.receives = None
         self.raises = None
         self.warns = None
-        self.other_parameters = None
-        self.attributes = None
-        self.methods = None
         self.see_also = None
         self.notes = None
         self.warnings = None
         self.references = None
         self.examples = None
-        self.index = None
+
+    def __str__(self):
+        return self.signature
+
+    def __repr__(self):
+        return self.__str__()
 
     @classmethod
     def section_match(cls, text: str) -> str | None:
         match = text.lower().strip()
-        for section in cls.section_labels_lower:
+        for section in cls._section_labels_lower:
             if match in section:
-                return cls.section_labels_lower[section]
+                return cls._section_labels_lower[section]
 
         return None
 
     def add(self, section: str, lines: [str]):
         if section == "parameters":
-            self.add_parameters(lines)
+            setattr(self, "parameters", add_parameters(lines))
+        elif section == "returns":
+            setattr(self, "returns", add_parameters(lines))
         else:
             if getattr(self, section) is not None:
                 raise ValueError(f"'{section}' defined twice in doc string.")
-            setattr(self, "section", lines)
-
-    def add_parameters(self, lines: list[str]):
-        pass
+            setattr(self, section, lines)
 
 
-def parse_numpy_docstring_and_typehints(func: typing.Callable) -> NumpyDocString:
-    docstring = parse_numpy_docstring(inspect.getdoc(func))
-    add_type_hints(func, docstring)
+def add_parameters(lines: list[str]) -> list[Parameter]:
+    parameter_lines = split_parameter_lines(lines)
+
+    parameters = []
+    for parameter_line in parameter_lines:
+        parameters.append(parameter_line_to_parameter_object(parameter_line))
+
+    return parameters
+
+
+def split_parameter_lines(lines: list[str, ...]) -> list[list[str, ...]]:
+    parameters = []
+    parameter_lines = []
+    for line in lines:
+        if line[0] != " ":
+            if parameter_lines:
+                parameters.append(parameter_lines)
+            parameter_lines = [line]
+        else:
+            parameter_lines.append(line)
+
+    return parameters
+
+
+def parameter_line_to_parameter_object(lines: list[str, ...]) -> Parameter:
+    line1 = lines[0].split(":")
+    parameter = Parameter(name=line1[0])
+    if len(line1) > 2:
+        parameter.type_ = line1[1]
+
+    if len(lines) > 1:
+        parameter.description = lines[1:]
+
+    return parameter
+
+
+def parse_numpy_docstring_and_signature(func: typing.Callable) -> NumpyDocString:
+    """ main entry point """
+    docstring = parse_numpy_docstring(func.__name__, inspect.getdoc(func))
+    add_signature(func, docstring)
     return docstring
 
 
-def parse_numpy_docstring(docstring: str) -> NumpyDocString:
+def parse_numpy_docstring(name: str, docstring: str) -> NumpyDocString:
     """Parse a NumPy-style docstring and return a dictionary of sections."""
-    doc = NumpyDocString()
+    doc = NumpyDocString(name)
+    if not docstring:
+        return doc
+
     # Split the docstring into lines
     lines = docstring.split('\n')
 
     # Iterate through each line
-    current_section = ""
+    current_section = "summary"
     section_lines = []
     for line in lines:
-        line = line.strip()
+        line_ = line.strip()
 
         # blank line
-        if not line:
+        if not line_:
             continue
 
         # underline line
-        if line[:4] is "----":
+        if line_[:4] == "----":
             continue
 
         # Check if the line matches a section pattern
-        section_match = doc.section_match(line)
+        section_match = doc.section_match(line_)
         if section_match:
             doc.add(current_section, section_lines)
             section_lines = []
@@ -183,78 +198,82 @@ def parse_numpy_docstring(docstring: str) -> NumpyDocString:
     return doc
 
 
-def add_type_hints(function: callable, doc: NumpyDocString):
-    type_hints = typing.get_type_hints(function)
-    if type_hints:
-        add_return(type_hints, doc)  # run first to pop off returns from type_hints
-        add_parameter(type_hints, doc)
+def add_signature(function: typing.Callable, doc: NumpyDocString):
+    signature = inspect.signature(function)
+    doc.signature = function.__name__ + str(signature)
+
+    parameter_objs = get_signature_parameters(list(signature.parameters.values()))
+    doc.parameters = merge_parameters(parameter_objs, doc.parameters)
+
+    returns_objs = get_return_parameters(signature.return_annotation)
+    doc.returns = merge_parameters_return(returns_objs, doc.parameters)
 
 
-def add_parameter(type_hints: dict, doc: NumpyDocString):
-    if not type_hints:
-        return
+def get_signature_parameters(parameter_signatures: list[inspect.Parameter]) -> list[Parameter]:
+    if not parameter_signatures:
+        return []
 
-    doc_param_names = [p.name for p in doc.parameters]
-    for i, param in enumerate(type_hints):
-        if param in doc_param_names:
-            type_ = type_hints[param]
-            if str(type_).startswith("Optional"):
-                type_ = type_.__args__[0]
-            doc.parameters[i].type_ = type_
-        else:
-            doc.parameters.append(Parameter(param, type(param), []))
+    parameters = []
+    for parameter_signature in parameter_signatures:
+        if parameter_signature.name == "self":
+            continue
 
+        parameters.append(
+            Parameter(
+                name=parameter_signature.name,
+                type_=parameter_signature.annotation,
+                default=parameter_signature.default
+            )
+        )
 
-def add_return(type_hints: dict, doc: NumpyDocString):
-    if 'return' not in type_hints:
-        return
-
-    return_param = breakup_type(type_hints.pop("return"))
-
-    length = len(doc.returns) - 1
-    for i, param in enumerate(return_param):
-        # if no parameters, or more parameter than in docstring; add them
-        if i > length:
-            doc.returns.append(Parameter(f"return_{i}", param, []))
-        else:
-            doc_param: Parameter = doc.returns[i]
-            doc_param.type_ = param
+    return parameters
 
 
-def breakup_type(type_: type) -> tuple[type, ...] | list[type, ...]:
-    if isinstance(type_, types.UnionType):
-        return type_.__args__
+def get_return_parameters(type_: type | types.UnionType) -> None | list[Parameter]:
+    if type_ is inspect.Parameter.empty:
+        return None
 
-    if type_.__name__ == "tuple" or type_.__name__ == "list":
-        return type_.__args__
-
-    return (type_,)
+    return [Parameter(name="return", type_=type_)]
 
 
-def parse_type(type_: str) -> TypeOptions:
-    if not type_:
-        raise ValueError("")
+def merge_parameters(
+        parameters1: list[Parameter],
+        parameters2: list[Parameter]
+) -> list[Parameter]:
+    parameters = []
 
-    type_ = type_.replace(" ", "").split("|")
+    if not parameters1:
+        return parameters2
 
-    options = TypeOptions()
-    for t in type_:
-        options.add(string_to_type(t))
+    if not parameters2:
+        return parameters1
 
-    return options
+    # both are defined
+    for parameter1 in parameters1:
+        for i, parameter2 in enumerate(parameters2):
+            if parameter1.name == parameter2.name:
+                parameter1.description = parameter2.description
+                parameters2.pop(i)
+                break
+
+        parameters.append(parameter1)
+
+    for parameter in parameters2:
+        parameters.append(parameter)
+
+    return parameters
 
 
-def string_to_type(type_: str) -> type | TypeList:
-    if type_ in registry:
-        return registry.get(type_)
+def merge_parameters_return(
+        parameters1: list[Parameter],
+        parameters2: list[Parameter]
+) -> list[Parameter]:
+    if not parameters1:
+        return parameters2
 
-    if type_.startswith("list"):
-        return TypeList(string_to_type(type_[5:-1]))  # [5:-1] removes 'list[ ]'
-    if type_.startswith("tuple"):
-        raise NotImplementedError
-    if type_.startswith("set"):
-        raise NotImplementedError
-    if type_.startswith("dict"):
-        raise NotImplementedError
+    if not parameters2:
+        return parameters1
 
-    raise ValueError(f"Unknown type: {type_}")
+    # both are defined
+    parameters1[0].description = parameters2[0].description
+    return parameters1

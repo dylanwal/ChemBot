@@ -53,7 +53,7 @@ def validate_event_arguments(
 
         try:
             inputs[index].validate(v)
-        except ValueError or TypeError as e:
+        except (ValueError, TypeError) as e:
             result.register_error(
                 type(e)(f"{event_label}: " + str(e))
             )

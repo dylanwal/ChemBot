@@ -27,18 +27,21 @@ class MasterController:
         self.watchdog = RabbitWatchdog(self)
         self.registry = EquipmentRegistry()
         self.scheduler = Schedular()
-        self._deactivate_event = False
+        self._deactivate_event = True  # set to False to deactivate
         self._next_update = datetime.now()
 
     def _deactivate(self):
         self.rabbit.deactivate()
         logger.info(config.log_formatter(self, self.name, "Deactivated"))
-        self._deactivate_event = True
+        self._deactivate_event = False
 
     def activate(self):
         logger.info(config.log_formatter(self, self.name, "Activated"))
         try:
             self._run()
+        except Exception as e:
+            logger.critical(str(e))
+
         finally:
             self._deactivate()
 
@@ -58,10 +61,10 @@ class MasterController:
     def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
             self._error_handling()
-            self._deactivate_event = True
+            self._deactivate_event = False
         elif isinstance(message, RabbitMessageError):
             self._error_handling()
-            self._deactivate_event = True
+            self._deactivate_event = False
         elif isinstance(message, RabbitMessageRegister):
             self.registry.register(message)
             self.rabbit.send(RabbitMessageReply.create_reply(message, None))

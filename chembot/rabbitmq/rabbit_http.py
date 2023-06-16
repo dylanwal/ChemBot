@@ -189,9 +189,21 @@ def get_list_queues(
         port: int = config.rabbit_port_http,
         pagination_parameters: PaginationParameters = None
 ) -> list[str]:
-    API = f"http://{ip}:{port}/api/queues/%2f/queues"
+    API = f"http://{ip}:{port}/api/queues"
     if pagination_parameters is not None:
         API += str(pagination_parameters)
     response = requests.get(url=API, auth=config.rabbit_auth)
     queues = [q['name'] for q in response.json()]
     return queues
+
+
+def purge_queue(
+        queue: str,
+        ip: str = config.rabbit_host,
+        port: int = config.rabbit_port_http,
+):
+    API = f"http://{ip}:{port}/api/queues/%2f/{queue}/contents"
+    response = requests.delete(url=API, auth=config.rabbit_auth)
+
+    if response.status_code != 204 or response.status_code == 200:
+        raise ValueError("purge failed")

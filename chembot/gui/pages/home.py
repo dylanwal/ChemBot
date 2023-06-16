@@ -1,5 +1,6 @@
 import logging
 
+import jsonpickle
 from dash import Dash, html, dcc, Output, Input, State, MATCH
 import dash_bootstrap_components as dbc
 
@@ -8,7 +9,6 @@ from chembot.gui.gui_data import GUIData, IDData
 from chembot.gui.gui_actions import get_equipment_update
 from chembot.master_controller.registry import EquipmentRegistry
 from chembot.equipment.equipment_interface import EquipmentInterface, EquipmentState, Action, ActionParameter
-from chembot.utils.serializer import from_JSON
 
 
 logger = logging.getLogger(config.root_logger_name + ".gui")
@@ -111,9 +111,9 @@ def layout_home(app: Dash) -> html.Div:
             return []
 
         equipment = id_["index"]
-        equipment_registry: EquipmentRegistry = from_JSON(data)
+        equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
         equipment_interface: EquipmentInterface = equipment_registry.equipment[equipment]
-        attributes = from_JSON(attributes[equipment])
+        attributes = jsonpickle.loads(attributes[equipment])
 
         actions = []
         for action in equipment_interface.actions:
@@ -129,8 +129,8 @@ def layout_home(app: Dash) -> html.Div:
         [Input(IDData.EQUIPMENT_REGISTRY, "data"), Input(IDData.EQUIPMENT_UPDATE, "data")],
     )
     def refresh_equipment_status(data: dict[str, object], update: dict):
-        equipment_registry: EquipmentRegistry = from_JSON(data)
-        update = from_JSON(update)
+        equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
+        update = jsonpickle.loads(update)
 
         equip_layouts = [equipment_layout(equip, update) for equip in equipment_registry.equipment.values()]
         return [dbc.ListGroup(equip_layouts)]
@@ -148,7 +148,7 @@ def layout_home(app: Dash) -> html.Div:
         State(IDData.EQUIPMENT_REGISTRY, "data")
     )
     def data_equipment_update(_, data: dict[str, object]):
-        equipment_registry: EquipmentRegistry = from_JSON(data)
+        equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
         logger.debug("equipment update")
         return get_equipment_update(equipment_registry.equipment.keys())
 

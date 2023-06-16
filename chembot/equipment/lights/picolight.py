@@ -43,8 +43,7 @@ class LightPico(Light):
     def _activate(self):
         # ping communication to ensure it is alive
         message = RabbitMessageAction(self.communication, self.name, "read_name")
-        self.rabbit.send(message)
-        self.watchdog.set_watchdog(message, 5)
+        self.rabbit.send_and_consume(message, error_out=True)
 
     def read_color(self) -> Quantity | NotDefinedAttribute:
         """ read_color """

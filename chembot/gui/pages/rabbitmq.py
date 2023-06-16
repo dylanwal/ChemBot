@@ -1,16 +1,16 @@
 import datetime
 import logging
 
+import jsonpickle
 from dash import Dash, html, dcc, Input, Output, State, ALL, Patch
 import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
 from chembot.gui.gui_data import IDData
 from chembot.rabbitmq.messages import RabbitMessageAction
-from chembot.utils.serializer import from_JSON
 from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
 from chembot.master_controller.registry import EquipmentRegistry
-from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, NotDefinedParameter, \
+from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, \
     NumericalRangeContinuous, NumericalRangeDiscretized, CategoricalRange
 from chembot.master_controller.master_controller import MasterController
 
@@ -32,33 +32,33 @@ class IDRabbit:
 
 def get_parameter_div(param: ActionParameter, index: int) -> dbc.InputGroup:
     children = [dbc.InputGroupText(param.name, id={"type": "parameter_labels", "index": index})]
-    print(param)
-    if param.types == "str":
-        if isinstance(param.default, NotDefinedParameter):
-            text = "text"
-        else:
-            text = param.default
-        children.append(dbc.Input(text, id={"type": "parameter", "index": index}))
-
-    if param.types == "str" and param.range_:  # with options
-        if isinstance(param.default, NotDefinedParameter):
-            value = None
-        else:
-            value = param.default
-        range_: CategoricalRange = param.range_
-        children.append(dbc.Select(id={"type": "parameter", "index": index},
-                                   options=[{"label": v, "value": v} for v in range_.options]))
-
-    if param.types == "int" or param.types == "float":
-        children.append(dbc.Input(placeholder="value", type="number", id={"type": "parameter", "index": index}))
-        if param.unit is not None:
-            children.append(dbc.InputGroupText(param.unit))
-        if param.range_ is not None:
-            children.append(dbc.InputGroupText('range :' + str(param.range_)))
-
-    if param.types == "bool":
-        children.append(dbc.Select(options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
-                                   id={"type": "parameter", "index": index}))
+    # print(param)
+    # if param.types == "str":
+    #     if isinstance(param.default, NotDefinedParameter):
+    #         text = "text"
+    #     else:
+    #         text = param.default
+    #     children.append(dbc.Input(text, id={"type": "parameter", "index": index}))
+    #
+    # if param.types == "str" and param.range_:  # with options
+    #     if isinstance(param.default, NotDefinedParameter):
+    #         value = None
+    #     else:
+    #         value = param.default
+    #     range_: CategoricalRange = param.range_
+    #     children.append(dbc.Select(id={"type": "parameter", "index": index},
+    #                                options=[{"label": v, "value": v} for v in range_.options]))
+    #
+    # if param.types == "int" or param.types == "float":
+    #     children.append(dbc.Input(placeholder="value", type="number", id={"type": "parameter", "index": index}))
+    #     if param.unit is not None:
+    #         children.append(dbc.InputGroupText(param.unit))
+    #     if param.range_ is not None:
+    #         children.append(dbc.InputGroupText('range :' + str(param.range_)))
+    #
+    # if param.types == "bool":
+    #     children.append(dbc.Select(options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
+    #                                id={"type": "parameter", "index": index}))
 
     return dbc.InputGroup(children)
 
@@ -69,7 +69,7 @@ def get_equipment_name(text: str) -> str:
 
 def get_equipment(text: str, data: dict[str, object]) -> EquipmentInterface:
     equipment_name = get_equipment_name(text)
-    equipment_registry: EquipmentRegistry = from_JSON(data)
+    equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
     return equipment_registry.equipment[equipment_name]
 
 
@@ -79,7 +79,7 @@ def layout_rabbit(app: Dash) -> html.Div:
         [Input(IDData.EQUIPMENT_REGISTRY, "data")],
     )
     def update_equipment_dropdown(data: dict[str, object]) -> list[str]:
-        equipment_registry: EquipmentRegistry = from_JSON(data)
+        equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
         equipment = [f"{equip.name} ({equip.class_})" for equip in equipment_registry.equipment.values()]
         return equipment
 

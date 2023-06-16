@@ -8,9 +8,10 @@ Extension to rabbit_http.py to handle send/receiving RabbitMessages.
 import time
 import logging
 
+import jsonpickle
+
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage
-from chembot.utils.serializer import from_JSON
 from chembot.rabbitmq.rabbit_http import publish, get
 
 logger = logging.getLogger(config.root_logger_name + ".rabbitmq")
@@ -33,7 +34,7 @@ def read_message(queue: str, time_out: float = 1, create: bool = False) -> dict[
             logger.debug(config.log_formatter("RabbitMQConnection", "http", "Message received:\n\t"
                                               + str(reply)[:min([100, len(str(reply))])]))
             if create:
-                return from_JSON(reply)
+                return jsonpickle.loads(reply)
             return reply
 
     raise ValueError(f"Timeout error on queue: {queue}")
