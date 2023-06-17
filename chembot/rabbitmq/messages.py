@@ -3,8 +3,6 @@ from typing import Callable
 
 import jsonpickle
 
-from chembot import registry
-
 
 class RabbitMessage:
     def __init__(self, destination: str, source: str):
@@ -96,12 +94,3 @@ class RabbitMessageUnRegister(RabbitMessage):
 
     def to_str(self) -> str:
         return super().to_str()
-
-
-registry.register(RabbitMessage)
-registry.register(RabbitMessageRegister)
-registry.register(RabbitMessageUnRegister)
-registry.register(RabbitMessageCritical)
-registry.register(RabbitMessageError)
-registry.register(RabbitMessageAction)
-registry.register(RabbitMessageReply)

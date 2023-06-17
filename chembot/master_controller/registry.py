@@ -1,5 +1,4 @@
 
-from chembot import registry
 from chembot.rabbitmq.messages import RabbitMessageRegister
 from chembot.equipment.equipment_interface import EquipmentInterface
 
@@ -13,6 +12,3 @@ class EquipmentRegistry:
 
     def unregister(self, name: str):
         del self.equipment[name]
-
-
-registry.register(EquipmentRegistry)

@@ -6,7 +6,6 @@ from typing import Iterable, Callable
 
 from unitpy import Unit, Quantity
 
-from chembot import registry
 import chembot.utils.numpy_parser as numpy_parser
 
 
@@ -308,14 +307,3 @@ def validate_type(type_: type, value):
     else:
         if not isinstance(value, type_):
             raise error
-
-
-registry.register(EquipmentInterface)
-registry.register(Action)
-registry.register(ActionParameter)
-registry.register(ActionType)
-registry.register(EquipmentState)
-registry.register(NumericalRangeContinuous)
-registry.register(NumericalRangeDiscretized)
-registry.register(CategoricalRange)
-# registry.register(ActionParameter.empty)

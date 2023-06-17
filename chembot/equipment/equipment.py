@@ -3,7 +3,6 @@ import logging
 
 from unitpy import Quantity
 
-from chembot import registry
 from chembot.configuration import config
 from chembot.utils.class_building import get_actions_list
 from chembot.equipment.equipment_interface import EquipmentState, get_equipment_interface
@@ -24,9 +23,6 @@ class NotDefinedAttribute:
 
     def __repr__(self):
         return self.__str__()
-
-
-registry.register(NotDefinedAttribute)
 
 
 class EquipmentConfig:
