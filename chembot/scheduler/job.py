@@ -31,11 +31,11 @@ class Job(abc.ABC):
         self.time_end_actual = None
 
     def __str__(self):
-        text = ""
+        text = type(self).__name__
         if self.name is not None:
-            text += self.name + " | "
-        text += f"# events: {len(self)} | "
-        text += f" | completed: {self.completed}"
+            text += "|" + self.name
+        text += f"(# events: {len(self)})"
+        text += "completed" if self.completed else "not completed"
         return text
 
     def __repr__(self):
@@ -56,13 +56,15 @@ class Job(abc.ABC):
         if self.parent is not None:
             return self.parent._get_time_start(self)
         if self._time_start is not None:
+            if self.delay is not None:
+                return self._time_start + self.delay
             return self._time_start
         raise ValueError("Set 'time_start' of parent.")
 
     @time_start.setter
     def time_start(self, time_start: datetime):
         if self.parent is not None:
-            raise ValueError("start time can not be set if there is a parent")
+            raise ValueError("Start time can not be set if there is a parent")
 
         self._time_start = time_start
 

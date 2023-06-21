@@ -20,7 +20,9 @@ class RabbitMessage:
         return jsonpickle.dumps(self)
 
     def to_str(self) -> str:
-        return f"\n\t{type(self).__name__} | {self.source} -> {self.destination} (id: {self.id_})"
+        return f"\n\t{type(self).__name__}" \
+               f"\n\t{self.source} -> {self.destination} " \
+               f"\n\tid: {self.id_}"
 
 
 class RabbitMessageError(RabbitMessage):

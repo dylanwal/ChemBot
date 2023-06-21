@@ -11,6 +11,9 @@ def validate_schedule(schedule: Schedule, registry: EquipmentRegistry, result: J
     check_job(schedule, registry, result)
     check_schedule_for_overlapping_events(schedule, result)
 
+    if len(result.errors) == 0:
+        result.validation_success = True
+
 
 def check_job(schedule: Schedule, registry: EquipmentRegistry, result: JobSubmitResult):
     for resource in schedule.resources:  # loop over resources
@@ -22,9 +25,6 @@ def check_job(schedule: Schedule, registry: EquipmentRegistry, result: JobSubmit
 
         for event in resource.events:  # loop over events in the resources
             check_event(event, registry.equipment[resource.name], result)
-
-    if len(result.errors) == 0:
-        result.arguments_validation = True
 
 
 def check_event(event: Event, equipment_interface: EquipmentInterface, result: JobSubmitResult):
@@ -87,7 +87,7 @@ def check_schedule_for_overlapping_events(schedule: Schedule, result: JobSubmitR
         if conflicts:
             for conflict in conflicts:
                 result.register_error(
-                    ValueError(f"Overlapping events in {resource.name} schedule. "
+                    ValueError(f"Overlapping events in {resource.name} schedule.\n "
                                f"Events: {resource.events[conflict[0]].name} - {resource.events[conflict[1]].name} "
                                f"({conflict})")
                 )

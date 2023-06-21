@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import abc
 import uuid
 from typing import Protocol, Callable
 from datetime import datetime, timedelta

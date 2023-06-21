@@ -7,6 +7,7 @@ from chembot.configuration import config
 from chembot.equipment.equipment import NotDefinedAttribute
 from chembot.equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction
+from chembot.communication.serial_pico import PicoSerial
 
 logger = logging.getLogger(config.root_logger_name + ".lights")
 
@@ -44,6 +45,9 @@ class LightPico(Light):
         # ping communication to ensure it is alive
         message = RabbitMessageAction(self.communication, self.name, "read_name")
         self.rabbit.send_and_consume(message, error_out=True)
+
+    def _stop(self):
+        self._write_off()
 
     def read_color(self) -> Quantity | NotDefinedAttribute:
         """ read_color """
@@ -124,17 +128,22 @@ class LightPico(Light):
         self.power = power
 
         # write to pico
-        param = {"pin": self.pin, "duty": self.power, "frequency": self.frequency}
-        message = RabbitMessageAction(self.communication, self.name, "write_pwm", param)
-        self.rabbit.send(message)
+        if self.power == 65535:
+            param = {"pin": self.pin, "value": 1}
+            message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_digital, param)
+        elif self.power == 0:
+            param = {"pin": self.pin, "value": 0}
+            message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_digital, param)
+        else:
+            param = {"pin": self.pin, "duty": self.power, "frequency": self.frequency}
+            message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_pwm, param)
 
-        # get reply
-        self.watchdog.set_watchdog(message, 1)
+        self.rabbit.send(message)
 
     def _deactivate(self):
         # write to pico
-        param = {"pin": self.pin, "duty": 0, "frequency": self.frequency}
-        message = RabbitMessageAction(self.communication, self.name, "write_pwm", param)
+        param = {"pin": self.pin, "value": 0}
+        message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_digital, param)
         self.rabbit.send(message)
 
         # get reply

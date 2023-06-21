@@ -2,6 +2,7 @@ import logging
 from datetime import datetime, timedelta
 
 from chembot.configuration import config
+from chembot.equipment.equipment import Equipment
 from chembot.utils.class_building import get_actions_list
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction, RabbitMessageCritical, RabbitMessageError, \
     RabbitMessageRegister, RabbitMessageReply, RabbitMessageUnRegister
@@ -29,23 +30,33 @@ class MasterController:
         self.watchdog = RabbitWatchdog(self)
         self.registry = EquipmentRegistry()
         self.scheduler = Schedular()
-        self._deactivate_event = True  # set to False to deactivate
+        self._deactivate_event = True  # False to deactivate
         self._next_update = datetime.now()
 
     def _deactivate(self):
+        for equip in self.registry.equipment:
+            self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_deactivate))
         self.rabbit.deactivate()
         logger.info(config.log_formatter(self, self.name, "Deactivated"))
         self._deactivate_event = False
 
     def activate(self):
-        logger.info(config.log_formatter(self, self.name, "Activated"))
+        logger.info(config.log_formatter(self, self.name, "Activated\n" + "#" * 80 + "\n\n"))
+        error_ = None
         try:
             self._run()
         except Exception as e:
             logger.critical(str(e))
+            error_ = e
+
+        except KeyboardInterrupt:
+            logger.info(config.log_formatter(self, self.name, "KeyboardInterrupt"))
 
         finally:
             self._deactivate()
+
+        if error_ is not None:
+            raise error_
 
     def _run(self):
         # infinite loop
@@ -91,12 +102,12 @@ class MasterController:
         elif isinstance(message, RabbitMessageReply):
             self.watchdog.deactivate_watchdog(message)
         else:
-            logger.warning("Invalid message!!" + message.to_str())
+            logger.error("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
 
     def _execute_action(self, message):
         if message.action not in self.actions:
-            logger.warning("Invalid action!!" + message.to_str())
+            logger.error("Invalid action!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"Invalid action: {message.to_str()}"))
 
         try:
@@ -113,13 +124,12 @@ class MasterController:
                 config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"))
 
         except Exception as e:
-            logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-            logger.exception("master controller continues to operate as nothing happened.")
+            logger.error(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
+            logger.error(e)
+            logger.info("master controller continues to operate as nothing happened.")
 
     def _error_handling(self):
         """ Deactivate all equipment """
-        for equip in self.registry.equipment:
-            self.rabbit.send(RabbitMessageAction(equip, self.name, ""))
         self._deactivate()
 
     def _status_update(self):
@@ -137,11 +147,12 @@ class MasterController:
         """ read equipment status"""
         return self.registry
 
-    def read_schedule(self) -> Schedule:
-        return self.scheduler.schedule
+    def read_schedule(self) -> Schedular:
+        return self.scheduler
 
     def write_add_job(self, job: Job) -> JobSubmitResult:
         result = JobSubmitResult(job.id_)
+        job.time_start = datetime.now()  # add temporarily
         schedule = Schedule.from_job(job)
 
         # validate schedule
@@ -157,6 +168,11 @@ class MasterController:
         result.success = True
 
         return result
+
+    def write_stop(self):
+        self.scheduler.clear_all_jobs()
+        for equip in self.registry.equipment:
+            self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_stop))
 
     def write_forward_reply(self, message: RabbitMessageReply, destination: str):
         message.destination = destination

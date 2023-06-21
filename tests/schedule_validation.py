@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 
 from chembot.scheduler import JobSequence, Event, Job, Schedule, JobSubmitResult
-from chembot.scheduler.validate import validate_job
+from chembot.scheduler.validate import validate_schedule
 from chembot.equipment.lights import LightPico
 from chembot.communication.serial_pico import PicoSerial
 from chembot.equipment.equipment_interface import EquipmentRegistry
@@ -18,13 +18,14 @@ def example_schedule() -> Job:
 
 def main():
     job = example_schedule()
+    job.time_start = datetime.now()
     schedule = Schedule.from_job(job)
     result = JobSubmitResult(job.id_)
     registry = EquipmentRegistry()
     registry.register_equipment("on_board_LED", LightPico)
     registry.register_equipment("pico_serial", PicoSerial)
 
-    validate_job(schedule, registry, result)
+    validate_schedule(schedule, registry, result)
 
     print(result)
 

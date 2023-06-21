@@ -82,3 +82,6 @@ class Communication(Equipment, abc.ABC):
     @abc.abstractmethod
     def _read_until(self, symbol: str = "\n") -> str:
         ...
+
+    def _stop(self):
+        pass  # should be done by equipment using the communication port

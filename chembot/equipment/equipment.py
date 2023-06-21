@@ -72,7 +72,7 @@ class Equipment(abc.ABC):
 
     def _register_equipment(self):
         if not self.rabbit.queue_exists("master_controller"):
-            logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
+            logger.critical(config.log_formatter(self, self.name, "No MasterController found on the server."))
             raise ValueError("No MasterController found on the server.")
 
         # update parameters
@@ -81,8 +81,9 @@ class Equipment(abc.ABC):
 
     def _unregister_equipment(self):
         if not self.rabbit.queue_exists("master_controller"):
-            logger.info(config.log_formatter(self, self.name, "No MasterController found on the server."))
-            raise ValueError("No MasterController found on the server.")
+            logger.critical(config.log_formatter(self, self.name, "No MasterController found, so can't skip "
+                                                                  "unregistering."))
+            return
 
         # update parameters
         message = RabbitMessageUnRegister(self.name)
@@ -94,7 +95,7 @@ class Equipment(abc.ABC):
             logger.debug(config.log_formatter(self, self.name, "Activating"))
             self._activate()
             self._register_equipment()
-            logger.info(config.log_formatter(self, self.name, "Activated"))
+            logger.info(config.log_formatter(self, self.name, "Activated\n" + "#" * 80 + "\n\n"))
             self.state = self.equipment_config.states.STANDBY
 
             self._run()  # infinite loop
@@ -204,6 +205,13 @@ class Equipment(abc.ABC):
         self._deactivate_event = False
         # self._deactivate is called by self._run
 
+    def write_stop(self):
+        """
+        stop current action and reset to standby
+        """
+        self.state = EquipmentState.STANDBY
+        self._stop()
+
     def _deactivate_(self):
         self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
         self._unregister_equipment()
@@ -215,4 +223,8 @@ class Equipment(abc.ABC):
 
     @abc.abstractmethod
     def _deactivate(self):
+        ...
+
+    @abc.abstractmethod
+    def _stop(self):
         ...
