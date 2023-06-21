@@ -151,12 +151,7 @@ class MasterController:
         return self.scheduler
 
     def write_add_job(self, job: Job) -> JobSubmitResult:
-        result = JobSubmitResult(job.id_)
-        job.time_start = datetime.now()  # add temporarily
-        schedule = Schedule.from_job(job)
-
-        # validate schedule
-        validate_schedule(schedule, self.registry, result)
+        result = self.write_validate_job(job)
         if not result.validation_success:
             return result
 
@@ -167,6 +162,15 @@ class MasterController:
         result.length_of_queue = len(self.scheduler.jobs_in_queue)
         result.success = True
 
+        return result
+
+    def write_validate_job(self, job: Job) -> JobSubmitResult:
+        result = JobSubmitResult(job.id_)
+        job.time_start = datetime.now()  # add temporarily
+        schedule = Schedule.from_job(job)
+
+        # validate schedule
+        validate_schedule(schedule, self.registry, result)
         return result
 
     def write_stop(self):

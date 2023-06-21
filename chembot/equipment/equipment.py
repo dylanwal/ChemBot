@@ -14,17 +14,6 @@ from chembot.rabbitmq.watchdog import RabbitWatchdog
 logger = logging.getLogger(config.root_logger_name + ".equipment")
 
 
-class NotDefinedAttribute:
-    def __init__(self):
-        pass
-
-    def __str__(self):
-        return type(self).__name__
-
-    def __repr__(self):
-        return self.__str__()
-
-
 class EquipmentConfig:
     states = EquipmentState
 

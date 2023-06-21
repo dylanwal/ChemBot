@@ -4,7 +4,6 @@ from unitpy import Quantity
 
 from chembot.reference_data.pico_pins import PicoHardware
 from chembot.configuration import config
-from chembot.equipment.equipment import NotDefinedAttribute
 from chembot.equipment.lights.light import Light
 from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.communication.serial_pico import PicoSerial
@@ -26,7 +25,7 @@ class LightPico(Light):
                  frequency: int = 10_000,
                  ):
         super().__init__(name)
-        self.color = color if color is not None else NotDefinedAttribute()
+        self.color = color
         self.communication = communication
         self.pin = pin
         self.frequency = frequency
@@ -49,7 +48,7 @@ class LightPico(Light):
     def _stop(self):
         self._write_off()
 
-    def read_color(self) -> Quantity | NotDefinedAttribute:
+    def read_color(self) -> Quantity:
         """ read_color """
         return self.color
 

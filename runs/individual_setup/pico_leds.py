@@ -1,16 +1,12 @@
+
 from unitpy import U
 
 import chembot
 
-controller = chembot.MasterController()
-
-
-serial = chembot.communication.PicoSerial("pico_serial", "COM4")
-
 red = chembot.equipment.lights.LightPico(
     name="deep_red",
     color=665 * U.nm,
-    pin=25, #### 0
+    pin=0,
     communication="pico_serial"
 )
 
@@ -50,5 +46,5 @@ violet = chembot.equipment.lights.LightPico(
 )
 
 with chembot.utils.EquipmentManager() as manager:
-    manager.add([controller, serial, red, mint, green, cyan, blue, violet])
+    manager.add([red, mint, green, cyan, blue, violet])
     manager.activate()
