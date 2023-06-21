@@ -7,7 +7,7 @@ from dash import Dash, html, dcc, Input, Output
 from chembot.configuration import config
 from chembot.gui.gui_data import IDData
 from chembot.gui.gui_actions import get_equipment_registry, get_equipment_attributes
-from chembot.master_controller.registry import EquipmentRegistry
+from chembot.equipment.equipment_interface import EquipmentRegistry
 
 
 logger = logging.getLogger(config.root_logger_name + ".gui")

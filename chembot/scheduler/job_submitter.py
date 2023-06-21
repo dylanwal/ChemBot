@@ -21,12 +21,7 @@ class JobSubmitter:
             action=MasterController.write_add_job,
             kwargs={"job": job}
         )
-        self.rabbit.send(message)
-        reply: RabbitMessageReply = self.rabbit.consume(timeout=5)  # ignore type issue
-        if reply is not None:
-            return reply.value
-
-        raise ValueError("Reply not received from job submission.")
+        self.rabbit.send_and_consume(message, timeout=1, error_out=True)
 
     def delete(self, job: Job):
         raise NotImplementedError

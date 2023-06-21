@@ -167,6 +167,10 @@ class EquipmentInterface:
         return self.__str__()
 
     @property
+    def name(self) -> str:
+        return self.class_.__name__
+
+    @property
     def action_names(self) -> set[str]:
         return {action.name for action in self.actions}
 
@@ -179,6 +183,21 @@ class EquipmentInterface:
 
     # def data_row(self) -> dict:
     #     return {"name": self.name, "class": self.class_, "actions": len(self.actions)}
+
+
+class EquipmentRegistry:
+    def __init__(self):
+        self.equipment: dict[str, EquipmentInterface] = dict()
+
+    def register(self, name: str, equipment_interface: EquipmentInterface):
+        self.equipment[name] = equipment_interface
+
+    def register_equipment(self, name: str, equipment):
+        equipment_interface = get_equipment_interface(equipment)
+        self.register(name, equipment_interface)
+
+    def unregister(self, name: str):
+        del self.equipment[name]
 
 
 #######################################################################################################################

@@ -7,8 +7,8 @@ import dash_bootstrap_components as dbc
 from chembot.configuration import config
 from chembot.gui.gui_data import GUIData, IDData
 from chembot.gui.gui_actions import get_equipment_update
-from chembot.master_controller.registry import EquipmentRegistry
-from chembot.equipment.equipment_interface import EquipmentInterface, EquipmentState, Action, ActionParameter
+from chembot.equipment.equipment_interface import EquipmentRegistry, EquipmentInterface, EquipmentState, Action, \
+    ActionParameter
 
 
 logger = logging.getLogger(config.root_logger_name + ".gui")

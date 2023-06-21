@@ -9,8 +9,7 @@ from chembot.configuration import config
 from chembot.gui.gui_data import IDData
 from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
-from chembot.master_controller.registry import EquipmentRegistry
-from chembot.equipment.equipment_interface import ActionParameter, EquipmentInterface, \
+from chembot.equipment.equipment_interface import EquipmentRegistry, ActionParameter, EquipmentInterface, \
     NumericalRangeContinuous, NumericalRangeDiscretized, CategoricalRange
 from chembot.master_controller.master_controller import MasterController
 

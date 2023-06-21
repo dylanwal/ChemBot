@@ -1,26 +1,33 @@
 from typing import Any
 
-from chembot.master_controller.registry import EquipmentRegistry
-from chembot.equipment.equipment_interface import EquipmentInterface, ActionParameter
-
+from chembot.equipment.equipment_interface import EquipmentRegistry, EquipmentInterface, ActionParameter
 from chembot.scheduler.event import Event
 from chembot.scheduler.schedule import Schedule
-from chembot.scheduler.schedular import JobSubmitResult
+from chembot.scheduler.resource import Resource
+from chembot.scheduler.submit_result import JobSubmitResult
 
 
-def validate_job(schedule: Schedule, registry: EquipmentRegistry, result: JobSubmitResult):
-    for resource in schedule.resources:
+def validate_schedule(schedule: Schedule, registry: EquipmentRegistry, result: JobSubmitResult):
+    check_job(schedule, registry, result)
+    check_schedule_for_overlapping_events(schedule, result)
+
+
+def check_job(schedule: Schedule, registry: EquipmentRegistry, result: JobSubmitResult):
+    for resource in schedule.resources:  # loop over resources
         if resource.name not in registry.equipment:
             result.register_error(
                 ValueError(f"{resource.name} not in 'registered equipment'.")
             )
             continue
 
-        for event in resource.events:
-            validate_event(event, registry.equipment[resource.name], result)
+        for event in resource.events:  # loop over events in the resources
+            check_event(event, registry.equipment[resource.name], result)
+
+    if len(result.errors) == 0:
+        result.arguments_validation = True
 
 
-def validate_event(event: Event, equipment_interface: EquipmentInterface, result: JobSubmitResult):
+def check_event(event: Event, equipment_interface: EquipmentInterface, result: JobSubmitResult):
     action = event.callable_
     if action not in equipment_interface.action_names:
         result.register_error(
@@ -38,6 +45,11 @@ def validate_event_arguments(
         inputs: list[ActionParameter],
         result: JobSubmitResult
 ):
+    if len(inputs) == 0:
+        if kwargs is None:
+            return
+        raise ValueError("No arguments for this action but some were given.")
+
     required_actions = [arg.required for arg in inputs]  # true for required, will be changed to false if provided
     input_names = [input_.name for input_ in inputs]
 
@@ -64,3 +76,32 @@ def validate_event_arguments(
             ValueError(f"{event_label}: the following are missing required parameters:\n" +
                        "\n".join(f"\t{kwarg.name}" for v, kwarg in zip(required_actions, inputs) if v))
         )
+
+
+#######################################################################################################################
+#######################################################################################################################
+
+def check_schedule_for_overlapping_events(schedule: Schedule, result: JobSubmitResult):
+    for resource in schedule.resources:
+        conflicts = check_resource_for_overlapping_events(resource)
+        if conflicts:
+            for conflict in conflicts:
+                result.register_error(
+                    ValueError(f"Overlapping events in {resource.name} schedule. "
+                               f"Events: {resource.events[conflict[0]].name} - {resource.events[conflict[1]].name} "
+                               f"({conflict})")
+                )
+
+
+def check_resource_for_overlapping_events(resource: Resource, window: int = 2) -> list:
+    conflicts = []
+    # it assumes the events are ordered
+    length = len(resource.events)
+    for i in range(length):
+        for ii in range(i + 1, i + 1 + window):
+            if ii > length - 1:
+                continue
+            if resource.events[i].time_end > resource.events[ii].time_start:
+                conflicts.append((i, ii))
+
+    return conflicts

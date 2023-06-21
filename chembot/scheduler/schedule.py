@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import uuid
 from typing import Iterator
 
 from chembot.scheduler.event import Event
@@ -20,7 +21,8 @@ def loop_through_jobs(schedule: Schedule, obj: Job | Event):
 
 class Schedule:
 
-    def __init__(self):
+    def __init__(self, id_: int = None):
+        self.id_ = id_ if id_ is not None else uuid.uuid4().int
         self._resources: list[Resource] = []
         self._resources_labels = []
         self._jobs = []
@@ -103,6 +105,6 @@ class Schedule:
 
     @classmethod
     def from_job(cls, job: Job) -> Schedule:
-        schedule = cls()
+        schedule = cls(job.id_)
         schedule.add_job(job)
         return schedule

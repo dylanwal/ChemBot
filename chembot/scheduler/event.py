@@ -56,12 +56,6 @@ class Event:
     def __repr__(self):
         return self.__str__()
 
-    def __call__(self, *args, **kwargs):
-        func = self._call()
-        if self.kwargs is not None:
-            return func(**self.kwargs)
-        return func()
-
     @property
     def time_start(self) -> datetime:
         if self.delay is not None:
@@ -73,9 +67,9 @@ class Event:
     def time_end(self) -> datetime:
         return self.time_start + self.duration
 
-    @abc.abstractmethod
-    def _call(self) -> callable:
-        ...
+    @property
+    def root(self) -> Parent:
+        return self.parent.root
 
     def hover_text(self) -> str:
         return f"duration: {self.duration}<br>" \
