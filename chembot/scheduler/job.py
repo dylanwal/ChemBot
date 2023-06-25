@@ -27,8 +27,6 @@ class Job(abc.ABC):
         self.parent = parent
         self.completed = False
         self._time_start = time_start
-        self.time_start_actual = None
-        self.time_end_actual = None
 
     def __str__(self):
         text = type(self).__name__
@@ -52,12 +50,20 @@ class Job(abc.ABC):
         return count
 
     @property
+    def time_start_actual(self) -> datetime:
+        """ does not included delay"""
+        time_ = self.time_start
+        if self.delay is not None:
+            time_ += self.delay
+
+        return time_
+
+    @property
     def time_start(self) -> datetime:
+        """ includes delay """
         if self.parent is not None:
             return self.parent._get_time_start(self)
         if self._time_start is not None:
-            if self.delay is not None:
-                return self._time_start + self.delay
             return self._time_start
         raise ValueError("Set 'time_start' of parent.")
 
@@ -71,6 +77,11 @@ class Job(abc.ABC):
     @property
     def duration(self) -> timedelta:
         return self.time_end - self.time_start
+
+    @property
+    def duration_actual(self) -> timedelta:
+        """ includes delay"""
+        return self.time_end - self.time_start_actual
 
     @property
     def time_end(self) -> datetime:
@@ -128,7 +139,7 @@ class JobSequence(Job):
     def _get_time_start(self, obj) -> datetime:
         index = self.events.index(obj)
         if index == 0:
-            return self.time_start
+            return self.time_start_actual
 
         return self.events[index-1].time_end
 
@@ -143,4 +154,4 @@ class JobConcurrent(Job):
         return time_end
 
     def _get_time_start(self, obj) -> datetime:
-        return self.time_start
+        return self.time_start_actual

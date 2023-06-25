@@ -1,5 +1,8 @@
-from typing import Callable, Sequence
+from typing import Callable
 from datetime import datetime, timedelta
+import copy
+
+from chembot.rabbitmq.messages import RabbitMessageAction
 
 
 def linspace_datetime(start: datetime, end: datetime, n: int) -> list[datetime]:
@@ -18,9 +21,9 @@ class Profile:
 
     def __init__(self,
                  callable_: str | Callable,
-                 kwargs_name: Sequence[str, ...],
-                 kwargs_values: Sequence,
-                 time_delta_values: Sequence[timedelta],
+                 kwargs_name: list[str, ...],
+                 kwargs_values: list,
+                 time_delta_values: list[timedelta],
                  name: str = None
                  ):
         self.callable_ = callable_ if isinstance(callable_, str) else callable_.__name__
@@ -35,12 +38,26 @@ class Profile:
         self.time_delta_values = time_delta_values
         self._start_time = None
         self._name = name
+        self.message: RabbitMessageAction | None = None
+        self._next_counter: int = 0
 
     def __str__(self):
         return self.name
 
     def __repr__(self):
         return self.__str__()
+
+    def __next__(self):
+        try:
+            result = (
+                self.start_time + self.time_delta_values[self._next_counter],
+                self.step_as_dict(self._next_counter, with_time=False)
+            )
+        except IndexError:
+            self._next_counter = 0
+            raise StopIteration
+        self._next_counter += 1
+        return result
 
     @property
     def name(self) -> str:
@@ -76,6 +93,14 @@ class Profile:
     def time_values(self) -> list[datetime]:
         self._start_time = datetime.now()
         return [self.start_time + time_delta for time_delta in self.time_delta_values]
+
+    def step_as_dict(self, i: int = 0, with_time: bool = True) -> dict:
+        keys = copy.copy(self.kwargs_name)
+        values = [copy.copy(self.kwargs_values[i])]
+        if with_time:
+            keys.append("time_delta")
+            values.append(self.time_delta_values[i])
+        return {k: v for k, v in zip(keys, values)}
 
     @staticmethod
     def linspace_datetime(start: datetime, end: datetime, n: int) -> list[datetime]:

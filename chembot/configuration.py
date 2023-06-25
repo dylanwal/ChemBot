@@ -70,7 +70,7 @@ class Configurations:
 
         # formatter
         formatter = logging.Formatter(
-            '%(asctime)s %(levelname)-8s || %(name)-25s %(message)s\n', datefmt='%m-%d %H:%M:%S')
+            '%(asctime)s.%(msecs)03d %(levelname)-8s || %(name)-25s %(message)s\n', datefmt='%m-%d %H:%M:%S')
         file_handler.setFormatter(formatter)
         console_handler.setFormatter(formatter)
 

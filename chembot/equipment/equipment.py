@@ -1,5 +1,6 @@
 import abc
 import logging
+from datetime import datetime
 
 from unitpy import Quantity
 
@@ -33,7 +34,7 @@ class EquipmentConfig:
 
 class Equipment(abc.ABC):
     """ Equipment """
-    pulse = 0.1  # time of each loop in seconds
+    pulse = 0.01  # time of each loop in seconds
 
     def __init__(self, name: str, **kwargs):
         """
@@ -55,6 +56,7 @@ class Equipment(abc.ABC):
         self.equipment_interface = get_equipment_interface(type(self))
         self.watchdog = RabbitWatchdog(self)
         self.action_in_progress = None
+        self.profile: Profile | None = None
 
         if kwargs:
             for k, v in kwargs:
@@ -103,9 +105,36 @@ class Equipment(abc.ABC):
         # infinite loop
         while self._deactivate_event:
             self.watchdog.check_watchdogs()
-            message = self.rabbit.consume(self.pulse)
-            if message:
-                self._process_message(message)
+            self._read_message()  # blocking with timeout
+            self._run_profile()
+
+    def _run_profile(self):
+        if self.profile is None:
+            return
+
+        try:
+            time_, kwargs = next(self.profile)
+            if time_ > datetime.now():
+                self.profile._next_counter -= 1
+                return
+
+        except StopIteration:
+            self.profile = None
+            return
+
+        func = getattr(self, self.profile.callable_)
+        if func.__code__.co_argcount == 1:  # the '1' is 'self'
+            reply = func()
+        else:
+            reply = func(**kwargs)
+
+        if reply is not None:
+            self.rabbit.send(RabbitMessageReply.create_reply(self.profile.message, reply))
+
+    def _read_message(self):
+        message = self.rabbit.consume(self.pulse)
+        if message:
+            self._process_message(message)
 
     def _process_message(self, message: RabbitMessage):
         if isinstance(message, RabbitMessageCritical):
@@ -120,17 +149,17 @@ class Equipment(abc.ABC):
             logger.warning("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
 
-    def _execute_action(self, message):
-        if message.action not in self.actions:
-            logger.warning("Invalid action!!" + message.to_str())
-            self.rabbit.send(RabbitMessageError(self.name, f"Invalid action: {message.to_str()}"))
-
+    def _execute_action(self, message: RabbitMessageAction):
         try:
             func = getattr(self, message.action)
             if func.__code__.co_argcount == 1:  # the '1' is 'self'
                 reply = func()
             else:
                 reply = func(**message.kwargs)
+
+            # we need the message to be added to profile but not sure where best to put it
+            if message.action == self.write_profile.__name__:
+                self.profile.message = message
 
             if reply is not None:
                 self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
@@ -200,10 +229,20 @@ class Equipment(abc.ABC):
         stop current action and reset to standby
         """
         self.state = EquipmentState.STANDBY
+        self.profile = None
         self._stop()
 
     def write_profile(self, profile: Profile):
-        pass
+        """
+        Set profile
+
+        Parameters
+        ----------
+        profile
+
+        """
+        self.profile = profile
+        self.profile.start_time = datetime.now()
 
     def _deactivate_(self):
         self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN

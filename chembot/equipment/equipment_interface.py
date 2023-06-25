@@ -3,6 +3,7 @@ import enum
 import types
 import inspect
 from typing import Iterable, Callable
+import functools
 
 from unitpy import Unit, Quantity
 
@@ -122,9 +123,9 @@ class ActionParameter:
                 raise ValueError(f"Wrong unit dimensionality. "
                                  f"\nReceived: {value.dimensionality} || Expected: {Unit(self.unit).dimensionality} "
                                  f"({self.unit})")
-            self.range_.validate(value.to(self.unit))
+            value = value.to(self.unit)
 
-        else:
+        if self.range_ is not None:
             self.range_.validate(value)
 
 
@@ -203,6 +204,7 @@ class EquipmentRegistry:
 #######################################################################################################################
 # Additional parsing on docstring
 
+@functools.lru_cache
 def get_equipment_interface(class_: type) -> EquipmentInterface:
     """ Given an Equipment create and equipment interface. """
     funcs = get_class_functions(class_)
@@ -252,7 +254,7 @@ def parse_parameters(list_: list[numpy_parser.Parameter] | None) -> list[ActionP
 
 
 def parse_description(text: list[str]) -> list[str, ParameterRange | None, str | None]:
-    result = ["", None, None]  # [description, range, unit]
+    result = ["", None, ActionParameter.empty]  # [description, range, unit]
 
     if text is None:
         return result

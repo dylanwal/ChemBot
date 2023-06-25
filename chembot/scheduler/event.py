@@ -27,14 +27,14 @@ class Event:
                  name: str = None,
                  parent: Parent = None
                  ):
+        if isinstance(callable_, Callable):
+            callable_ = callable_.__name__
         if name is None:
             name = f"{resource}.{callable_}"
         self.name = name
-        if isinstance(callable_, Callable):
-            callable_ = callable_.__name__
         self.resource = resource
         self.callable_ = callable_
-        self.duration = duration
+        self._duration = duration
         self.priority = priority
         self.kwargs = kwargs
         self.delay = delay
@@ -42,8 +42,6 @@ class Event:
 
         self.id_ = uuid.uuid4().int
         self.completed = False
-        self.time_start_actual = None
-        self.time_start_actual = None
 
     def __str__(self):
         text = f"{self.resource}.{self.callable_}("
@@ -57,18 +55,34 @@ class Event:
 
     @property
     def time_start(self) -> datetime:
-        if self.delay is not None:
-            return self.parent._get_time_start(self) + self.delay
-
+        """ includes delay """
         return self.parent._get_time_start(self)
 
     @property
+    def time_start_actual(self) -> datetime:
+        """ does not include delay """
+        time_ = self.time_start
+        if self.delay is not None:
+            time_ += self.delay
+        return time_
+
+    @property
     def time_end(self) -> datetime:
-        return self.time_start + self.duration
+        return self.time_start + self._duration
 
     @property
     def root(self) -> Parent:
         return self.parent.root
+
+    @property
+    def duration(self) -> timedelta:
+        """ includes delay """
+        return self.time_end - self.time_start
+
+    @property
+    def duration_actual(self) -> timedelta:
+        """ does not include delay """
+        return self.time_end - self.time_start_actual
 
     def hover_text(self) -> str:
         return f"duration: {self.duration}<br>" \

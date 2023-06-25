@@ -1,6 +1,7 @@
 from typing import Any
 
 from chembot.equipment.equipment_interface import EquipmentRegistry, EquipmentInterface, ActionParameter
+from chembot.equipment.profile import Profile
 from chembot.scheduler.event import Event
 from chembot.scheduler.schedule import Schedule
 from chembot.scheduler.resource import Resource
@@ -37,6 +38,22 @@ def check_event(event: Event, equipment_interface: EquipmentInterface, result: J
 
     validate_event_arguments(f"{event.resource}.{action}", event.kwargs,
                              equipment_interface.get_action(action).inputs, result)
+
+    if event.kwargs is not None and "profile" in event.kwargs:
+        profile_: Profile = event.kwargs["profile"]
+        validate_event_arguments(
+            profile_.callable_,
+            profile_.step_as_dict(0, with_time=False),
+            equipment_interface.get_action(profile_.callable_).inputs,
+            result
+        )
+        validate_event_arguments(
+            profile_.callable_,
+            profile_.step_as_dict(-1, with_time=False),
+            equipment_interface.get_action(profile_.callable_).inputs,
+            result
+        )
+        # TODO: only checking first and last values in profile
 
 
 def validate_event_arguments(

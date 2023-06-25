@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 import colorsys
 
+import numpy as np
+
 from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.equipment.lights import LightPico
 from chembot.scheduler.job_submitter import JobSubmitter
@@ -16,48 +18,66 @@ from runs.individual_setup.equipment_names import LEDColors, Serial
 def rainbow(n: int) -> list[list[int, int, int], ...]:
     """ List[List[red, green, blue], ...]   range: 0 to 255"""
     result = []
-    step = 1/n
+    step = 1 / n
 
     for i in range(n):
-        (r, g, b) = colorsys.hsv_to_rgb(i*step, 1.0, 1.0)
+        (r, g, b) = colorsys.hsv_to_rgb(i * step, 1.0, 1.0)
         result.append([int(255 * r), int(255 * g), int(255 * b)])
 
     return result
 
 
-def rainbow_job(n: int, duration: timedelta, delay: timedelta = None):
-    color_array = rainbow(n)
+def rainbow_job(n: int, duration: timedelta, power: int = 65535, delay: timedelta = None):
+    color_array = np.array(rainbow(n), dtype="uint8")
     time_delta_array = Profile.linspace_timedelta(timedelta(0), duration, n)
 
-    # power is [0, 100] and color is [0, 255] so divide by 255
-    red = [color[0]/255 for color in color_array]
-    green = [color[1]/255 for color in color_array]
-    blue = [color[2]/255 for color in color_array]
+    # power is [0, 65535] and color is [0, 255] so divide by 255
+    red = np.round(color_array[:, 0] / 255 * power).astype("uint16").tolist()
+    green = np.round(color_array[:, 1] / 255 * power).astype("uint16").tolist()
+    blue = np.round(color_array[:, 2] / 255 * power).astype("uint16").tolist()
 
     red_profile = Profile(LightPico.write_power, ["power"], red, time_delta_array)
     green_profile = Profile(LightPico.write_power, ["power"], green, time_delta_array)
     blue_profile = Profile(LightPico.write_power, ["power"], blue, time_delta_array)
 
-    return JobConcurrent(
+    return JobSequence(
         [
-            Event(LEDColors.DEEP_RED, LightPico.write_profile, red_profile.duration, kwargs={"profile": red_profile}),
-            Event(LEDColors.GREEN, LightPico.write_profile, green_profile.duration, kwargs={"profile": red_profile}),
-            Event(LEDColors.BLUE, LightPico.write_profile, blue_profile.duration, kwargs={"profile": red_profile}),
+            JobConcurrent(
+                [
+                    Event(LEDColors.DEEP_RED, LightPico.write_profile, red_profile.duration,
+                          kwargs={"profile": red_profile}),
+                    Event(LEDColors.GREEN, LightPico.write_profile, green_profile.duration,
+                          kwargs={"profile": green_profile}),
+                    Event(LEDColors.BLUE, LightPico.write_profile, blue_profile.duration,
+                          kwargs={"profile": blue_profile}),
+                ],
+                delay=delay,
+                name="rainbow"
+            ),
+            JobConcurrent(
+                [
+                    Event(LEDColors.DEEP_RED, LightPico.write_off, timedelta(microseconds=100)),
+                    Event(LEDColors.GREEN, LightPico.write_off, timedelta(microseconds=100)),
+                    Event(LEDColors.BLUE, LightPico.write_off, timedelta(microseconds=100)),
+                ],
+                delay=timedelta(milliseconds=100),
+                name="turn_off"
+            ),
         ],
-        delay=delay,
-        name="rainbow"
+        name="full rainbow sequence"
     )
 
 
 def main():
     job_submitter = JobSubmitter()
 
-    job = rainbow_job(n=100, duration=timedelta(seconds=10))
+    job = rainbow_job(n=50, duration=timedelta(seconds=5), power=65535)
     result = job_submitter.submit(job)
     print(result)
 
     # full_schedule = job_submitter.get_schedule()
     # print(full_schedule)
+
     # gantt_chart = schedule_to_gantt_chart(full_schedule.schedule)
     # app = create_app(gantt_chart)
     # app.run(debug=True)
@@ -65,5 +85,5 @@ def main():
     print("hi")
 
 
-if __name__ is "__main__":
+if __name__ == "__main__":
     main()
