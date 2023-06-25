@@ -10,6 +10,7 @@ from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitM
     RabbitMessageError, RabbitMessageCritical, RabbitMessageUnRegister
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
+from chembot.equipment.profile import Profile
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
 
@@ -200,6 +201,9 @@ class Equipment(abc.ABC):
         """
         self.state = EquipmentState.STANDBY
         self._stop()
+
+    def write_profile(self, profile: Profile):
+        pass
 
     def _deactivate_(self):
         self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN

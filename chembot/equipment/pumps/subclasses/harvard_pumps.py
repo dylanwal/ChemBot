@@ -4,7 +4,7 @@ import time
 import logging
 
 from equipment.pumps.base import SyringePump
-from equipment.pumps.flow_profile import PumpFlowProfile
+from equipment.profile import PumpFlowProfile
 from chembot.communication.serial_ import Serial
 from chembot.errors import EquipmentError
 

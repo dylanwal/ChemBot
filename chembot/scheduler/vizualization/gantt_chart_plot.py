@@ -6,12 +6,6 @@ import plotly.graph_objs as go
 from scheduler.vizualization.gantt_chart import GanttChart, TimeBlock
 
 
-def linspace_datetime(start: datetime, end: datetime, n: int) -> list[datetime]:
-    time_span = (end - start).total_seconds()
-    interval = time_span / n
-    return [start + i * timedelta(seconds=interval) for i in range(n)]
-
-
 class ConfigPlot:
     BAR = "bar"
     BOX = "box"

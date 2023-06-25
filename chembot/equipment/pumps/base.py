@@ -18,7 +18,7 @@ import enum
 import logging
 
 from chembot.errors import EquipmentError
-from equipment.pumps.flow_profile import PumpFlowProfile
+from equipment.profile import PumpFlowProfile
 
 
 logger = logging.getLogger("ChemBot.pump")
