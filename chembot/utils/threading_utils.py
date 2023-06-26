@@ -41,7 +41,7 @@ class EquipmentManager:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        self.deactive()
+        self.deactivate()
 
     def add(self, equipment: EQUIPMENT_TYPE):
         self.equipment += equipment_to_list(equipment)
@@ -55,10 +55,9 @@ class EquipmentManager:
             thread.start()
             time.sleep(0.2)
 
-        logger.info("#" * 35)
-        logger.info("UTILS || All threads started")
+        logger.info("UTILS || All threads started\n" + "#" * 48 + "\n\n\n")
 
-    def deactive(self):
+    def deactivate(self):
         # wait for them all to finish
         try:
             while True:

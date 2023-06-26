@@ -1,70 +1,114 @@
+from datetime import timedelta, datetime
 import time
 
-from unitpy import Unit
+from unitpy import Quantity, Unit
 
-from chembot.scheduler.triggers import Trigger, TriggerTimeAbsolute, TriggerTimeRelative, TriggerSignal, TriggerNow
-from chembot.scheduler.event import EventCallable, EventResource
-from chembot.scheduler.job import Job
-from chembot.scheduler.resource import Resource, ResourceGroup
-from chembot.scheduler.base import Schedular
-
-scheduler = Schedular()
-
-
-def led_on():
-    print("led on")
+from chembot.scheduler.event import Event
+from chembot.scheduler.job import JobSequence, JobConcurrent
+from chembot.scheduler.schedule import Schedule
+from chembot.scheduler.vizualization.job_tree import generate_job_flowchart
+from chembot.scheduler.vizualization.schedule_to_gantt_chart import schedule_to_gantt_chart
+from chembot.scheduler.vizualization.gantt_chart_plot import create_gantt_chart
+from chembot.scheduler.vizualization.gantt_chart_app import create_app
 
 
-def led_off():
-    print("led off")
+class LED:
+    def __init__(self, name: str):
+        self.name = name
+
+    def on(self):
+        print("led on")
+
+    def off(self):
+        print("led off")
+
+    def duration(self, duration: timedelta):
+        self.on()
+        # duration
+        self.off()
 
 
-def valve_pos(pos: int):
-    print(f"valve position: {pos}")
-    time.sleep(0.5)
+class Valve:
+    def __init__(self, name: str):
+        self.name = name
+
+    def position(self, pos: int):
+        print(f"valve position: {pos}")
+        time.sleep(0.5)
 
 
-def pump_flow(vol: int | float, flow_rate: float):
-    print(f"pump flow: {vol}; {flow_rate}")
-    time.sleep(1)
+class Pump:
+    def __init__(self, name: str):
+        self.name = name
+
+    def flow(self, vol: int | float, flow_rate: float):
+        print(f"pump flow: {vol}; {flow_rate}")
+        time.sleep(1)
+
+    @staticmethod
+    def calculate_duration(volume: Quantity, flow_rate: Quantity) -> timedelta:
+        if volume.unit.dimensionality != Unit("L").dimensionality:
+            raise ValueError(f"'volume' must have a volume unit. Given: {volume.dimensionality}")
+        if flow_rate.unit.dimensionality != Unit("L/min").dimensionality:
+            raise ValueError(f"'flow rate' must have a volume unit. Given: {flow_rate.dimensionality}")
+
+        return timedelta(minutes=(volume / flow_rate).to("min").value)
 
 
-##########################################################
-def led_blink(time_: float, trigger: Trigger = None):
-    return Job(
+##############################################
+def refill_pump(vol: Quantity, flow_rate: Quantity):
+    return JobSequence(
         [
-            EventCallable(led_on, TriggerNow(), name="on"),
-            EventCallable(led_off, TriggerTimeRelative(time_), name="off"),
+            Event("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 1}),
+            Event("pump", Pump.flow.__name__, Pump.calculate_duration(vol, flow_rate),
+                  kwargs={"vol": vol, "flow_rate": flow_rate}),
+            Event("valve", Valve.position.__name__, timedelta(milliseconds=100), kwargs={"pos": 2}),
         ],
-        trigger=trigger,
-        name="led_blink"
+        name=refill_pump.__name__
     )
 
 
-def refill_pump(vol: float, flow_rate: float, trigger: Trigger = None, completion_signal: TriggerSignal = None):
-    trigger1 = TriggerSignal()
-    trigger2 = TriggerSignal()
+def reaction(vol: Quantity, flow_rate: Quantity):
+    duration = Pump.calculate_duration(vol, flow_rate)
 
-    return Job(
+    return JobConcurrent(
         [
-            EventCallable(valve_pos(1), TriggerNow(), name="valve pos 1", completion_signal=trigger1),
-            EventCallable(pump_flow(vol, flow_rate), trigger1, name="off", completion_signal=trigger2),
-            EventCallable(valve_pos(2), trigger2, name="valve pos 1", completion_signal=completion_signal),
+            Event("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration}),
+            Event("pump", Pump.flow.__name__, duration, kwargs={"vol": vol, "flow_rate": flow_rate}),
         ],
-        name="led_blink_long",
-        trigger=trigger
+        name=reaction.__name__,
+    )
+
+
+def grouping():
+    duration = timedelta(seconds=1)
+    return JobConcurrent(
+        [
+            Event("LED-red", LED.duration.__name__, duration, kwargs={"duration": duration},
+                  delay=timedelta(seconds=0.5)),
+            refill_pump(1 * Unit.mL, 0.5 * Unit("mL/min")),
+        ],
+        name="grouping"
     )
 
 
 ###################################################
-trigger_refill_done = TriggerSignal()
-
-job1 = Job(
+full_job = JobSequence(
     [
-        led_blink(1),
-        refill_pump(1, 0.1, completion_signal=trigger_refill_done),
-        led_blink(1, trigger=trigger_refill_done)
-    ]
+        grouping(),
+        reaction(1 * Unit.mL, 0.1 * Unit("mL/min")),
+        grouping()
+    ],
+    time_start=datetime(year=2023, month=1, day=1, hour=1, minute=1),
+    name="full_job"
 )
 
-# fig = plot_jobs(job1)
+print(generate_job_flowchart(full_job))
+job_schedule = Schedule.from_job(full_job)
+
+chart = schedule_to_gantt_chart(job_schedule)
+# fig = create_gantt_chart(chart)
+# fig.write_html("temp.html", auto_open=True)
+
+app = create_app(chart)
+app.run_server(debug=True)

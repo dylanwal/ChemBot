@@ -1,7 +1,7 @@
 import uuid
+from typing import Callable
 
-from chembot import registry
-from chembot.utils.serializer import to_JSON
+import jsonpickle
 
 
 class RabbitMessage:
@@ -17,10 +17,12 @@ class RabbitMessage:
         return self.__str__()
 
     def to_JSON(self) -> str:  # noqa
-        return to_JSON(self)
+        return jsonpickle.dumps(self)
 
     def to_str(self) -> str:
-        return f"\n\t{type(self).__name__} | {self.source} -> {self.destination} (id: {self.id_})"
+        return f"\n\t{type(self).__name__}" \
+               f"\n\t{self.source} -> {self.destination} " \
+               f"\n\tid: {self.id_}"
 
 
 class RabbitMessageError(RabbitMessage):
@@ -42,8 +44,11 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    def __init__(self, destination: str, source: str, action: str, kwargs: dict = None):
+    def __init__(self, destination: str, source: str, action: str | Callable, kwargs: dict = None):
         super().__init__(destination, source)
+
+        if isinstance(action, Callable):
+            action = action.__name__
         self.action = action
         self.kwargs = kwargs
 
@@ -85,9 +90,9 @@ class RabbitMessageRegister(RabbitMessage):
         return super().to_str()
 
 
-registry.register(RabbitMessage)
-registry.register(RabbitMessageRegister)
-registry.register(RabbitMessageCritical)
-registry.register(RabbitMessageError)
-registry.register(RabbitMessageAction)
-registry.register(RabbitMessageReply)
+class RabbitMessageUnRegister(RabbitMessage):
+    def __init__(self, source: str):
+        super().__init__("master_controller", source)
+
+    def to_str(self) -> str:
+        return super().to_str()

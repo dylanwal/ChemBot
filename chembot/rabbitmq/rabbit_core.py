@@ -4,9 +4,11 @@ import pika
 import pika.exceptions
 logging.getLogger("pika").setLevel(logging.WARNING)
 
+import jsonpickle
+
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply
-from chembot.utils.serializer import from_JSON
+from chembot.rabbitmq.rabbit_http import get_list_queues, purge_queue
 
 logger = logging.getLogger(config.root_logger_name + ".rabbitmq")
 
@@ -22,6 +24,9 @@ def get_rabbit_channel():
 
 
 def create_queue(channel, topic):
+    if queue_exists(topic):
+        purge_queue(topic)
+
     result = channel.queue_declare(topic, auto_delete=True)
     channel.queue_bind(
         exchange=config.rabbit_exchange,
@@ -30,12 +35,11 @@ def create_queue(channel, topic):
     )
 
 
-def queue_exists(channel, queue_name: str) -> bool:
-    try:
-        channel.queue_declare(queue=queue_name, passive=True)
+def queue_exists(queue_name: str) -> bool:
+    queues = get_list_queues()
+    if queue_name in queues:
         return True
-    except pika.exceptions.ChannelClosed:
-        return False
+    return False
 
 
 class RabbitMQConnection:
@@ -50,11 +54,13 @@ class RabbitMQConnection:
     def messages_in_queue(self) -> int:
         return self.queue.method.message_count
 
-    def queue_exists(self, queue_name: str) -> bool:
-        return queue_exists(self.channel, queue_name)
+    @staticmethod
+    def queue_exists(queue_name: str) -> bool:
+        return queue_exists(queue_name)
 
     def consume(self, timeout: int | float = 0.1, error_out: bool = False) -> RabbitMessage | None:
-        for method, properties, body in self.channel.consume(queue=self.topic, auto_ack=True, inactivity_timeout=timeout):
+        for method, properties, body in self.channel.consume(
+                queue=self.topic, auto_ack=True, inactivity_timeout=timeout):
             if body is None:
                 if error_out:
                     raise ValueError("No message to consume.")
@@ -65,14 +71,14 @@ class RabbitMQConnection:
 
     def _process_message(self, body: str) -> RabbitMessage | None:
         try:
-            message = from_JSON(body)
+            message = jsonpickle.loads(body)
             logger.debug(config.log_formatter(self, self.topic, "Message received:" + message.to_str()))
             return message
         except Exception as e:
             logger.exception(config.log_formatter(self, self.topic, "Received message caused Exception."))
 
     def send(self, message: RabbitMessage):
-        if not queue_exists(self.channel, message.destination):
+        if not queue_exists(message.destination):
             logger.error(config.log_formatter(self, self.topic, "Queue does not exist yet:" + message.destination))
             raise ValueError("Queue does not exist yet:" + message.destination)
 

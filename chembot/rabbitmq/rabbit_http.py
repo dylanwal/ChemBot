@@ -164,3 +164,46 @@ def get(
 
     reply_list = json.loads(reply.text)
     return [json.loads(message["payload"]) for message in reply_list]
+
+
+class PaginationParameters:
+    def __init__(self, page: int = 1, page_size: int = 100, name: str = None, use_regex: bool = None):
+        self.page = page
+        self.page_size = page_size
+        self.name = name
+        self.use_regex = use_regex
+
+    def __str__(self):
+        text = "?"
+        text += f"page={self.page}"
+        text += f"&page_size={self.page_size}"
+        if self.name is not None:
+            text += f"&name={self.name}"
+        if self.use_regex is not None:
+            text += f"&use_regex={str(self.use_regex).lower()}"
+        return text
+
+
+def get_list_queues(
+        ip: str = config.rabbit_host,
+        port: int = config.rabbit_port_http,
+        pagination_parameters: PaginationParameters = None
+) -> list[str]:
+    API = f"http://{ip}:{port}/api/queues"
+    if pagination_parameters is not None:
+        API += str(pagination_parameters)
+    response = requests.get(url=API, auth=config.rabbit_auth)
+    queues = [q['name'] for q in response.json()]
+    return queues
+
+
+def purge_queue(
+        queue: str,
+        ip: str = config.rabbit_host,
+        port: int = config.rabbit_port_http,
+):
+    API = f"http://{ip}:{port}/api/queues/%2f/{queue}/contents"
+    response = requests.delete(url=API, auth=config.rabbit_auth)
+
+    if response.status_code != 204 or response.status_code == 200:
+        raise ValueError("purge failed")

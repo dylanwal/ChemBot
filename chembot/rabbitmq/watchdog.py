@@ -74,7 +74,9 @@ class RabbitWatchdog:
             if now > watchdog.warn_time:
                 # trigger watchdog
                 del_watchdog.append(id_)
-                self.parent.rabbit.send(RabbitMessageError(self.parent.name, f"Watchdog triggered for message {watchdog}"))
+                self.parent.rabbit.send(
+                    RabbitMessageError(self.parent.name, f"Watchdog triggered for message {watchdog}")
+                )
 
         # delete triggered watchdogs
         for id_ in del_watchdog:

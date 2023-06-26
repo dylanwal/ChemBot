@@ -1,109 +1,90 @@
-import abc
+from __future__ import annotations
+
 import uuid
+from typing import Protocol, Callable
+from datetime import datetime, timedelta
 
-from chembot.scheduler.triggers import Trigger, TriggerSignal
 
+class Parent(Protocol):
+    """ Protocol which mirrors Job """
+    time_start: datetime
+    name: str
+    root: Parent
 
-class Event(abc.ABC):
-    def __init__(self,
-                 trigger: Trigger,
-                 args: list | tuple = None,
-                 kwargs: dict[str, object] = None,
-                 priority: int = 0,
-                 name: str = None,
-                 completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
-                 ):
-        self.id_ = uuid.uuid4().int
-        self.name = name if name is None else str(self.id_)
-        self.trigger = trigger
-        self.priority = priority
-        self.args = args
-        self.kwargs = kwargs
-        if isinstance(completion_signal, TriggerSignal):
-            self.completion_signal = completion_signal.signal
-        self.completion_signal = completion_signal
-        self.estimated_time = estimated_time
-
-    def run(self):
-        func = self._run()
-        if self.args and self.kwargs is None:
-            return func(*self.args)
-        elif self.kwargs and self.args is None:
-            return func(**self.kwargs)
-        elif self.args and self.kwargs:
-            return func(*self.args, **self.kwargs)
-        return func()
-
-    @abc.abstractmethod
-    def _run(self) -> callable:
+    def _get_time_start(self, obj) -> datetime:
         ...
 
 
-class EventCallable(Event):
-    def __init__(self,
-                 callable_: callable,
-                 trigger: Trigger,
-                 *,
-                 args: list | tuple = None,
-                 kwargs: dict[str, object] = None,
-                 priority: int = 0,
-                 name: str = None,
-                 completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
-                 ):
-        super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
-                         completion_signal=completion_signal, estimated_time=estimated_time)
-        self.callable_ = callable_
-
-    def __str__(self):
-        return f"{type(self).__name__} | {self.callable_.__name__}({self.args},{self.kwargs}) | trigger: {self.trigger}"
-
-    def _run(self) -> callable:
-        return self.callable_
-
-
-class EventResource(Event):
+class Event:
     def __init__(self,
                  resource: str,
-                 callable_: str,
-                 trigger: Trigger,
+                 callable_: str | Callable,
+                 duration: timedelta,
                  *,
-                 args: list | tuple = None,
+                 delay: timedelta = None,
                  kwargs: dict[str, object] = None,
                  priority: int = 0,
                  name: str = None,
-                 completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
+                 parent: Parent = None
                  ):
-        super().__init__(trigger=trigger, args=args, kwargs=kwargs, name=name, priority=priority,
-                         completion_signal=completion_signal, estimated_time=estimated_time)
+        if isinstance(callable_, Callable):
+            callable_ = callable_.__name__
+        if name is None:
+            name = f"{resource}.{callable_}"
+        self.name = name
         self.resource = resource
         self.callable_ = callable_
+        self._duration = duration
+        self.priority = priority
+        self.kwargs = kwargs
+        self.delay = delay
+        self.parent = parent
+
+        self.id_ = uuid.uuid4().int
+        self.completed = False
 
     def __str__(self):
-        return f"{type(self).__name__} | {self.resource}.{self.callable_}({self.args},{self.kwargs})" \
-               f" | trigger: {self.trigger}"
+        text = f"{self.resource}.{self.callable_}("
+        if self.kwargs is not None:
+            text += ",".join(f"{k}: {v}" for k, v in self.kwargs.items())
+        text += ")"
+        return text + f" | {self.duration}"
 
-    def _run(self):
-        pass
+    def __repr__(self):
+        return self.__str__()
 
+    @property
+    def time_start(self) -> datetime:
+        """ includes delay """
+        return self.parent._get_time_start(self)
 
-class EventNoOp(Event):
-    name: str = "no_op"
+    @property
+    def time_start_actual(self) -> datetime:
+        """ does not include delay """
+        time_ = self.time_start
+        if self.delay is not None:
+            time_ += self.delay
+        return time_
 
-    def __init__(self,
-                 trigger: Trigger,
-                 *,
-                 priority: int = 0,
-                 completion_signal: TriggerSignal | str | int = None,
-                 estimated_time: int | float = None
-                 ):
-        super().__init__(trigger=trigger, name=self.name, priority=priority,
-                         completion_signal=completion_signal, estimated_time=estimated_time)
+    @property
+    def time_end(self) -> datetime:
+        return self.time_start + self._duration
 
-    def __str__(self):
-        return f"{type(self).__name__} | No op | trigger: {self.trigger}"
+    @property
+    def root(self) -> Parent:
+        return self.parent.root
 
-    def _run(self):
-        pass
+    @property
+    def duration(self) -> timedelta:
+        """ includes delay """
+        return self.time_end - self.time_start
+
+    @property
+    def duration_actual(self) -> timedelta:
+        """ does not include delay """
+        return self.time_end - self.time_start_actual
+
+    def hover_text(self) -> str:
+        return f"duration: {self.duration}<br>" \
+               f"job: {self.parent.root.name}<br>" \
+               f"action: {self.callable_}"
