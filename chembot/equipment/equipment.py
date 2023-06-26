@@ -17,10 +17,7 @@ logger = logging.getLogger(config.root_logger_name + ".equipment")
 
 
 class EquipmentConfig:
-    states = EquipmentState
-
     def __init__(self,
-                 # sensors: list[Sensor],
                  max_pressure: Quantity = Quantity("1.1 atm"),
                  min_pressure: Quantity = Quantity("0.9 atm"),
                  max_temperature: Quantity = Quantity("15 degC"),
@@ -35,6 +32,7 @@ class EquipmentConfig:
 class Equipment(abc.ABC):
     """ Equipment """
     pulse = 0.01  # time of each loop in seconds
+    states = EquipmentState
 
     def __init__(self, name: str, **kwargs):
         """
@@ -88,7 +86,7 @@ class Equipment(abc.ABC):
             self._activate()
             self._register_equipment()
             logger.info(config.log_formatter(self, self.name, "Activated\n" + "#" * 80 + "\n\n"))
-            self.state = self.equipment_config.states.STANDBY
+            self.state = self.states.STANDBY
 
             self._run()  # infinite loop
 
@@ -245,7 +243,7 @@ class Equipment(abc.ABC):
         self.profile.start_time = datetime.now()
 
     def _deactivate_(self):
-        self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
+        self.equipment_config.state = self.states.SHUTTING_DOWN
         self._unregister_equipment()
         self.rabbit.deactivate()
 

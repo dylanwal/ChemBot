@@ -13,7 +13,7 @@ logger = logging.getLogger(config.root_logger_name + ".lights")
 
 class LightPico(Light):
     """
-    LigthPico
+    Light Pico
 
     """
 
