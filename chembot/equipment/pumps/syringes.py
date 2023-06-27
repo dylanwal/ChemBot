@@ -6,14 +6,17 @@ from chembot.utils.unit_validation import validate_quantity
 
 
 class Syringe:
+    default_fill_time = 2 * Unit.min
     volume_dimensionality = Unit("liter").dimensionality
     diameter_dimensionality = Unit("meter").dimensionality
     pull_dimensionality = diameter_dimensionality
+    flow_rate_dimensionality = Unit('mL/min').dimensionality
 
     def __init__(self,
                  volume: Quantity = None,
                  diameter: Quantity = None,
                  pull: Quantity = None,
+                 default_flow_rate: Quantity = None,
                  name: str = None,
                  vendor: str = None,
                  **kwargs
@@ -35,9 +38,15 @@ class Syringe:
         if sum(1 for i in (volume, diameter, pull) if i is not None) != 2:
             raise ValueError("Provide 2 of 3 values to define a syringe: volume, diameter, pull")
 
-        self._volume = volume
-        self._diameter = diameter
-        self._pull = pull
+        self._volume = None
+        self._diameter = None
+        self._pull = None
+        self._default_flow_rate = None
+        self.volume = volume
+        self.diameter = diameter
+        self.pull = pull
+        self.default_flow_rate = default_flow_rate
+
         self.vendor = vendor
         self.name = name if name is not None else f"syringe: {self.volume}"
 
@@ -74,6 +83,18 @@ class Syringe:
     def pull(self, pull: Quantity):
         validate_quantity(pull, self.volume_dimensionality, f"Syringe.pull", positive=True)
         self._pull = pull
+
+    @property
+    def default_flow_rate(self) -> Quantity:
+        if self._default_flow_rate is None:
+            return self.volume / self.default_fill_time
+
+        return self._default_flow_rate
+
+    @default_flow_rate.setter
+    def default_flow_rate(self, default_flow_rate: Quantity):
+        validate_quantity(default_flow_rate, self.flow_rate_dimensionality, f"Syringe.default_flow_rate", positive=True)
+        self._default_flow_rate = default_flow_rate
 
     @classmethod
     def get_syringe(cls, name: str) -> Syringe:
