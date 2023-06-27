@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import enum
 import logging
+from datetime import timedelta
 
 from unitpy import Quantity, Unit
 
@@ -10,6 +11,7 @@ from chembot.equipment.pumps.syringe_pump import SyringePump, PumpControlMethod
 from chembot.equipment.pumps.syringes import Syringe
 from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.communication.serial_ import Serial
+from chembot.utils.unit_validation import validate_quantity
 
 logger = logging.getLogger(config.root_logger_name + ".pump")
 
@@ -179,6 +181,50 @@ class HarvardPumpStatus:
 
         return status
 
+
+#######################################################################################################################
+
+class RampFlowRate:
+    def __init__(self,
+                 flow_rate_start: Quantity = None,
+                 flow_rate_end: Quantity = None,
+                 time_ramp: timedelta = None,
+                 ):
+        self._flow_rate_start = None
+        self._flow_rate_end = None
+
+        self.flow_rate_start = flow_rate_start
+        self.flow_rate_end = flow_rate_end
+        self.time_ramp = time_ramp
+
+    @property
+    def flow_rate_start(self) -> Quantity:
+        return self._flow_rate_start
+
+    @flow_rate_start.setter
+    def flow_rate_start(self, flow_rate: Quantity):
+        if flow_rate is None:
+            return
+        validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, 'Ramp.flow_rate_start', True)
+        self._flow_rate_start = flow_rate
+
+    @property
+    def flow_rate_end(self) -> Quantity:
+        return self._flow_rate_end
+
+    @flow_rate_end.setter
+    def flow_rate_end(self, flow_rate: Quantity):
+        if flow_rate is None:
+            return
+        validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, 'Ramp.flow_rate_end', True)
+        self._flow_rate_end = flow_rate
+
+    def as_string(self) -> str:
+        flow_rate_start = set_flow_rate_range(self.flow_rate_start)
+        flow_rate_end = set_flow_rate_range(self.flow_rate_end)
+        return f"{flow_rate_start.v} {flow_rate_start.unit.abbr} {flow_rate_end.v} {flow_rate_end.unit.abbr} " \
+               f"{self.time_ramp.total_seconds()}"
+
 #######################################################################################################################
 #######################################################################################################################
 
@@ -203,6 +249,16 @@ def set_volume_range(volume: Quantity) -> Quantity:
         return volume.to("nl")
 
 
+def process_time(time_str: str) -> timedelta:
+    h, m, s = time_str.split(':')
+    return timedelta(hours=int(h), minutes=int(m), seconds=int(s))
+
+
+def check_running_status(reply: str):
+    # '\r\nT *'
+    if not reply:
+
+
 class SyringePumpHarvard(SyringePump):
     """ for USB only; assumes echo is off. """
 
@@ -220,7 +276,7 @@ class SyringePumpHarvard(SyringePump):
 
     def _send_and_receive_message(self, prompt: str) -> str:
         message = RabbitMessageAction(self.communication, self.name, Serial.write_plus_read_all_buffer,
-                                      {"message": prompt})
+                                      {"message": prompt + "\r"})
         reply = self.rabbit.send_and_consume(message).value
 
         # check for error
@@ -413,35 +469,94 @@ class SyringePumpHarvard(SyringePump):
         volume = set_flow_rate_range(volume)
         reply = self._send_and_receive_message(f'tvolume {volume.v:2.4f} {volume.unit.abbr}')
 
-    def _read_infuse_time(self) -> Quantity:
+    def _read_infuse_time(self) -> timedelta:
         reply = self._send_and_receive_message(f'itime')
 
         # parse reply
-        # format: b'\n0 ul\r\n:'
-        reply = reply.replace("\n", "").replace("\r", "")
-        return Quantity(reply)
+        # format: b'\n0 seconds\r\n:'
+        reply = reply.replace("\n", "").replace("\r", "").replace(" ", "")
+        if "seconds" in reply:
+            reply = reply.replace("seconds", "")
+            return timedelta(seconds=int(reply))
 
-    def _read_withdraw_time(self) -> Quantity:
+        # format: '\n00:01:40\r\n:'
+        return process_time(reply)
+
+    def _read_withdraw_time(self) -> timedelta:
         reply = self._send_and_receive_message(f'wtime')
 
         # parse reply
-        # format: b'\n0 ul\r\n:'
-        reply = reply.replace("\n", "").replace("\r", "")
-        return Quantity(reply)
+        reply = reply.replace("\n", "").replace("\r", "").replace(" ", "")
+        if "seconds" in reply:
+            reply = reply.replace("seconds", "")
+            return timedelta(seconds=int(reply))
 
-    def _read_target_time(self) -> Quantity | None:
+        # format: '\n00:01:40\r\n:'
+        return process_time(reply)
+
+    def _read_target_time(self) -> timedelta | None:
         reply = self._send_and_receive_message(f'ttime')
 
         # parse reply
-        # format: b'\n0 ul\r\n:'
+        # format: '\n0 ul\r\n:'
         if "Target" in reply:  # 'target volume not set' returns None
             return None
 
-        reply = reply.replace("\n", "").replace("\r", "")
-        return Quantity(reply)
+        reply = reply.replace("\n", "").replace("\r", "").replace(" ", "")
+        if "seconds" in reply:
+            reply = reply.replace("seconds", "")
+            return timedelta(seconds=int(reply))
 
-    def _write_target_time(self, time_: Quantity):
-        time_ = set_time_range(time_)
-        reply = self._send_and_receive_message(f'ttime {volume.v:2.4f} {volume.unit.abbr}')
+        # format: '\n00:01:40\r\n:'
+        return process_time(reply)
 
-        '\n00:01:40\r\n:'
+    def _write_target_time(self, time_: timedelta):
+        sec = time_.total_seconds()
+        hours = int(sec // 3600)
+        sec -= (hours * 3600)
+        minutes = int(sec // 60)
+        sec -= (minutes * 60)
+        sec = int(sec)
+        reply = self._send_and_receive_message(f'ttime {hours:02}:{minutes:02}:{sec:02}')
+
+    def _read_infuse_ramp(self) -> RampFlowRate | None:
+        reply = self._send_and_receive_message(f'iramp')
+
+        # parse reply
+        # format: '\n15.3477 ml/min to 15.3477 ml/min in 80 seconds\r\n:'
+        if "Ramp" in reply:  # RAMP not set up.
+            return None
+
+        reply = reply.replace("\n", "")
+        reply = reply.strip(" to ")
+        flow_rate_start = Quantity(reply[0])
+        reply = reply[2].split(" in ")
+        flow_rate_end = Quantity(reply[0])
+        reply = reply[1].replace(" seconds\r", "")
+        time_ = timedelta(int(reply))
+
+        return RampFlowRate(flow_rate_start, flow_rate_end, time_)
+
+    def _write_infuse_ramp(self, ramp: RampFlowRate):
+        reply = self._send_and_receive_message(f'iramp {ramp.as_string()}')
+
+    def _read_withdraw_ramp(self) -> RampFlowRate | None:
+        reply = self._send_and_receive_message(f'wramp')
+
+        # parse reply
+        # format: '\n15.3477 ml/min to 15.3477 ml/min in 80 seconds\r\n:'
+        if "Ramp" in reply:  # RAMP not set up.
+            return None
+
+        reply = reply.replace("\n", "")
+        reply = reply.strip(" to ")
+        flow_rate_start = Quantity(reply[0])
+        reply = reply[2].split(" in ")
+        flow_rate_end = Quantity(reply[0])
+        reply = reply[1].replace(" seconds\r", "")
+        time_ = timedelta(int(reply))
+
+        return RampFlowRate(flow_rate_start, flow_rate_end, time_)
+
+    def _write_withdraw_ramp(self, ramp: RampFlowRate):
+        reply = self._send_and_receive_message(f'wramp {ramp.as_string()}')
