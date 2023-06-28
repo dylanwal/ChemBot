@@ -7,7 +7,7 @@ from datetime import timedelta
 from unitpy import Quantity, Unit
 
 from chembot.configuration import config
-from chembot.equipment.pumps.syringe_pump import SyringePump, PumpControlMethod
+from chembot.equipment.pumps.syringe_pump import SyringePump, PumpControlMethod, SyringePumpStatus
 from chembot.equipment.pumps.syringes import Syringe
 from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.communication.serial_ import Serial
@@ -24,14 +24,23 @@ class HarvardPumpStatus(enum.Enum):
     TARGET_REACHED = "T"
 
 
-def check_status(message: str) -> HarvardPumpStatus:
+map_status = {
+    HarvardPumpStatus.STANDBY: SyringePumpStatus.STANDBY,
+    HarvardPumpStatus.INFUSE: SyringePumpStatus.INFUSE,
+    HarvardPumpStatus.WITHDRAW: SyringePumpStatus.WITHDRAW,
+    HarvardPumpStatus.STALLED: SyringePumpStatus.STALLED,
+    HarvardPumpStatus.TARGET_REACHED: SyringePumpStatus.TARGET_REACHED
+}
+
+
+def check_status(message: str) -> SyringePumpStatus:
     if "T" in message:
-        return HarvardPumpStatus.TARGET_REACHED
+        return SyringePumpStatus.TARGET_REACHED
 
     status = message[-1]
     for option in HarvardPumpStatus:
         if status == option.value:
-            return option
+            return map_status[option]
 
     raise ValueError("Unrecognized status from Harvard Pump reply.")
 
@@ -275,7 +284,6 @@ class SyringePumpHarvard(SyringePump):
                  ):
         super().__init__(name, syringe, max_pull, max_pull_rate, control_method)
         self.communication = communication
-        self.harvard_status = None
 
     def _send_and_receive_message(self, prompt: str) -> str:
         message = RabbitMessageAction(self.communication, self.name, Serial.write_plus_read_all_buffer,
@@ -284,7 +292,7 @@ class SyringePumpHarvard(SyringePump):
 
         # check for error
         check_for_error(reply)
-        self.harvard_status = check_status(reply[:-2])
+        self.pump_status = check_status(reply[:-2])
 
         return reply[:-2]  # remove status
 
@@ -301,6 +309,13 @@ class SyringePumpHarvard(SyringePump):
 
     def _poll_status(self):
         status = self.read_pump_status()
+        self._volume = None
+        self._volume_displace = None
+        self._flow_rate = None
+        self._target_volume = None
+        self._running_time = None
+        self._end_time = None
+        self._pull = None
 
     def _write_infuse(self, volume: Quantity, flow_rate: Quantity):
         self._write_target_time_clear()
