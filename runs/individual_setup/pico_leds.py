@@ -3,49 +3,49 @@ from unitpy import U
 
 import chembot
 
-from runs.individual_setup.equipment_names import LEDColors, Serial
+from runs.individual_setup.equipment_names import NamesLEDColors, NamesSerial
 
 
 red = chembot.equipment.lights.LightPico(
-    name=LEDColors.DEEP_RED,
+    name=NamesLEDColors.DEEP_RED,
     color=665 * U.nm,
     pin=0,
-    communication=Serial.PICO1
+    communication=NamesSerial.PICO1
 )
 
 mint = chembot.equipment.lights.LightPico(
-    name=LEDColors.MINT,
+    name=NamesLEDColors.MINT,
     color=550 * U.nm,
     pin=1,
-    communication=Serial.PICO1
+    communication=NamesSerial.PICO1
 )
 
 green = chembot.equipment.lights.LightPico(
-    name=LEDColors.GREEN,
+    name=NamesLEDColors.GREEN,
     color=530 * U.nm,
     pin=2,
-    communication=Serial.PICO1
+    communication=NamesSerial.PICO1
 )
 
 cyan = chembot.equipment.lights.LightPico(
-    name=LEDColors.CYAN,
+    name=NamesLEDColors.CYAN,
     color=500 * U.nm,
     pin=3,
-    communication=Serial.PICO1
+    communication=NamesSerial.PICO1
 )
 
 blue = chembot.equipment.lights.LightPico(
-    name=LEDColors.BLUE,
+    name=NamesLEDColors.BLUE,
     color=475 * U.nm,
     pin=4,
-    communication=Serial.PICO1
+    communication=NamesSerial.PICO1
 )
 
 violet = chembot.equipment.lights.LightPico(
-    name=LEDColors.VIOLET,
+    name=NamesLEDColors.VIOLET,
     color=425 * U.nm,
     pin=5,
-    communication=Serial.PICO1
+    communication=NamesSerial.PICO1
 )
 
 with chembot.utils.EquipmentManager() as manager:

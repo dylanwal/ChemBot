@@ -211,3 +211,205 @@ flowchart LR
     classDef error fill:#9b2226
     classDef output fill:#94d2bd,color:#000000
 ```
+
+# LED job
+
+```mermaid
+stateDiagram-v2
+
+    state software {
+    Job --> JobSubmitter
+    JobSubmitter --> Master_controller
+    Master_controller --> JobSubmitter
+    Master_controller --> Master_controller : event_loop
+
+    state fork_state <<fork>>
+        Master_controller --> fork_state
+        fork_state --> LED_red
+        
+        fork_state --> LED_blue
+        fork_state --> LED_green
+        LED_red --> Serial
+        LED_blue --> Serial
+        LED_green --> Serial
+        LED_red --> LED_red : event_loop
+        LED_blue --> LED_blue : event_loop
+        LED_green --> LED_green : event_loop
+        Serial --> Serial : event_loop
+        
+    }
+
+    state Pico_software {
+        event_loop --> event_loop
+        }
+    
+    state Hardware {
+        Pico --> LED_Drivers
+        Pico --> LED_Drivers
+        Pico --> LED_Drivers
+        Pico --> LED_Drivers
+        Pico --> LED_Drivers
+        Pico --> LED_Drivers
+        power_supply --> LED_Drivers
+        AC_power --> power_supply
+    }
+
+    Serial --> Pico_software
+    Pico_software --> Pico
+
+```
+
+
+stateDiagram-v2
+
+    
+    state Master_controller {
+        [*] --> check_messages
+        state if_state <<choice>>
+        check_messages --> if_state
+        if_state --> check_schedule
+        check_schedule --> check_deactivation 
+        check_deactivation --> check_messages
+        check_deactivation --> [*]
+        
+        --
+        if_state --> process_action
+        state fork_state <<fork>>
+            process_action --> fork_state
+            fork_state --> write_add_job
+            write_add_job --> validate
+            validate --> schedule
+            fork_state --> write_stop
+            write_stop --> if_state
+            schedule --> if_state
+    }
+
+
+
+    state LED {
+        [*] --> 1(check_messages)
+        state if_state_LED <<choice>>
+        1 --> if_state_LED
+        if_state_LED --> 2(check_schedule)
+        2 --> 3(check_deactivation) 
+        3 --> 1
+        3 --> [*]
+        
+        --
+        if_state_LED --> 4(process_action)
+        state fork_state_LED <<fork>>
+            4 --> fork_state_LED
+            fork_state_LED --> 5(write_add_job)
+            5 --> validate
+            validate --> 6(schedule)
+            fork_state_LED --> 7(write_stop)
+            7 --> if_state_LED
+            6 --> if_state_LED
+    }
+
+
+```mermaid
+stateDiagram-v2
+
+    
+    state Master_controller {
+        [*] --> check_messages
+        state "check_schedule" as check_schedule
+        state if_message <<choice>>
+        check_messages --> if_message
+        if_message --> check_schedule
+        check_deactivation --> check_messages
+        check_deactivation --> [*]
+        state if_event <<choice>>
+        check_schedule --> if_event
+        if_event --> check_deactivation 
+        --
+        if_message --> process_action
+        state fork_state <<fork>>
+        process_action --> fork_state
+        fork_state --> write_add_job
+        write_add_job --> validate
+        validate --> schedule
+        fork_state --> write_stop
+        write_stop --> if_message
+        schedule --> if_message
+    }
+
+ 
+    state LED {
+        state "check_messages" as 1
+        state "check_profile" as 2
+        state "check_deactivation" as 3
+        state "process_action" as 4
+        state "write_on" as 5
+        state "write_stop" as 7
+        state "write_power" as 8
+        state "write_off" as 9
+
+        [*] --> 1 
+        state if_state_LED <<choice>>
+        1 --> if_state_LED
+        if_state_LED --> 2 
+        2 --> 3 
+        3 --> 1
+        3 --> [*]
+        --
+        if_state_LED --> 4 
+        state fork_state_LED <<fork>>
+        4 --> fork_state_LED
+        fork_state_LED --> 5 
+        5 --> 8 
+        fork_state_LED --> 7 
+        7 --> 8
+        fork_state_LED --> 8 
+        fork_state_LED --> 9 
+        8 --> if_state_LED
+        9 --> 8
+    }
+
+    state Serial {
+        state "check_messages" as 20
+        state "write" as 21
+        state "read" as 22
+        state "check_deactivation" as 23
+        state "process_action" as 24
+
+        [*] --> 20
+        20 --> 23
+        23 --> 20
+        23 --> [*]
+        state if_state_serial <<fork>>
+        20 --> 24
+        state if_state_LED <<choice>>
+        21 --> 20
+        22 --> 20
+        --
+        24 --> if_state_serial
+        if_state_serial --> 21
+        if_state_serial --> 22
+
+    }
+
+
+    state SyringePump {
+        state "check_messages" as 40
+        state "check_deactivation" as 41
+        state "process_action" as 42
+        state "write_infuse" as 43
+        state "write_withdraw" as 44
+
+        [*] --> 40
+        state if_state_pump <<fork>>
+        40 --> if_state_pump
+        if_state_pump--> 41
+        
+        40 --> 40
+        40 --> [*]
+
+    }
+
+
+    if_event --> RabbitMQ
+    8 --> RabbitMQ
+
+```

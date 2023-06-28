@@ -55,6 +55,7 @@ class Equipment(abc.ABC):
         self.watchdog = RabbitWatchdog(self)
         self.action_in_progress = None
         self.profile: Profile | None = None
+        self.poll = False
 
         if kwargs:
             for k, v in kwargs:
@@ -102,11 +103,22 @@ class Equipment(abc.ABC):
     def _run(self):
         # infinite loop
         while self._deactivate_event:
+            self._poll()
             self.watchdog.check_watchdogs()
             self._read_message()  # blocking with timeout
-            self._run_profile()
 
-    def _run_profile(self):
+    def _poll(self):
+        """ checks to see if additional writes or reads needed to be preformed. """
+        if not self.poll:
+            return
+
+        self._poll_profile()
+        self._poll_status()
+
+    def _poll_status(self):
+        pass
+
+    def _poll_profile(self):
         if self.profile is None:
             return
 
@@ -228,6 +240,7 @@ class Equipment(abc.ABC):
         """
         self.state = EquipmentState.STANDBY
         self.profile = None
+        self.poll = False
         self._stop()
 
     def write_profile(self, profile: Profile):
@@ -241,6 +254,7 @@ class Equipment(abc.ABC):
         """
         self.profile = profile
         self.profile.start_time = datetime.now()
+        self.poll = True
 
     def _deactivate_(self):
         self.equipment_config.state = self.states.SHUTTING_DOWN

@@ -25,6 +25,9 @@ class HarvardPumpStatus(enum.Enum):
 
 
 def check_status(message: str) -> HarvardPumpStatus:
+    if "T" in message:
+        return HarvardPumpStatus.TARGET_REACHED
+
     status = message[-1]
     for option in HarvardPumpStatus:
         if status == option.value:
@@ -94,6 +97,8 @@ class HarvardPumpStatusDirection(enum.Enum):
 
 
 class HarvardPumpStatus:
+    directions = HarvardPumpStatusDirection
+
     def __init__(self,
                  flow_rate: Quantity = None,
                  time_: Quantity = None,
@@ -254,13 +259,11 @@ def process_time(time_str: str) -> timedelta:
     return timedelta(hours=int(h), minutes=int(m), seconds=int(s))
 
 
-def check_running_status(reply: str):
-    # '\r\nT *'
-    if not reply:
-
-
 class SyringePumpHarvard(SyringePump):
     """ for USB only; assumes echo is off. """
+    ramp_object = RampFlowRate
+    pump_status = HarvardPumpStatus
+    status_message = HarvardPumpStatus
 
     def __init__(self,
                  name: str,
@@ -291,22 +294,44 @@ class SyringePumpHarvard(SyringePump):
         self.rabbit.send_and_consume(message, error_out=True)
 
         # set syringe settings
+        self._write_diameter(self.syringe.diameter)
 
     def _stop(self):
-        reply = self._send_and_receive_message("stop")
+        _ = self._send_and_receive_message("stop")
 
-    def _write_run(self):
-        reply = self._send_and_receive_message(f'run')
+    def _poll_status(self):
+        status = self.read_pump_status()
 
-    def _write_run_infuse(self):
-        reply = self._send_and_receive_message(f'irun')
+    def _write_infuse(self, volume: Quantity, flow_rate: Quantity):
+        self._write_target_time_clear()
+        self.write_infusion_rate(flow_rate)
+        self._write_target_volume(volume)
+        self.write_run_infuse()
 
-    def _write_run_withdraw(self):
-        reply = self._send_and_receive_message(f'wrun')
+    def _write_withdraw(self, volume: Quantity, flow_rate: Quantity):
+        self._write_target_time_clear()
+        self.write_withdraw_rate(flow_rate)
+        self._write_target_volume(volume)
+        self.write_run_withdraw()
 
-    def _write_echo_off(self):
-        """ sets echo state to off """
-        reply = self._send_and_receive_message('echo off')
+    def write_run_infuse(self):
+        _ = self._send_and_receive_message(f'irun')
+        self.state = self.states.RUNNING
+        self.pump_status = self.pump_states.INFUSE
+        #TODO: set look for end message
+
+    def write_run_withdraw(self):
+        _ = self._send_and_receive_message(f'wrun')
+        self.state = self.states.RUNNING
+        self.pump_status = self.pump_states.INFUSE
+        #TODO: set look for end message
+
+    # def _write_run(self):
+    #     _ = self._send_and_receive_message('run')
+
+    # def _write_echo_off(self):
+    #     """ sets echo state to off """
+    #     _ = self._send_and_receive_message('echo off')
 
     def read_version(self) -> str:
         """ Displays the short version string. """
@@ -354,7 +379,7 @@ class SyringePumpHarvard(SyringePump):
         if not (1 <= force <= 100):
             raise ValueError("force outside range [0, 100]")
 
-        reply = self._send_and_receive_message(f'force {force:03}')
+        _ = self._send_and_receive_message(f'force {force:03}')
 
     def _read_diameter(self) -> Quantity:
         """ Displays the syringe diameter """
@@ -368,29 +393,34 @@ class SyringePumpHarvard(SyringePump):
 
         return Quantity(reply)
 
+    def write_syringe(self, syringe: Syringe):
+        """ set syringe """
+        self._write_diameter(syringe.diameter)
+        super().write_syringe(syringe)
+
     def _write_diameter(self, diameter: Quantity):
         # input validation
         diameter = diameter.to("mm")
         if diameter.value > 45:
             raise ValueError("diameter outside range [0, 45 mm]")
 
-        reply = self._send_and_receive_message(f'diameter {diameter.v:2.4f}')
+        _ = self._send_and_receive_message(f'diameter {diameter.v:2.4f}')
 
-    def _read_gang(self) -> int:
-        """ Displays the syringe count """
-        reply = self._send_and_receive_message(f'gang')
-
-        # parse reply
-        # format: '\n1 syringes\r\n:'
-        return int(reply[1])
-
-    def _write_gang(self, gang: int):
-        """ the syringe count -- unsure how it effects flow rate calculations on the pump """
-        # input validation
-        if 0 < gang < 3:
-            raise ValueError("diameter outside range [0, 45 mm]")
-
-        reply = self._send_and_receive_message(f'gang {gang}')
+    # def _read_gang(self) -> int:
+    #     """ Displays the syringe count """
+    #     reply = self._send_and_receive_message(f'gang')
+    #
+    #     # parse reply
+    #     # format: '\n1 syringes\r\n:'
+    #     return int(reply[1])
+    #
+    # def _write_gang(self, gang: int):
+    #     """ the syringe count -- unsure how it effects flow rate calculations on the pump """
+    #     # input validation
+    #     if 0 < gang < 3:
+    #         raise ValueError("diameter outside range [0, 2]")
+    #
+    #     _ = self._send_and_receive_message(f'gang {gang}')
 
     def _read_max_flow_rate(self) -> Quantity:
         """ get max flow rate accepted by pump (dependent on set syringe) """
@@ -412,7 +442,7 @@ class SyringePumpHarvard(SyringePump):
         index = reply.index("t")
         return Quantity(reply[:index])
 
-    def _read_infusion_rate(self) -> Quantity:
+    def read_infusion_rate(self) -> Quantity:
         """ display the infusion rate """
         reply = self._send_and_receive_message(f'irate')
 
@@ -421,11 +451,11 @@ class SyringePumpHarvard(SyringePump):
         reply = reply.replace("\n", "").replace("\r", "")
         return Quantity(reply)
 
-    def _write_infusion_rate(self, flow_rate: Quantity):
+    def write_infusion_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
-        reply = self._send_and_receive_message(f'irate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
+        _ = self._send_and_receive_message(f'irate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
 
-    def _read_withdraw_rate(self) -> Quantity:
+    def read_withdraw_rate(self) -> Quantity:
         """ display the withdrawal rate """
         reply = self._send_and_receive_message(f'wrate')
 
@@ -434,9 +464,9 @@ class SyringePumpHarvard(SyringePump):
         reply = reply.replace("\n", "").replace("\r", "")
         return Quantity(reply)
 
-    def _write_withdraw_rate(self, flow_rate: Quantity):
+    def write_withdraw_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
-        reply = self._send_and_receive_message(f'wrate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
+        _ = self._send_and_receive_message(f'wrate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
 
     def _read_infuse_volume(self) -> Quantity:
         reply = self._send_and_receive_message(f'ivolume')
@@ -467,7 +497,7 @@ class SyringePumpHarvard(SyringePump):
 
     def _write_target_volume(self, volume: Quantity):
         volume = set_flow_rate_range(volume)
-        reply = self._send_and_receive_message(f'tvolume {volume.v:2.4f} {volume.unit.abbr}')
+        _ = self._send_and_receive_message(f'tvolume {volume.v:2.4f} {volume.unit.abbr}')
 
     def _read_infuse_time(self) -> timedelta:
         reply = self._send_and_receive_message(f'itime')
@@ -517,7 +547,7 @@ class SyringePumpHarvard(SyringePump):
         minutes = int(sec // 60)
         sec -= (minutes * 60)
         sec = int(sec)
-        reply = self._send_and_receive_message(f'ttime {hours:02}:{minutes:02}:{sec:02}')
+        _ = self._send_and_receive_message(f'ttime {hours:02}:{minutes:02}:{sec:02}')
 
     def _read_infuse_ramp(self) -> RampFlowRate | None:
         reply = self._send_and_receive_message(f'iramp')
@@ -537,8 +567,8 @@ class SyringePumpHarvard(SyringePump):
 
         return RampFlowRate(flow_rate_start, flow_rate_end, time_)
 
-    def _write_infuse_ramp(self, ramp: RampFlowRate):
-        reply = self._send_and_receive_message(f'iramp {ramp.as_string()}')
+    def write_infuse_ramp(self, ramp: RampFlowRate):
+        _ = self._send_and_receive_message(f'iramp {ramp.as_string()}')
 
     def _read_withdraw_ramp(self) -> RampFlowRate | None:
         reply = self._send_and_receive_message(f'wramp')
@@ -558,5 +588,15 @@ class SyringePumpHarvard(SyringePump):
 
         return RampFlowRate(flow_rate_start, flow_rate_end, time_)
 
-    def _write_withdraw_ramp(self, ramp: RampFlowRate):
-        reply = self._send_and_receive_message(f'wramp {ramp.as_string()}')
+    def write_withdraw_ramp(self, ramp: RampFlowRate):
+        _ = self._send_and_receive_message(f'wramp {ramp.as_string()}')
+
+    def _write_target_time_clear(self):
+        _ = self._send_and_receive_message(f'cttime')
+
+    def _write_target_volume_clear(self):
+        _ = self._send_and_receive_message(f'ctvolume')
+
+    def _write_target_clear(self):
+        self._write_target_time_clear()
+        self._write_target_volume_clear()

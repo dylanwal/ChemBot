@@ -1,16 +1,3 @@
-"""
-
-syringe pump queues
-    write to:
-    * error
-    * status
-    * communication line (serial line to pump)
-    read from:
-    * SyringePump_i
-
-logger
-
-"""
 
 import abc
 import math
@@ -42,6 +29,7 @@ class SyringePumpStatus(enum.Enum):
 
 class SyringePump(Equipment, abc.ABC):
     control_methods = PumpControlMethod
+    pump_states = SyringePumpStatus
 
     def __init__(self,
                  name: str,
@@ -75,6 +63,9 @@ class SyringePump(Equipment, abc.ABC):
     def _activate(self):
         self._pump_state = SyringePumpStatus.STANDBY
         self.write_empty()
+
+    def _deactivate(self):
+        self._stop()
 
     def _within_max_pull(self, volume: Quantity, direction: bool = True) -> bool:
         pull = self.compute_pull(volume, self.syringe.diameter)
@@ -132,7 +123,7 @@ class SyringePump(Equipment, abc.ABC):
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate")
         if not ignore_stall and self._within_max_pull(volume):
-            raise ValueError("Stall expected as pull too large. Lower volume infused or ignore_stall=False")
+            raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
         self._write_infuse(volume, flow_rate)
         self.watchdog.set_watchdog()  # TODO: check completion
@@ -175,7 +166,8 @@ class SyringePump(Equipment, abc.ABC):
     def compute_run_time(volume: Quantity, flow_rate: Quantity) -> Quantity:
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(volume, Syringe.flow_rate_dimensionality, "flow_rate", True)
-        return abs(volume/flow_rate)
+        duration = abs(volume/flow_rate)
+        return duration
 
     @staticmethod
     def compute_pull(diameter: Quantity, volume: Quantity) -> Quantity:
