@@ -105,7 +105,7 @@ class HarvardPumpStatusDirection(enum.Enum):
     withdraw = "w"
 
 
-class HarvardPumpStatus:
+class HarvardPumpStatusMessage:
     directions = HarvardPumpStatusDirection
 
     def __init__(self,
@@ -134,7 +134,7 @@ class HarvardPumpStatus:
         self.target_reached = target_reached
 
     @classmethod
-    def parse_message(cls, message: str) -> HarvardPumpStatus:
+    def parse_message(cls, message: str) -> HarvardPumpStatusMessage:
         # parse reply
         # format: '\n0 0 0 w..TI.\r\n:'
         message = message[:-3] \
@@ -292,7 +292,7 @@ class SyringePumpHarvard(SyringePump):
 
         # check for error
         check_for_error(reply)
-        self.pump_status = check_status(reply[:-2])
+        self.pump_status = check_status(reply[-2:])
 
         return reply[:-2]  # remove status
 
@@ -363,10 +363,10 @@ class SyringePumpHarvard(SyringePump):
         reply = self._send_and_receive_message('version')
         return HarvardPumpVersion.parse_message(reply)
 
-    def read_pump_status(self) -> HarvardPumpStatus:
+    def read_pump_status(self) -> HarvardPumpStatusMessage:
         """ Displays the raw status for use with a controlling computer. """
         reply = self._send_and_receive_message('status')
-        return HarvardPumpStatus.parse_message(reply)
+        return HarvardPumpStatusMessage.parse_message(reply)
 
     def read_force(self) -> int:
         """ Displays the infusion force level in percent. """

@@ -179,7 +179,8 @@ class Equipment(abc.ABC):
                 self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
 
             logger.info(
-                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"))
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
+                                                      f"\n reply: {repr(reply)}"))
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))

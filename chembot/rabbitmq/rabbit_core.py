@@ -94,7 +94,7 @@ class RabbitMQConnection:
             logger.error(config.log_formatter(self, self.topic, "Message not sent:" + message.to_str()))
             raise e
 
-    def send_and_consume(self, message: RabbitMessage, timeout: int | float = 0.1, error_out: bool = False) \
+    def send_and_consume(self, message: RabbitMessage, timeout: int | float = 0.3, error_out: bool = False) \
             -> RabbitMessageReply | None:
         self.send(message)
         try:

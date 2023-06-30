@@ -71,7 +71,7 @@ def rainbow_job(n: int, duration: timedelta, power: int = 65535, delay: timedelt
 def main():
     job_submitter = JobSubmitter()
 
-    job = rainbow_job(n=50, duration=timedelta(seconds=5), power=65535)
+    job = rainbow_job(n=300, duration=timedelta(seconds=30), power=656)
     result = job_submitter.submit(job)
     print(result)
 

@@ -57,7 +57,7 @@ class RabbitMessageAction(RabbitMessage):
         text += f"\n\taction: {self.action}"
         text += "\n\tkwargs: "
         if self.kwargs is not None:
-            text += "".join(f"\n\t\t{k}: {v}" for k, v in self.kwargs.items())
+            text += "".join(f"\n\t\t{k}: {repr(v)}" for k, v in self.kwargs.items())
 
         return text
 
@@ -69,7 +69,7 @@ class RabbitMessageReply(RabbitMessage):
         self.value = value
 
     def to_str(self) -> str:
-        return super().to_str() + f"\n\tid_reply: {self.id_reply}" + f"\n\tvalue: {self.value}"
+        return super().to_str() + f"\n\tid_reply: {self.id_reply}" + f"\n\tvalue: {repr(self.value)}"
 
     @staticmethod
     def create_reply(message: RabbitMessage, value):

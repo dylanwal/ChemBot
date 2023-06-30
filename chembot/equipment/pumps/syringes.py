@@ -63,6 +63,9 @@ class Syringe:
 
     @volume.setter
     def volume(self, volume: Quantity):
+        if volume is None:
+            return
+
         validate_quantity(volume, self.volume_dimensionality, f"Syringe.volume", positive=True)
         self._volume = volume
 
@@ -72,7 +75,10 @@ class Syringe:
 
     @diameter.setter
     def diameter(self, diameter: Quantity):
-        validate_quantity(diameter, self.volume_dimensionality, f"Syringe.diameter", positive=True)
+        if diameter is None:
+            return
+
+        validate_quantity(diameter, self.diameter_dimensionality, f"Syringe.diameter", positive=True)
         self._diameter = diameter
 
     @property
@@ -81,7 +87,10 @@ class Syringe:
 
     @pull.setter
     def pull(self, pull: Quantity):
-        validate_quantity(pull, self.volume_dimensionality, f"Syringe.pull", positive=True)
+        if pull is None:
+            return
+
+        validate_quantity(pull, self.pull_dimensionality, f"Syringe.pull", positive=True)
         self._pull = pull
 
     @property
@@ -93,6 +102,9 @@ class Syringe:
 
     @default_flow_rate.setter
     def default_flow_rate(self, default_flow_rate: Quantity):
+        if default_flow_rate is None:
+            default_flow_rate = self.volume / self.default_fill_time
+
         validate_quantity(default_flow_rate, self.flow_rate_dimensionality, f"Syringe.default_flow_rate", positive=True)
         self._default_flow_rate = default_flow_rate
 
