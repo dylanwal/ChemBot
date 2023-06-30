@@ -96,8 +96,12 @@ class Equipment(abc.ABC):
 
         finally:
             logger.debug(config.log_formatter(self, self.name, "Deactivating"))
-            self._deactivate()
-            self._deactivate_()
+
+            try:
+                self._deactivate()
+                self._deactivate_()
+            except Exception as e:
+                logger.exception(str(e))
             logger.info(config.log_formatter(self, self.name, "Deactivated"))
 
     def _run(self):

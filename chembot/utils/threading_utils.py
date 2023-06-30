@@ -62,8 +62,8 @@ class EquipmentManager:
         logger.info("Deactivate function entered.")
         try:
             while True:
-                for thread in self.threads.values():
-                    thread.join(timeout=1)
+                if all(not thread.is_alive for thread in self.threads.values()):
+                    break
 
         except KeyboardInterrupt:
             logger.info("\n\n\tKeyboardInterrupt raised\n")
