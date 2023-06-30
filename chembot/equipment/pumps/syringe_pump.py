@@ -165,7 +165,7 @@ class SyringePump(Equipment, abc.ABC):
     @staticmethod
     def compute_run_time(volume: Quantity, flow_rate: Quantity) -> Quantity:
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.flow_rate_dimensionality, "flow_rate", True)
+        validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
         duration = abs(volume/flow_rate)
         return duration
 
