@@ -59,6 +59,7 @@ class EquipmentManager:
 
     def deactivate(self):
         # wait for them all to finish
+        logger.info("Deactivate function entered.")
         try:
             while True:
                 for thread in self.threads.values():

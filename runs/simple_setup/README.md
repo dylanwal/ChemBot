@@ -133,38 +133,37 @@ flowchart LR
 
 
     master_controller:::error
-    pump1,2,4
-    pump_3
-    valve1-5
-    serial_line_pump_1:::output
-    serial_line_pump_2:::output
-    serial_line_pico_1:::output
-    serial_line_pico_2:::output
-    LEDS
+    pump1
+    pump2
+    pump3
+    valve1
+    serial_line_pump1:::output
+    serial_line_pump2:::output
+    serial_line_pump3:::output
+    serial_line_pico1:::output    
     IR:::output
     SEC:::output
     fraction_collector
     GUI:::GUI
-    
-    scheduler <--> master_controller
-    
+        
     master_controller --> fraction_collector
-    fraction_collector --> serial_line_pico_2
-    master_controller --> pump1,2,4 --> serial_line_pump_1
-    master_controller --> pump_3 --> serial_line_pump_2
-    master_controller --> valve1-5 --> serial_line_pico_1
-    master_controller --> LEDS --> serial_line_pico_1
+    fraction_collector --> serial_line_pico3:::output 
+    master_controller --> pump1 --> serial_line_pump1:::output 
+    master_controller --> pump2 --> serial_line_pump2:::output 
+    master_controller --> pump3 --> serial_line_pump3:::output 
+    master_controller --> valve1 --> serial_line_valve:::output 
+    master_controller --> valve2 --> serial_line_valve:::output 
+    master_controller --> valve3 --> serial_line_valve:::output 
+    master_controller --> LED_red --> serial_line_LED:::output 
+    master_controller --> LED_blue --> serial_line_LED:::output 
+    master_controller --> LED_green --> serial_line_LED:::output 
     master_controller --> IR
     master_controller --> SEC
     
     GUI --> master_controller
-    GUI <--> data_logger
     
     master_controller --> tempature_probes
-    tempature_probes --> serial_line_pico_1
-    tempature_probes --> data_logger 
-    IR --> data_logger
-    SEC --> data_logger
+    tempature_probes --> serial_line_pico1
 
 
     classDef chem fill:#758E4F
@@ -194,16 +193,25 @@ flowchart LR
 flowchart LR
 
     rabbitMQ:::rabbit    
-    master_controller:::error <--> rabbitMQ
-    pumps <--> rabbitMQ
-    valves <--> rabbitMQ
-    serial_line_pump:::output <--> rabbitMQ
-    serial_line_pico:::output <--> rabbitMQ
-    rabbitMQ <--> LEDS
+    
+    pump1 <--> rabbitMQ
+    pump2 <--> rabbitMQ
+    pump3 <--> rabbitMQ
+    valve1 <--> rabbitMQ
+    valve2 <--> rabbitMQ
+    valve3 <--> rabbitMQ
+    fraction_collector <--> rabbitMQ
+    LEDS <--> rabbitMQ
+
+    rabbitMQ <--> master_controller:::error 
+    rabbitMQ <--> GUI:::GUI
     rabbitMQ <--> IR:::output
     rabbitMQ <--> SEC:::output
-    rabbitMQ <--> fraction_collector
-    rabbitMQ <--> GUI:::GUI
+    rabbitMQ <--> serial_line_pump1:::output
+    rabbitMQ <--> serial_line_pump2:::output 
+    rabbitMQ <--> serial_line_pump3:::output 
+    rabbitMQ <--> serial_line_LED:::output 
+    rabbitMQ <--> serial_line_valves:::output 
     
     classDef rabbit fill:#001219
     classDef chem fill:#758E4F
@@ -409,7 +417,44 @@ stateDiagram-v2
     }
 
 
-    if_event --> RabbitMQ
-    8 --> RabbitMQ
+ 
 
+```
+
+   if_event --> RabbitMQ
+    8 --> RabbitMQ
+   
+
+# f
+
+```mermaid
+stateDiagram-v2
+
+    
+    state Master_controller {
+        [*] --> check_messages
+        state "check_schedule" as check_schedule
+        state if_message <<choice>>
+        check_messages --> if_message
+        if_message --> check_schedule
+        check_deactivation --> check_messages
+        check_deactivation --> [*]
+        state if_event <<choice>>
+        check_schedule --> if_event
+        if_event --> check_deactivation 
+        --
+        if_message --> process_action
+        state fork_state <<fork>>
+        process_action --> fork_state
+        fork_state --> write_add_job
+        write_add_job --> validate
+        validate --> schedule
+        fork_state --> write_stop
+        write_stop --> if_message
+        schedule --> if_message
+        
+        if_event --> run_event
+        --
+        run_event--> if_event
+    }
 ```

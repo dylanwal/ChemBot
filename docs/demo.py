@@ -49,26 +49,23 @@ print(root)  # 1.00
 #######################################################################################################################
 
 class SecantSolver:
-    def __init__(self, equation, x1, x2):
+    def __init__(self, equation: Callable, x1: int | float, x2: int | float):
         self.equation = equation
         self.x1 = x1
         self.x2 = x2
 
     def solve(self):
-        x1 = self.x1
-        x2 = self.x2
+        while abs(self.equation(self.x1)) > 1e-6:
+            fx1 = self.equation(self.x1)
+            fx2 = self.equation(self.x2)
+            xtemp = self.x1
+            self.x1 = self.x1 - (self.x1 - self.x2) * fx1 / (fx1 - fx2)
+            self.x2 = xtemp
 
-        while abs(self.equation(x1)) > 1e-6:
-            fx1 = self.equation(x1)
-            fx2 = self.equation(x2)
-            xtemp = x1
-            x1 = x1 - (x1 - x2) * fx1 / (fx1 - fx2)
-            x2 = xtemp
-
-        return x1
+        return self.x1
 
 
-def equation(x):
+def equation(x: int | float):
     y = x**2 + x - 2
     return y
 
