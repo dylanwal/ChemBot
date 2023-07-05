@@ -36,6 +36,7 @@ class Configurations:
         self.rabbit_exchange = 'chembot'
         self.rabbit_queue_timeout = 1  # sec
         self.rabbit_auth = (self.rabbit_username, self.rabbit_password)
+        self.pickle_protocol = 5
 
     @property
     def logging_directory(self) -> str:

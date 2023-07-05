@@ -101,14 +101,19 @@ def create_binding(
 
 def publish(
         routing_key: str,
-        payload: str,
+        payload: str | bytes,
         exchange: str = config.rabbit_exchange,
         ip: str = config.rabbit_host,
         port: int = config.rabbit_port_http
 ):
     API = f"http://{ip}:{port}/api/exchanges/%2f/{exchange}/publish"
     headers = {'content-type': 'application/json'}
-    pdata = {'properties': {}, 'routing_key': routing_key, 'payload': payload, 'payload_encoding': 'string'}
+    pdata = {'properties': {}, 'routing_key': routing_key, 'payload': payload}
+    if isinstance(payload, str):
+        pdata['payload_encoding'] = 'string'
+    else:
+        pdata['payload_encoding'] = 'bytes'
+
     reply = requests.post(url=API, auth=config.rabbit_auth, json=pdata, headers=headers)
 
     if not reply.ok:
@@ -127,7 +132,7 @@ def get(
         ackmode: str = "ack_requeue_false",
         encoding: str = "auto",
         truncate: str = 50_000
-        ) -> list[dict]:
+        ) -> list[str | bytes]:
     """
 
     Parameters
@@ -163,7 +168,7 @@ def get(
         raise ValueError(f"Error getting message from queue {queue}. status code: {reply.status_code}")
 
     reply_list = json.loads(reply.text)
-    return [json.loads(message["payload"]) for message in reply_list]
+    return [message["payload"] for message in reply_list]
 
 
 class PaginationParameters:

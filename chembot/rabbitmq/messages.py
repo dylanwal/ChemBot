@@ -1,7 +1,8 @@
 import uuid
 from typing import Callable
+import pickle
 
-import jsonpickle
+from chembot.configuration import config
 
 
 class RabbitMessage:
@@ -16,8 +17,8 @@ class RabbitMessage:
     def __repr__(self):
         return self.__str__()
 
-    def to_JSON(self) -> str:  # noqa
-        return jsonpickle.dumps(self)
+    def to_bytes(self) -> bytes:
+        return pickle.dumps(self, protocol=config.pickle_protocol)
 
     def to_str(self) -> str:
         return f"\n\t{type(self).__name__}" \
@@ -86,13 +87,8 @@ class RabbitMessageRegister(RabbitMessage):
         super().__init__("master_controller", source)
         self.equipment_interface = equipment_interface
 
-    def to_str(self) -> str:
-        return super().to_str()
-
 
 class RabbitMessageUnRegister(RabbitMessage):
     def __init__(self, source: str):
         super().__init__("master_controller", source)
 
-    def to_str(self) -> str:
-        return super().to_str()
