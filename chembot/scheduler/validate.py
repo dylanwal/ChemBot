@@ -1,3 +1,4 @@
+import traceback
 from typing import Any
 
 from chembot.equipment.equipment_interface import EquipmentRegistry, EquipmentInterface, ActionParameter
@@ -84,7 +85,7 @@ def validate_event_arguments(
             inputs[index].validate(v)
         except (ValueError, TypeError) as e:
             result.register_error(
-                type(e)(f"{event_label}: " + str(e))
+                type(e)(f"{event_label}: " + traceback.format_exc())
             )
 
     # check if any required parameters are missing

@@ -5,6 +5,8 @@ import inspect
 import types
 import typing
 
+from unitpy import Quantity
+
 
 def strip_blank_lines(line):
     """Remove leading and trailing blank lines from a list of lines"""
@@ -206,7 +208,7 @@ def add_signature(function: typing.Callable, doc: NumpyDocString):
     doc.parameters = merge_parameters(parameter_objs, doc.parameters)
 
     returns_objs = get_return_parameters(signature.return_annotation)
-    doc.returns = merge_parameters_return(returns_objs, doc.parameters)
+    doc.returns = merge_parameters_return(returns_objs, doc.returns)
 
 
 def get_signature_parameters(parameter_signatures: list[inspect.Parameter]) -> list[Parameter]:
@@ -218,10 +220,15 @@ def get_signature_parameters(parameter_signatures: list[inspect.Parameter]) -> l
         if parameter_signature.name == "self":
             continue
 
+        if isinstance(parameter_signature.annotation, str):
+            type_ = get_type_from_string(parameter_signature.annotation)
+        else:
+            type_ = parameter_signature.annotation
+
         parameters.append(
             Parameter(
                 name=parameter_signature.name,
-                type_=parameter_signature.annotation,
+                type_=type_,
                 default=parameter_signature.default
             )
         )
@@ -277,3 +284,25 @@ def merge_parameters_return(
     # both are defined
     parameters1[0].description = parameters2[0].description
     return parameters1
+
+
+import builtins
+builtin_types = {d: getattr(builtins, d) for d in dir(builtins) if isinstance(getattr(builtins, d), type)}
+
+
+def get_type_from_string(type_: str) -> type:
+    if type_ in builtin_types:
+        return builtin_types[type_]
+    if type_ == "Quantity":
+        return Quantity
+
+    if type_ == "RampFlowRate":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import RampFlowRate
+        return RampFlowRate
+
+    if type_ == "Syringe":
+        from chembot.equipment.pumps.syringes import Syringe
+        return Syringe
+
+    # TODO: make more general
+    raise TypeError(f"Type not known: {type_}; it needs to be added.")

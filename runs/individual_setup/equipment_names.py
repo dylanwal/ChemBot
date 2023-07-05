@@ -11,9 +11,6 @@ class NamesLEDColors:
 class NamesSerial:
     PICO1 = "serial_pico1"  # LEDS
     PICO2 = "serial_pico2"  # Valves, thermocouples
-    PUMP_FRONT = "serial_pump_front"
-    PUMP_MIDDLE = "serial_pump_middle"
-    PUMP_BACK = "serial_pump_back"
 
 
 class NamesPump:

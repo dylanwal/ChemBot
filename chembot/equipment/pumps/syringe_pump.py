@@ -52,7 +52,7 @@ class SyringeState:
         self._volume_in_syringe = volume_in_syringe
         if self._volume_in_syringe.v < 0:
             logger.error("Volume in syringe went negative!")
-        if self._volume_in_syringe > self.max_volume:
+        if self._volume_in_syringe > self.syringe.volume:
             logger.error("Volume in syringe over max!")
 
     @property

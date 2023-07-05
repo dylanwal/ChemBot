@@ -4,10 +4,15 @@ import types
 import inspect
 from typing import Iterable, Callable
 import functools
+import logging
 
 from unitpy import Unit, Quantity
 
+from chembot.configuration import config
 import chembot.utils.numpy_parser as numpy_parser
+
+
+logger = logging.getLogger(config.root_logger_name + ".equipment_interface")
 
 
 class EquipmentState(enum.Enum):
@@ -198,7 +203,10 @@ class EquipmentRegistry:
         self.register(name, equipment_interface)
 
     def unregister(self, name: str):
-        del self.equipment[name]
+        try:
+            del self.equipment[name]
+        except KeyError:
+            logger.error(f"Error unregistering '{name}'. Not in registry.")
 
 
 #######################################################################################################################
