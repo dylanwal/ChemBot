@@ -288,7 +288,7 @@ class SyringePumpHarvard(SyringePump):
     def _send_and_receive_message(self, prompt: str) -> str:
         message = RabbitMessageAction(self.communication, self.name, Serial.write_plus_read_all_buffer,
                                       {"message": prompt + "\r"})
-        reply = self.rabbit.send_and_consume(message).value
+        reply = self.rabbit.send_and_consume(message, error_out=True).value
 
         # check for error
         check_for_error(reply)
@@ -298,18 +298,19 @@ class SyringePumpHarvard(SyringePump):
 
     def _activate(self):
         # ping communication to ensure it is alive
-        message = RabbitMessageAction(self.communication, self.name, "read_name")
+        message = RabbitMessageAction(self.communication, self.name, Serial.read_name)
         self.rabbit.send_and_consume(message, error_out=True)
 
         # set syringe settings
         self._write_diameter(self.syringe.diameter)
+        super()._activate()
 
     def _stop(self):
         _ = self._send_and_receive_message("stop")
 
     def _poll_status(self):
         status = self.read_pump_status()
-        self._volume = None
+        self._volume = status.displaced_volume
         self._volume_displace = None
         self._flow_rate = None
         self._target_volume = None
@@ -511,7 +512,7 @@ class SyringePumpHarvard(SyringePump):
         return Quantity(reply)
 
     def _write_target_volume(self, volume: Quantity):
-        volume = set_flow_rate_range(volume)
+        volume = set_volume_range(volume)
         _ = self._send_and_receive_message(f'tvolume {volume.v:2.4f} {volume.unit.abbr}')
 
     def _read_infuse_time(self) -> timedelta:

@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timedelta
 
 from chembot.configuration import config
@@ -34,8 +35,12 @@ class MasterController:
         self._next_update = datetime.now()
 
     def _deactivate(self):
-        for equip in self.registry.equipment:
+        for equip in reversed(self.registry.equipment):
+            # loop backwards to ensure equipment can send stop signals over serial before serial shuts down
+            # TODO: this could be made more rigorous --> maybe wait for deactivation reply before continuing
             self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_deactivate))
+            time.sleep(0.1)
+
         self.rabbit.deactivate()
         logger.info(config.log_formatter(self, self.name, "Deactivated"))
         self._deactivate_event = False

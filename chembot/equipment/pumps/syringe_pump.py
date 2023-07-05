@@ -121,12 +121,12 @@ class SyringePump(Equipment, abc.ABC):
             False: will throw an error
         """
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate")
+        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
         if not ignore_stall and self._within_max_pull(volume):
             raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
         self._write_infuse(volume, flow_rate)
-        self.watchdog.set_watchdog()  # TODO: check completion
+        # self.watchdog.set_watchdog()  # TODO: check completion
 
         self.state = self.states.RUNNING
         self._pump_state = SyringePumpStatus.INFUSE
@@ -139,11 +139,11 @@ class SyringePump(Equipment, abc.ABC):
     def write_withdraw(self, volume: Quantity, flow_rate: Quantity, ignore_limit: bool = False):
         # check current pull and see if there volume will exceed max limit
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate")
+        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
         if not self._within_max_pull(volume):
             raise ValueError("Too much withdraw volume requested. Lower volume withdraw")
 
-        self._write_infuse(volume, flow_rate)
+        self._write_withdraw(volume, flow_rate)
         self.watchdog.set_watchdog()  # TODO: check completion
 
         self.state = self.states.RUNNING
