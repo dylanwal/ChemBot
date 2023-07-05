@@ -27,6 +27,58 @@ class SyringePumpStatus(enum.Enum):
     TARGET_REACHED = "target_reached"
 
 
+class SyringeState:
+    """ capture current pump values """
+    __slots__ = ("state", "_volume_in_syringe", "volume_displace", "target_volume", "flow_rate", "running_time",
+                 "end_time", "max_volume", "syringe", "_max_pull")
+
+    def __init__(self, syringe: Syringe, max_pull: Quantity = None):
+        self.state: SyringePumpStatus | None = None
+        self._volume_in_syringe: Quantity | None = None
+        self.volume_displace: Quantity | None = None
+        self.target_volume: Quantity | None = None
+        self.flow_rate: Quantity | None = None
+        self.running_time: Quantity | None = None
+        self.end_time: Quantity | None = None
+        self.syringe = syringe
+        self._max_pull = max_pull
+
+    @property
+    def volume_in_syringe(self) -> Quantity | None:
+        return self._volume_in_syringe
+
+    @volume_in_syringe.setter
+    def volume_in_syringe(self, volume_in_syringe: Quantity):
+        self._volume_in_syringe = volume_in_syringe
+        if self._volume_in_syringe.v < 0:
+            logger.error("Volume in syringe went negative!")
+        if self._volume_in_syringe > self.max_volume:
+            logger.error("Volume in syringe over max!")
+
+    @property
+    def pull(self) -> Quantity | None:
+        # compute from volume
+        return SyringePump.compute_pull(self.syringe.diameter, self.volume_in_syringe)
+
+    @property
+    def max_pull(self) -> Quantity:
+        if self._max_pull is not None and self.syringe.pull > self._max_pull:
+            return self._max_pull
+        return self.syringe.pull
+
+    def within_max_pull(self, delta_pull: Quantity, direction: bool = True) -> bool:
+        if not direction:
+            delta_pull = -1 * direction
+
+        total_pull = self.pull + delta_pull
+        if 0 < total_pull.v:
+            return False
+        if total_pull > self.max_pull:
+            return False
+
+        return True
+
+
 class SyringePump(Equipment, abc.ABC):
     control_methods = PumpControlMethod
     pump_states = SyringePumpStatus
@@ -35,52 +87,19 @@ class SyringePump(Equipment, abc.ABC):
                  name: str,
                  syringe: Syringe,
                  max_pull: Quantity = None,
-                 max_pull_rate: Quantity = None,
                  control_method: PumpControlMethod = PumpControlMethod.flow_rate,
                  ):
         super().__init__(name)
         self.syringe = syringe
         self.control_method = control_method
-        self._max_pull = max_pull
-        self._max_pull_rate = max_pull_rate
-
-        # setup current values
-        self._pump_state: SyringePumpStatus | None = None
-        self._volume: Quantity | None = None
-        self._volume_displace: Quantity | None = None
-        self._flow_rate: Quantity | None = None
-        self._target_volume: Quantity | None = None
-        self._running_time: Quantity | None = None
-        self._end_time: Quantity | None = None
-        self._pull: Quantity | None = None
+        self.pump_state = SyringeState(self.syringe, max_pull)
+        # TODO: check max and min flow rates
 
     def __str__(self):
         return self.name
 
     def __repr__(self):
         return self.__repr__()
-
-    def _activate(self):
-        self._pump_state = SyringePumpStatus.STANDBY
-        self.write_empty()
-
-    def _deactivate(self):
-        self._stop()
-
-    def _within_max_pull(self, volume: Quantity, direction: bool = True) -> bool:
-        pull = self.compute_pull(self.syringe.diameter, volume)
-        if not direction:
-            pull = -1 * direction
-
-        total_pull = self._pull + pull
-        if 0 < total_pull.v:
-            return False
-        if self._max_pull is not None and total_pull > self._max_pull:
-            return False
-        if total_pull > self.syringe.pull:
-            return False
-
-        return True
 
     def read_syringe(self) -> Syringe:
         """ get syringe """
@@ -89,78 +108,6 @@ class SyringePump(Equipment, abc.ABC):
     def write_syringe(self, syringe: Syringe):
         """ set syringe """
         self.syringe = syringe
-
-    def write_empty(self, flow_rate: Quantity = None):
-        """ empty syringe """
-        if flow_rate is None:
-            flow_rate = self.syringe.default_flow_rate
-        self.write_infuse(self.syringe.volume, flow_rate, ignore_stall=True)
-        self._pull = 0 * Unit.m
-        self._volume = 0 * Unit("ml/min")
-
-    def write_refill(self, flow_rate: Quantity = None):
-        """ refill syringe to max volume """
-        if flow_rate is None:
-            flow_rate = self.syringe.default_flow_rate
-
-        volume = self.syringe.volume - self._volume
-        self.write_withdraw(volume, flow_rate, ignore_limit=True)
-
-    def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_stall: bool = False):
-        """
-        Run infuse liquid.
-
-        Parameters
-        ----------
-        volume:
-            volume to be infused
-        flow_rate:
-            flow rate
-        ignore_stall:
-            True: don't throw an error if the pump stops due to stall
-            False: will throw an error
-        """
-        validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
-        if not ignore_stall and self._within_max_pull(volume):
-            raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
-
-        self._write_infuse(volume, flow_rate)
-        # self.watchdog.set_watchdog()  # TODO: check completion
-
-        self.state = self.states.RUNNING
-        self._pump_state = SyringePumpStatus.INFUSE
-        self._volume_displace = 0 * volume.unit
-        self._flow_rate = flow_rate
-        self._target_volume = volume
-        self._running_time = 0 * Unit.s
-        self._end_time = self.compute_run_time(volume, flow_rate)
-
-    def write_withdraw(self, volume: Quantity, flow_rate: Quantity, ignore_limit: bool = False):
-        # check current pull and see if there volume will exceed max limit
-        validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
-        if not self._within_max_pull(volume):
-            raise ValueError("Too much withdraw volume requested. Lower volume withdraw")
-
-        self._write_withdraw(volume, flow_rate)
-        self.watchdog.set_watchdog()  # TODO: check completion
-
-        self.state = self.states.RUNNING
-        self._pump_state = SyringePumpStatus.WITHDRAW
-        self._volume_displace = 0 * volume.unit
-        self._flow_rate = flow_rate
-        self._target_volume = volume
-        self._running_time = 0 * Unit.s
-        self._end_time = self.compute_run_time(volume, flow_rate)
-
-    @abc.abstractmethod
-    def _write_infuse(self, volume: Quantity, flow_rate: Quantity):
-        ...
-
-    @abc.abstractmethod
-    def _write_withdraw(self, volume: Quantity, flow_rate: Quantity):
-        ...
 
     @staticmethod
     def compute_run_time(volume: Quantity, flow_rate: Quantity) -> Quantity:

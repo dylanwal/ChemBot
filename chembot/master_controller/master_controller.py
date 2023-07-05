@@ -81,7 +81,8 @@ class MasterController:
                 destination=event.resource,
                 source=self.name,
                 action=event.callable_,
-                kwargs=event.kwargs
+                kwargs=event.kwargs,
+                id_job=event.id_job
             )
         )
 

@@ -23,9 +23,7 @@ class Serial(Communication):
                  timeout: float = 10,
                  ):
         super().__init__(name)
-
-        if port not in self.available_ports:
-            raise ValueError(f"Port '{port}' is not connected to computer.")
+        self.available_port(port)
         self.serial = serial.Serial(port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
                                     parity=parity, timeout=timeout)
         self.port = port
@@ -125,3 +123,9 @@ class Serial(Communication):
         self.write(message)
         time.sleep(delay)  # give time for replay
         return self.read_all_buffer()
+
+    @classmethod
+    def available_port(cls, port: str):
+        """ Validate a port is available to the computer. """
+        if port not in cls.available_ports:
+            raise ValueError(f"Port '{port}' is not connected to computer.")

@@ -236,6 +236,7 @@ class Equipment(abc.ABC):
         """
         deactivate equipment (shut down)
         """
+        self._stop()
         self._deactivate_event = False
         # self._deactivate is called by self._run
 

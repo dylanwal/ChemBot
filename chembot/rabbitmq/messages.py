@@ -45,16 +45,26 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    def __init__(self, destination: str, source: str, action: str | Callable, kwargs: dict = None):
+    __slots__ = ("destination", "source", "action", "kwargs", "job_id")
+
+    def __init__(self,
+                 destination: str,
+                 source: str,
+                 action: str | Callable,
+                 kwargs: dict = None,
+                 id_job: int = None
+                 ):
         super().__init__(destination, source)
 
         if isinstance(action, Callable):
             action = action.__name__
         self.action = action
         self.kwargs = kwargs
+        self.id_job = id_job
 
     def to_str(self) -> str:
         text = super().to_str()
+        text += f"\n\tid_job: {self.id_job}"
         text += f"\n\taction: {self.action}"
         text += "\n\tkwargs: "
         if self.kwargs is not None:
@@ -91,4 +101,3 @@ class RabbitMessageRegister(RabbitMessage):
 class RabbitMessageUnRegister(RabbitMessage):
     def __init__(self, source: str):
         super().__init__("master_controller", source)
-
