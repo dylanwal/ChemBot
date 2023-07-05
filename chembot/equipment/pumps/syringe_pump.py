@@ -68,7 +68,7 @@ class SyringePump(Equipment, abc.ABC):
         self._stop()
 
     def _within_max_pull(self, volume: Quantity, direction: bool = True) -> bool:
-        pull = self.compute_pull(volume, self.syringe.diameter)
+        pull = self.compute_pull(self.syringe.diameter, volume)
         if not direction:
             pull = -1 * direction
 

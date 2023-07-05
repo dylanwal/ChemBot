@@ -19,6 +19,9 @@ class JobSubmitResult:
         return f"Unsuccessful || validation successful: {self.validation_success}, # errors: {len(self.errors)}" \
                + '\n\t'.join(str(e) for e in self.errors)
 
+    def __repr__(self):
+        return self.__str__()
+
     def register_error(self, error: Exception):
         self.success = False
         self.errors.append(error)
