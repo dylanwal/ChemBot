@@ -251,7 +251,7 @@ def parse_parameters(list_: list[numpy_parser.Parameter] | None) -> list[ActionP
         results.append(
             ActionParameter(
                 parms.name,
-                parms.type_,
+                get_type(parms.type_),
                 description,
                 range_,
                 unit
@@ -318,6 +318,39 @@ def parse_numerical_range(text: str) -> NumericalRangeContinuous | NumericalRang
         return NumericalRangeDiscretized(float(text[0]), float(text[2]), float(text[1]))
 
     raise ValueError(f"Invalid doc-sting range. \ntext: {text}")
+
+
+import builtins
+builtin_types = {d: getattr(builtins, d) for d in dir(builtins) if isinstance(getattr(builtins, d), type)}
+
+
+def get_type(type_: str | type) -> type:
+    if isinstance(type_, type):
+        return type_
+
+    if type_ in builtin_types:
+        return builtin_types[type_]
+    if type_ == "Quantity":
+        return Quantity
+
+    if type_ == "RampFlowRate":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import RampFlowRate
+        return RampFlowRate
+
+    if type_ == "Syringe":
+        from chembot.equipment.pumps.syringes import Syringe
+        return Syringe
+
+    if type_ == "HarvardPumpStatusMessage":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import HarvardPumpStatusMessage
+        return HarvardPumpStatusMessage
+
+    if type_ == "HarvardPumpVersion":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import HarvardPumpVersion
+        return HarvardPumpVersion
+
+    # TODO: make more general
+    raise TypeError(f"Type not known: {type_}; it needs to be added.")
 
 
 def validate_type(type_: type, value):
