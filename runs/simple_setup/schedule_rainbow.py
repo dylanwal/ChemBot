@@ -12,7 +12,7 @@ from chembot.scheduler.vizualization.job_tree import generate_job_flowchart
 from chembot.scheduler.vizualization.gantt_chart_app import create_app
 from chembot.scheduler.vizualization.schedule_to_gantt_chart import schedule_to_gantt_chart
 
-from runs.individual_setup.equipment_names import NamesLEDColors
+from runs.individual_setup.names import NamesLEDColors
 
 
 def rainbow(n: int) -> list[list[int, int, int], ...]:

@@ -1,2 +1,2 @@
-
-# from chembot.valves.valve_servo import ValveServo
+from chembot.equipment.valves.valve_configuration import ValveConfiguration
+from chembot.equipment.valves.valve_servo import ValveServo

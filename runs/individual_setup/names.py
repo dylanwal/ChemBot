@@ -17,3 +17,9 @@ class NamesPump:
     PUMP_FRONT = "pump_front"
     PUMP_MIDDLE = "pump_middle"
     PUMP_BACK = "pump_back"
+
+
+class NamesValves:
+    VALVE_FRONT = "valve_front"
+    VALVE_MIDDLE = "valve_middle"
+    VALVE_BACK = "valve_back"

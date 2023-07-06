@@ -27,12 +27,36 @@ class LightPico(Light):
         super().__init__(name)
         self.color = color
         self.communication = communication
+        self._pin = None
         self.pin = pin
+        self._frequency = None
         self.frequency = frequency
 
         self.power: int = 0
         self.attrs += ["color", "communication", "pin", "frequency"]
         self.update += ["power"]
+
+    @property
+    def pin(self) -> int:
+        return self._pin
+
+    @pin.setter
+    def pin(self, pin: int):
+        PicoHardware.validate_GPIO_pin(pin)
+        self._pin = pin
+        
+    @property
+    def frequency(self) -> int:
+        return self._frequency
+
+    @frequency.setter
+    def frequency(self, frequency: int):
+        PicoHardware.validate_pwm_frequency(frequency)
+        if not isinstance(frequency, int):
+            raise TypeError("'frequency' must be an integer.")
+        if not (100 < frequency < 50_000):
+            raise ValueError("'frequency' must be between [100, 50_000]")
+        self._frequency = frequency
 
     def _write_on(self):
         self.write_power(65535)
@@ -44,6 +68,7 @@ class LightPico(Light):
         # ping communication to ensure it is alive
         message = RabbitMessageAction(self.communication, self.name, "read_name")
         self.rabbit.send_and_consume(message, error_out=True)
+        super()._activate()
 
     def _stop(self):
         self._write_off()
@@ -82,7 +107,6 @@ class LightPico(Light):
             range: [0, 27]
 
         """
-        PicoHardware.validate_GPIO_pin(pin)
         self.pin = pin
 
     def read_frequency(self) -> int:
@@ -102,11 +126,6 @@ class LightPico(Light):
         -------
 
         """
-        if not isinstance(frequency, int):
-            raise TypeError("'frequency' must be an integer.")
-        if not (100 < frequency < 50_000):
-            raise ValueError("'frequency' must be between [100, 50_000]")
-
         self.frequency = frequency
 
     def write_power(self, power: int):

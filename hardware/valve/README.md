@@ -24,10 +24,10 @@ PWM Parameters:
         be tuned so the servo actually hits 0 deg. and 270 deg.
 
     angles = {
-        0: int(65535/20*0.5),  # 65535 bits/ 20 ms * 0.5 = 0.5 ms duty
-        90: int(65535/20*1.2),  #
-        180: int(65535/20*1.9),  #
-        270: int(65535/20*2.5),  # 2.5 ms duty
+        0: int(65535/20*0.5), 1638 # 65535 bits/ 20 ms * 0.5 = 0.5 ms duty
+        90: int(65535/20*1.2), 3932 #
+        180: int(65535/20*1.9), 6225 #
+        270: int(65535/20*2.5),  8191 # 2.5 ms duty
     }
 
 USB control:
