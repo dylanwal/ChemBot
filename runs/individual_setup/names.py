@@ -23,3 +23,16 @@ class NamesValves:
     VALVE_FRONT = "valve_front"
     VALVE_MIDDLE = "valve_middle"
     VALVE_BACK = "valve_back"
+
+
+class NamesSensors:
+    ATIR = "atir"
+    SEC = "sec"
+    PICO1_THERMISTOR = "pico1_thermistor"
+    PICO2_THERMISTOR = "pico2_thermistor"
+    REACTOR1_THERMISTOR = "reactor1_thermistor"
+    REACTOR2_THERMISTOR = "reactor2_thermistor"
+    REACTOR3_THERMISTOR = "reactor3_thermistor"
+    LED_THERMISTOR = "LED_thermistor"
+    PHASE_SENSOR1 = "phase_sensor1"
+    PHASE_SENSOR2 = "phase_sensor2"

@@ -191,7 +191,7 @@ class PicoSerial(Serial):
 
         return int(reply[1:])
 
-    def read_internal_temperature(self) -> float:
+    def read_internal_temperature(self) -> Quantity:
         """
         read the pico's internal temperature sensor
         board temperature sensor is very sensitive to errors in the reference voltage
