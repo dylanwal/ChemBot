@@ -106,11 +106,11 @@ class Serial(Communication):
         """ read_baudrate """
         return self.serial.baudrate
 
-    def read_buffer_in(self) -> int:
+    def read_bytes_in_buffer_in(self) -> int:
         """ read number of bytes in the 'in' buffer """
         return self.serial.in_waiting
 
-    def read_buffer_out(self) -> int:
+    def read_bytes_in_buffer_out(self) -> int:
         """ read number of bytes in the 'in' buffer """
         return self.serial.out_waiting
 

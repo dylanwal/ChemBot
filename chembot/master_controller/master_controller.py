@@ -131,7 +131,7 @@ class MasterController:
 
         except Exception as e:
             logger.error(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-            logger.error(e)
+            logger.exception(config.error())
             logger.info("master controller continues to operate as nothing happened.")
 
     def _error_handling(self):

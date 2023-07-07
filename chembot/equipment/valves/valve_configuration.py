@@ -170,7 +170,7 @@ class ValveConfiguration:
 
         if config.endswith("S"):
             valve_config = create_selector_valve(config)
-        elif config not in cls.valve_configs:
+        elif config in cls.valve_configs:
             valve_config = cls.valve_configs[config]
         else:
             raise ValueError("Invalid valve configuration.")
@@ -186,7 +186,7 @@ class ValveConfiguration:
 
 def create_position(ports: list[ValvePort], position, position_index: int):
     if not isinstance(position[0], tuple):
-        position = tuple(position)
+        position = (position,)
 
     channels = []
     for channel in position:
@@ -198,7 +198,7 @@ def create_position(ports: list[ValvePort], position, position_index: int):
 def create_channel(ports: list[ValvePort], channel: tuple[int]) -> ValveChannel:
     connections = []
     for port in channel:
-        if port > len(ports):
+        if port >= len(ports):
             ports.append(ValvePort(port))
         connections.append(ports[port])
 

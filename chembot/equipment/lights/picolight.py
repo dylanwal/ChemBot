@@ -139,9 +139,9 @@ class LightPico(Light):
             range: [0:1:65535]
         """
         if power > 0:
-            self.state = self.equipment_config.states.RUNNING
+            self.state = self.states.RUNNING
         elif power == 0:
-            self.state = self.equipment_config.states.STANDBY
+            self.state = self.states.STANDBY
 
         self.power = power
 

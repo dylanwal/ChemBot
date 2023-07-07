@@ -57,7 +57,7 @@ class ValveServo(Valve):
         PicoHardware.validate_pwm_frequency(frequency)
         if not isinstance(frequency, int):
             raise TypeError("'frequency' must be an integer.")
-        if not (100 < frequency < 50_000):
+        if not (10 <= frequency <= 50_000):
             raise ValueError("'frequency' must be between [100, 50_000]")
         self._frequency = frequency
 

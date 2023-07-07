@@ -47,7 +47,7 @@ class EquipmentManager:
         self.equipment += equipment_to_list(equipment)
 
     def activate(self):
-        self.threads = {equip.class_name: threading.Thread(target=equip.activate, name=equip.class_name) for equip in
+        self.threads = {equip.name: threading.Thread(target=equip.activate, name=equip.name) for equip in
                         self.equipment}
 
         # start all threads
@@ -59,12 +59,11 @@ class EquipmentManager:
 
     def deactivate(self):
         # wait for them all to finish
-        logger.info("Deactivate function entered.")
         try:
             while True:
                 if all(not thread.is_alive() for thread in self.threads.values()):
                     break
-                time.sleep(1)
+                time.sleep(0.2)
 
         except KeyboardInterrupt:
             logger.info("\n\n\tKeyboardInterrupt raised\n")
@@ -74,7 +73,7 @@ class EquipmentManager:
             for equip in self.equipment:
                 # if any alive; tell them to deactivate
                 equip.write_deactivate()
-                logger.debug(f"UTILS || Deactivating thread: {equip.class_name}")
+                logger.debug(f"UTILS || Deactivating thread: {equip.name}")
                 time.sleep(0.2)
 
             for _ in range(3):  # sometimes they are still alive on first pass

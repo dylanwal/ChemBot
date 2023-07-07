@@ -68,8 +68,8 @@ class NumericalRangeDiscretized(ParameterRange):
         return text + f"{self.max_}]"
 
     def validate(self, value):
-        if not (self.min_ < value < self.max_) or (value % self.step) == (self.min_ % self.step):
-            raise ValueError(f"{type(self).__name__}: Outside Range: [{self.min_}:{self.max_}:{self.step}]")
+        if not (self.min_ <= value <= self.max_) or (value % self.step) != (self.min_ % self.step):
+            raise ValueError(f"{type(self).__name__}: Outside Range: [{self.min_}:{self.step}:{self.max_}]")
 
 
 class CategoricalRange(ParameterRange):
@@ -134,7 +134,7 @@ class ActionParameter:
                                  f"({self.unit})")
             value = value.to(self.unit)
 
-        if self.range_ is not None:
+        if self.range_ is not self.empty:
             self.range_.validate(value)
 
 
@@ -338,8 +338,8 @@ import builtins
 builtin_types = {d: getattr(builtins, d) for d in dir(builtins) if isinstance(getattr(builtins, d), type)}
 
 
-def get_type(type_: str | type) -> type:
-    if isinstance(type_, type):
+def get_type(type_: str | type) -> type | types.UnionType:
+    if isinstance(type_, type) or isinstance(type_, types.UnionType):
         return type_
 
     if type_ in builtin_types:
@@ -362,6 +362,10 @@ def get_type(type_: str | type) -> type:
     if type_ == "HarvardPumpVersion":
         from chembot.equipment.pumps.harvard_apparatus_syringe_pump import HarvardPumpVersion
         return HarvardPumpVersion
+
+    if type_ == "ValvePosition":
+        from chembot.equipment.valves.valve_configuration import ValvePosition
+        return ValvePosition
 
     # TODO: make more general
     raise TypeError(f"Type not known: {type_}; it needs to be added.")

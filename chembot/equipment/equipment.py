@@ -50,7 +50,6 @@ class Equipment(abc.ABC):
         self.update = ["state"]
         self._deactivate_event = True  # set to False to deactivate
         self._reply_callback = None
-        self.equipment_config = EquipmentConfig()
         self.equipment_interface = get_equipment_interface(type(self))
         self.watchdog = RabbitWatchdog(self)
         self.action_in_progress = None
@@ -184,7 +183,7 @@ class Equipment(abc.ABC):
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
+            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"), check=False)
 
     def read_all_attributes(self) -> dict:
         """
@@ -263,7 +262,7 @@ class Equipment(abc.ABC):
         self.poll = True
 
     def _deactivate_(self):
-        self.equipment_config.state = self.states.SHUTTING_DOWN
+        self.state = self.states.SHUTTING_DOWN
         self._unregister_equipment()
         self.rabbit.deactivate()
 
