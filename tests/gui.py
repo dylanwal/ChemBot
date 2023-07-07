@@ -4,7 +4,7 @@ example_registry = {
     "equipment": {
         "pico_serial": {
             "class": "EquipmentInterface",
-            "name": "pico_serial",
+            "class_name": "pico_serial",
             "class_": "PicoSerial",
             "state": {
                 "enum": "EquipmentState",
@@ -13,24 +13,24 @@ example_registry = {
             "actions": [
                 {
                     "class": "Action",
-                    "name": "write",
+                    "class_name": "write",
                     "description": "write stuff to pico",
                     "inputs": [
                         {
                             "class": "ActionParameter",
-                            "name": "message",
+                            "class_name": "message",
                             "types": "str"
                         }
                     ]
                 },
                 {
                     "class": "Action",
-                    "name": "read",
+                    "class_name": "read",
                     "description": "read stuff from pico",
                     "outputs": [
                         {
                             "class": "ActionParameter",
-                            "name": "message",
+                            "class_name": "message",
                             "types": "str"
                         }
                     ]
@@ -39,7 +39,7 @@ example_registry = {
         },
         "red_led": {
             "class": "EquipmentInterface",
-            "name": "red_led",
+            "class_name": "red_led",
             "class_": "PicoLED",
             "state": {
                 "enum": "EquipmentState",
@@ -48,22 +48,22 @@ example_registry = {
             "actions": [
                 {
                     "class": "Action",
-                    "name": "write_on",
+                    "class_name": "write_on",
                     "description": "turn on light",
                 },
                 {
                     "class": "Action",
-                    "name": "write_off",
+                    "class_name": "write_off",
                     "description": "turn off light",
                 },
                 {
                     "class": "Action",
-                    "name": "write_power",
+                    "class_name": "write_power",
                     "description": "set light power",
                     "inputs": [
                         {
                             "class": "ActionParameter",
-                            "name": "power",
+                            "class_name": "power",
                             "types": "float",
                             "range_": "[0:100]",
                             "unit": "kg"

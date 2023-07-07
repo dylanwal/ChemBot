@@ -104,7 +104,7 @@ class LightPico(Light):
         Parameters
         ----------
         pin:
-            range: [0, 27]
+            range: [0:1:27]
 
         """
         self.pin = pin
@@ -120,7 +120,7 @@ class LightPico(Light):
         Parameters
         ----------
         frequency:
-            range: [100, 50_000]
+            range: [100:1:50_000]
 
         Returns
         -------
@@ -136,7 +136,7 @@ class LightPico(Light):
         ----------
         power:
             light intensity
-            range: [0, ..., 65535]
+            range: [0:1:65535]
         """
         if power > 0:
             self.state = self.equipment_config.states.RUNNING

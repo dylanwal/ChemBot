@@ -33,6 +33,10 @@ class ActionType(enum.Enum):
 
 
 class ParameterRange(abc.ABC):
+
+    def __repr__(self):
+        return self.__str__()
+
     @abc.abstractmethod
     def validate(self, value) -> bool:
         ...
@@ -173,7 +177,7 @@ class EquipmentInterface:
         return self.__str__()
 
     @property
-    def name(self) -> str:
+    def class_name(self) -> str:
         return self.class_.__name__
 
     @property
@@ -188,7 +192,7 @@ class EquipmentInterface:
         raise ValueError(f"Action ({name}) not found in EquipmentInterface ({self.class_}).")
 
     # def data_row(self) -> dict:
-    #     return {"name": self.name, "class": self.class_, "actions": len(self.actions)}
+    #     return {"class_name": self.class_name, "class": self.class_, "actions": len(self.actions)}
 
 
 class EquipmentRegistry:
@@ -262,12 +266,13 @@ def parse_parameters(list_: list[numpy_parser.Parameter] | None) -> list[ActionP
 
 
 def parse_description(text: list[str]) -> list[str, ParameterRange | None, str | None]:
-    result = ["", None, ActionParameter.empty]  # [description, range, unit]
+    result = ["", ActionParameter.empty, ActionParameter.empty]  # [description, range, unit]
 
     if text is None:
         return result
 
     for line in text:
+        line = line.strip()
         if line.startswith("range"):
             result[1] = parse_range(line)
         elif line.startswith("unit"):
@@ -298,9 +303,7 @@ def parse_numerical_range(text: str) -> NumericalRangeContinuous | NumericalRang
         options_numerical = []
         for op in options:
             try:
-                num = float(op)
-                if num == int(num):
-                    num = int(num)
+                num = number_to_int_or_float(op)
             except ValueError:
                 if "None" in op:
                     num = None
@@ -311,13 +314,24 @@ def parse_numerical_range(text: str) -> NumericalRangeContinuous | NumericalRang
 
     if count_collen == 1:
         text = text.split(":")
-        return NumericalRangeContinuous(float(text[0]), float(text[1]))
+        return NumericalRangeContinuous(number_to_int_or_float(text[0]), number_to_int_or_float(text[1]))
 
     if count_collen == 2:
         text = text.split(":")
-        return NumericalRangeDiscretized(float(text[0]), float(text[2]), float(text[1]))
+        return NumericalRangeDiscretized(
+            min_=number_to_int_or_float(text[0]),
+            max_=number_to_int_or_float(text[2]),
+            step=number_to_int_or_float(text[1])
+        )
 
     raise ValueError(f"Invalid doc-sting range. \ntext: {text}")
+
+
+def number_to_int_or_float(number: str) -> int | float:
+    num = float(number)
+    if num == int(num):
+        return int(num)
+    return num
 
 
 import builtins

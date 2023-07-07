@@ -95,10 +95,10 @@ class PicoSerial(Serial):
 
         Parameters
         ----------
-        pin: int
+        pin:
             GPIO pin
-            range: [0:28]
-        value: int
+            range: [0:1:28]
+        value:
             0: off; 1 on
             range: [0, 1]
         resistor:

@@ -489,12 +489,12 @@ class SyringePumpHarvard(SyringePump):
         ----------
         force:
             force
-            range: [1, ..., 100]
+            range: [30:1:100]
         """
         # input validation
         force = int(force)
         if not (1 <= force <= 100):
-            raise ValueError("force outside range [0, 100]")
+            raise ValueError("force outside range [30, 100]")
 
         _ = self._send_and_receive_message(f'force {force:03}')
 

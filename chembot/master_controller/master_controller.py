@@ -38,7 +38,7 @@ class MasterController:
         for equip in reversed(self.registry.equipment):
             # loop backwards to ensure equipment can send stop signals over serial before serial shuts down
             # TODO: this could be made more rigorous --> maybe wait for deactivation reply before continuing
-            self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_deactivate))
+            self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_deactivate), check=False)
             time.sleep(0.1)
 
         self.rabbit.deactivate()
@@ -145,7 +145,7 @@ class MasterController:
         self._next_update = datetime.now() + self.status_update_time
 
         # for equipment in self.registry.equipment:
-        #     message = RabbitMessageUpdate(equipment.name)
+        #     message = RabbitMessageUpdate(equipment.class_name)
         #     self.rabbit.send(message)
         #     self.watchdog.set_watchdog(message, delay=1)
 

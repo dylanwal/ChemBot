@@ -24,7 +24,7 @@ class ExperimentRunner:
         Runs the background scans for an experiment with the given parameters.
 
         :param experiment_path: The path to the folder which contains the experiment file.
-        :param experiment_name: The name of the experiment file.
+        :param experiment_name: The class_name of the experiment file.
         :background_scans: The number of background scans that should be performed. Defaults to the setting in the experiment file.
         :resolution: The resolution of the measurement. Defaults to the setting in the experiment file.
         """
@@ -44,7 +44,7 @@ class ExperimentRunner:
         The experiment file specifies the default parameters for the experiment, which can be overridden by the other parameters.
 
         :param experiment_path: The path to the folder which contains the experiment file.
-        :param experiment_name: The name of the experiment file.
+        :param experiment_name: The class_name of the experiment file.
         :scans: The number of scans that should be performed. Defaults to the setting in the experiment file.
         :resolution: The resolution of the measurement. Defaults to the setting in the experiment file. Note that resolution of measurements must match with the resolution of background scans.
         :measurement_display_mode: The display mode. 0 means that OPUS will not ask the user for confirmation to start measurements beforehand,

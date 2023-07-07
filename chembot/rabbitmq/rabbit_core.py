@@ -76,8 +76,8 @@ class RabbitMQConnection:
         except Exception as e:
             logger.exception(config.log_formatter(self, self.topic, "Received message caused Exception."))
 
-    def send(self, message: RabbitMessage):
-        if not queue_exists(message.destination):
+    def send(self, message: RabbitMessage, check: bool = True):
+        if check and not queue_exists(message.destination):
             logger.error(config.log_formatter(self, self.topic, "Queue does not exist yet:" + message.destination))
             raise ValueError("Queue does not exist yet:" + message.destination)
 

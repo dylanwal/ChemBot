@@ -43,7 +43,7 @@ classDiagram
     }
 
     class Equipment{
-      +String name
+      +String class_name
       +State state
       +Rabbit Rabbit
 
@@ -63,7 +63,7 @@ classDiagram
         + Quantity volume
         + Quantity diameter
         + Quantity pull
-        + string name 
+        + string class_name 
     }
 
     class SyringePump{

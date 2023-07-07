@@ -40,7 +40,7 @@ def create_slider(app: dash.Dash, data: GanttChart, config: ConfigPlot):
                 max=max(config.get_y_values(data.number_of_rows)),
                 step=config.step,
                 value=1,
-                marks={y_: row.name for y_, row in zip(range(1, data.number_of_rows), data)},
+                marks={y_: row.class_name for y_, row in zip(range(1, data.number_of_rows), data)},
                 vertical=True
             )
 

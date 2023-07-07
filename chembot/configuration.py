@@ -87,5 +87,10 @@ class Configurations:
         message = message.replace('\t', '\t\t')
         return f"{type(class_).__name__}: {name}\n\t{message}"
 
+    def error(self):
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = '\\'.join(os.path.split(exc_tb.tb_frame.f_code.co_filename))
+        return f"{exc_type}:{exc_obj.args[0]} \nfile: {fname}, line: {exc_tb.tb_lineno}"
+
 
 config = Configurations()

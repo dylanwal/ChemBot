@@ -97,7 +97,7 @@ class PicoHardware:
         if resistor is None:
             return "n"
         else:
-            if resistor in ("u", "d"):
+            if resistor in ("u", "d", "n"):
                 return resistor
 
         raise ValueError("Invalid resistor option for pico digital.")

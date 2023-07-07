@@ -103,7 +103,7 @@ class PhaseSensor:
         logging.info(f'Phase sensor || ({self.name, self.port}) Initiated')
 
     def __repr__(self):
-        return f"Phase Sensor\n\tname: {self.name}\n\tport: {self.port}\n\tstate: {self.state}"
+        return f"Phase Sensor\n\tclass_name: {self.name}\n\tport: {self.port}\n\tstate: {self.state}"
 
     def measure_phase(self) -> np.ndarray:
         """

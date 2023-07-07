@@ -133,12 +133,15 @@ def split_parameter_lines(lines: list[str, ...]) -> list[list[str, ...]]:
     parameters = []
     parameter_lines = []
     for line in lines:
-        if line[0] != " ":
+        if line[:2] != "  ":
             if parameter_lines:
                 parameters.append(parameter_lines)
             parameter_lines = [line]
         else:
-            parameter_lines.append(line)
+            parameter_lines.append(line.strip())
+
+    if parameter_lines:
+        parameters.append(parameter_lines)
 
     return parameters
 
@@ -194,6 +197,8 @@ def parse_numpy_docstring(name: str, docstring: str) -> NumpyDocString:
             continue
 
         section_lines.append(line)
+
+    doc.add(current_section, section_lines)
 
     return doc
 

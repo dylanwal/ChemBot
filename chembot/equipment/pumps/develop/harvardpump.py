@@ -46,7 +46,7 @@ class Pump:
         Chain: pump chain
     Optional arguments:
         address: pump address. Default is 0.
-        name: used in logging. Default is Pump 11.
+        class_name: used in logging. Default is Pump 11.
     """
 
     def __init__(self, chain, address=0, name='Pump 11'):

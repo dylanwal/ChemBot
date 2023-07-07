@@ -40,7 +40,7 @@ class Equipment(abc.ABC):
         Parameters
         ----------
         name:
-            name is a **unique** identifier in the system
+            class_name is a **unique** identifier in the system
         """
         self.name = name
         self.state: EquipmentState = EquipmentState.OFFLINE
@@ -222,13 +222,13 @@ class Equipment(abc.ABC):
 
     def read_name(self) -> str:
         """
-        returns equipment name
+        returns equipment class_name
         """
         return self.name
 
     def write_name(self, name: str):
         """
-        write a new name for the equipment
+        write a new class_name for the equipment
         """
         self.name = name
 

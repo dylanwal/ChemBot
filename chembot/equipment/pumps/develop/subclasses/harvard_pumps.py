@@ -38,7 +38,7 @@ def _format_diameter(pump: SyringePump, diameter: float) -> str:
     diameter_str = str(round(diameter, 2))
 
     if diameter != float(diameter_str):
-        logger.warning(f'{pump.name} diameter truncated to {diameter_str} mm')
+        logger.warning(f'{pump.class_name} diameter truncated to {diameter_str} mm')
 
     return diameter_str
 
@@ -48,7 +48,7 @@ def _format_flow_rate(pump: SyringePump, flow_rate: int | float) -> str:
 
     if len(flow_rate) > 5:
         flow_rate = flow_rate[0:5]
-        logger.warning(f'{pump.name} flow rate truncated to {flow_rate} uL/min')
+        logger.warning(f'{pump.class_name} flow rate truncated to {flow_rate} uL/min')
 
     return remove_crud(flow_rate)
 

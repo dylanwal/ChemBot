@@ -14,5 +14,47 @@ def main():
     print(reply)
 
 
+def main2():
+    from chembot.configuration import config
+    from chembot.rabbitmq.messages import RabbitMessageAction
+    from chembot.rabbitmq.rabbit_http_messages import write_read_create_message
+    from chembot.master_controller.master_controller import MasterController
+    from chembot.equipment.equipment import Equipment
+    from chembot.equipment.equipment_interface import EquipmentRegistry
+
+    name ="GUI"
+    create_queue(name)
+    create_binding(name, config.rabbit_exchange)
+
+    reply = write_read_create_message(
+        RabbitMessageAction(
+            destination="chembot." + MasterController.name,
+            source=name,
+            action=MasterController.read_equipment_registry.__name__
+        )
+    )
+
+    print("hi")
+
+
+class Foo:
+    def __init__(self):
+        self.a = 1
+        self.b = "2"
+
+
+def main3():
+    import json
+    import pickle
+
+    foo = Foo()
+    foo_pickled = pickle.dumps(foo)
+    foo_json = json.dumps({"pickled_foo": b"foo_pickled"})
+
+    foo_pickled_after = json.loads(foo_json)
+    foo_after = pickle.loads(foo_pickled_after["pickled_foo"])
+    print(foo_after)
+
+
 if __name__ == "__main__":
-    main()
+    main2()

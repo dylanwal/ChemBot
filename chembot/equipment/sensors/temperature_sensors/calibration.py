@@ -130,16 +130,16 @@ class ThermistorCalibrationSH(ThermalCalibration):
 
         # a, b, & c values from http://www.thermistor.com/calculators.php
         # using curve R (-6.2%/C @ 25C) Mil Ratio X
-        a = 0.002197222470870
-        b = 0.000161097632222
-        c = 0.000000125008328
+        # a = 0.002197222470870
+        # b = 0.000161097632222
+        # c = 0.000000125008328
 
         # Steinhart Hart Equation
         # T = 1/(a + b[ln(ohm)] + c[ln(ohm)]^3)
-        t1 = (b * lnohm)  # b[ln(ohm)]
-        c2 = c * lnohm  # c[ln(ohm)]
+        t1 = (self.b * lnohm)  # b[ln(ohm)]
+        c2 = self.c * lnohm  # c[ln(ohm)]
         t2 = pow(c2, 3)  # c[ln(ohm)]^3
-        temperature = 1 / (a + t1 + t2)  # calculate temperature_sensors
+        temperature = 1 / (self.a + t1 + t2)  # calculate temperature_sensors
 
         temperature = temperature * Unit.K
         self.check_temperature_limits(temperature)

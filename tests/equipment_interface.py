@@ -1,4 +1,3 @@
-
 from chembot.communication import PicoSerial
 from chembot.equipment.lights import LightPico
 from chembot.equipment.pumps import SyringePumpHarvard

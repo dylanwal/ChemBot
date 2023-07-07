@@ -7,11 +7,9 @@ import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
 from chembot.gui.gui_data import IDData
-from chembot.rabbitmq.messages import RabbitMessageAction
-from chembot.rabbitmq.rabbit_http_messages import write_and_read_message, read_message
+import chembot.gui.gui_actions as gui_actions
 from chembot.equipment.equipment_interface import EquipmentRegistry, ActionParameter, EquipmentInterface, \
     NumericalRangeContinuous, NumericalRangeDiscretized, CategoricalRange
-from chembot.master_controller.master_controller import MasterController
 
 logger = logging.getLogger(config.root_logger_name + ".gui")
 
@@ -31,33 +29,56 @@ class IDRabbit:
 
 def get_parameter_div(param: ActionParameter, index: int) -> dbc.InputGroup:
     children = [dbc.InputGroupText(param.name, id={"type": "parameter_labels", "index": index})]
-    # print(param)
-    # if param.types == "str":
-    #     if isinstance(param.default, NotDefinedParameter):
-    #         text = "text"
-    #     else:
-    #         text = param.default
-    #     children.append(dbc.Input(text, id={"type": "parameter", "index": index}))
-    #
-    # if param.types == "str" and param.range_:  # with options
-    #     if isinstance(param.default, NotDefinedParameter):
-    #         value = None
-    #     else:
-    #         value = param.default
-    #     range_: CategoricalRange = param.range_
-    #     children.append(dbc.Select(id={"type": "parameter", "index": index},
-    #                                options=[{"label": v, "value": v} for v in range_.options]))
-    #
-    # if param.types == "int" or param.types == "float":
-    #     children.append(dbc.Input(placeholder="value", type="number", id={"type": "parameter", "index": index}))
-    #     if param.unit is not None:
-    #         children.append(dbc.InputGroupText(param.unit))
-    #     if param.range_ is not None:
-    #         children.append(dbc.InputGroupText('range :' + str(param.range_)))
-    #
-    # if param.types == "bool":
-    #     children.append(dbc.Select(options=[{"label": "True", "value": True}, {"label": "False", "value": False}],
-    #                                id={"type": "parameter", "index": index}))
+
+    if param.type_ is str and param.range_:  # with options
+        range_: CategoricalRange = param.range_
+        kwargs = {
+            "id": {"type": "parameter", "index": index},
+            "options": [{"label": v, "value": v} for v in range_.options]
+        }
+        if param.default is not ActionParameter.empty:
+            kwargs["value"] = param.default
+
+        children.append(dbc.Select(**kwargs))
+
+    elif param.type_ is str:
+        kwargs = {
+            "id": {"type": "parameter", "index": index},
+            "debounce": True,
+            "placeholder": "text"
+        }
+        if param.default is not ActionParameter.empty:
+            kwargs["value"] = param.default
+
+        children.append(dbc.Input(**kwargs))
+
+    elif param.type_ is int or param.type_ is float:
+        kwargs = {
+            "id": {"type": "parameter", "index": index},
+            "type": "number",
+            "placeholder": "value"
+        }
+        if param.default is not ActionParameter.empty:
+            kwargs["value"] = param.default
+
+        children.append(dbc.Input(**kwargs))
+
+        if param.unit is not ActionParameter.empty:
+            children.append(dbc.InputGroupText(param.unit))
+        if param.range_ is not ActionParameter.empty:
+            children.append(dbc.InputGroupText('range :' + str(param.range_)))
+
+    elif param.type_ is bool:
+        kwargs = {
+            "id": {"type": "parameter", "index": index},
+            "options": [{"label": "True", "value": True}, {"label": "False", "value": False}]
+        }
+        if param.default is not ActionParameter.empty:
+            kwargs["value"] = param.default
+        children.append(dbc.Select(**kwargs))
+
+    else:
+        raise ValueError("Parameter not supported in GUI.")
 
     return dbc.InputGroup(children)
 
@@ -79,8 +100,9 @@ def layout_rabbit(app: Dash) -> html.Div:
     )
     def update_equipment_dropdown(data: dict[str, object]) -> list[str]:
         equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
-        equipment = [f"{equip.name} ({equip.class_})" for equip in equipment_registry.equipment.values()]
+        equipment = [f"{k} ({equip.class_name})" for k, equip in equipment_registry.equipment.items()]
         return equipment
+
 
     @app.callback(
         Output(IDRabbit.SELECT_ACTION, "options"),
@@ -92,6 +114,7 @@ def layout_rabbit(app: Dash) -> html.Div:
             equipment = get_equipment(equipment, data)
             return [action.name for action in equipment.actions]
         return []
+
 
     @app.callback(
         [Output(IDRabbit.PARAMETERS_GROUP, "children"), Output(IDRabbit.ACTION_DESCRIPTION, "children")],
@@ -111,6 +134,7 @@ def layout_rabbit(app: Dash) -> html.Div:
 
         description = [html.H5("Description:"), html.P(action.description)]
         return parameter_components, description
+
 
     equipment_dropdown = dbc.InputGroup(
         [
@@ -158,6 +182,7 @@ def layout_rabbit(app: Dash) -> html.Div:
 
         return ""
 
+
     @app.callback(
         Output(IDRabbit.REPLY, 'children'),
         Input(IDRabbit.REPLY_STATUS, 'children'),
@@ -175,25 +200,23 @@ def layout_rabbit(app: Dash) -> html.Div:
                 dbc.Placeholder(xs=6), html.Br(), dbc.Placeholder(xs=6),
             ]
 
-        kwargs = {label: value for label, value in zip(labels, parameters)}
         try:
-            message = RabbitMessageAction(
-                destination="chembot." + MasterController.name,
-                source="GUI",
-                action="write_event",
-                kwargs={"message": RabbitMessageAction(get_equipment_name(equipment), MasterController.name, action,
-                                                       kwargs=kwargs), "forward": True
-                        }
+            reply = gui_actions.do_action(
+                equipment=get_equipment_name(equipment),
+                action=action,
+                kwargs={label: value for label, value in zip(labels, parameters)}
             )
-            write_and_read_message(message)
-            reply = read_message("GUI", time_out=2)
+
             toast = dbc.Toast(
-                [html.P(str(reply['value']), className="mb-0")],
+                [html.P(str(reply), className="mb-0")],
                 header=f"Reply from '{equipment}' for action '{action}'.",
             )
             return html.Div([toast, html.P(str(reply), className="mb-0")])
         except Exception as e:
-            return dbc.Alert('Error sending message.\n' + str(e), color="danger")
+            text = config.error()
+            return dbc.Alert('Error sending message.\n' + str(e) + "\n\n" + text, color="danger")
+
+
 
     reply_group = html.Div(
         [

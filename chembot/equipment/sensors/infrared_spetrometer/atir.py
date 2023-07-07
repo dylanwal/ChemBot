@@ -1,5 +1,5 @@
-import win32ui
-import dde
+import win32ui  # from pywin32 package
+import dde  # from pywin32 package
 import numpy as np
 
 from chembot.equipment.sensors.sensor import Sensor
@@ -30,7 +30,7 @@ class ATIRRunner:
         experiment_path:
             The path to the folder which contains the experiment file.
         experiment_name:
-            The name of the experiment file.
+            The class_name of the experiment file.
         scans:
             The number of background scans that should be performed. Defaults to the setting in the experiment file.
         resolution:
@@ -56,7 +56,7 @@ class ATIRRunner:
         experiment_path:
             The path to the folder which contains the experiment file.
         experiment_name:
-            The name of the experiment file.
+            The class_name of the experiment file.
         scans:
             The number of background scans that should be performed. Defaults to the setting in the experiment file.
         resolution:

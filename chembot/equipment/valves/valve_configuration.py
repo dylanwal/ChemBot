@@ -133,7 +133,7 @@ class ValveConfiguration:
             for pos in self.positions:
                 if item == pos.name:
                     return pos
-            raise ValueError(f"Invalid valve position name.\nInvalid position: {item}"
+            raise ValueError(f"Invalid valve position class_name.\nInvalid position: {item}"
                              f"\nOptions: {[pos.name for pos in self.positions]}")
         raise ValueError(f"Invalid {type(self).__name__}.__getitem__ parameter.\nInvalid:{item}")
 

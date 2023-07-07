@@ -6,7 +6,7 @@ import dash_bootstrap_components as dbc
 
 from chembot.configuration import config
 from chembot.gui.gui_data import GUIData, IDData
-from chembot.gui.gui_actions import get_equipment_update
+import chembot.gui.gui_actions as gui_actions
 from chembot.equipment.equipment_interface import EquipmentRegistry, EquipmentInterface, EquipmentState, Action, \
     ActionParameter
 
@@ -41,23 +41,23 @@ def equipment_layout(equipment: EquipmentInterface, update: dict):
             html.Div(
                 [
                     html.Div([
-                        html.H5(equipment.name, className="mb-1", style={"text-decoration": "underline"}),
+                        html.H5(equipment.class_name, className="mb-1", style={"text-decoration": "underline"}),
                         html.P(f"({equipment.class_})"),
                     ], className="d-inline-flex w-100 justify-content-start"),
                     html.H5(
-                        update[equipment.name]["state"].name if update else "None",
-                        className=STATUS_COLORS[update[equipment.name]["state"]] if update else ""
+                        update[equipment.class_name]["state"].class_name if update else "None",
+                        className=STATUS_COLORS[update[equipment.class_name]["state"]] if update else ""
                     ),
                 ],
                 className="d-flex w-100 justify-content-between",
             ),
-            html.P("||".join(f"{name}: {value}" for name, value in update[equipment.name].items() if name != "state")),
-            html.Div(id={"type": IDHome.EQUIPMENT_DETAILS, "index": equipment.name})
+            html.P("||".join(f"{name}: {value}" for name, value in update[equipment.class_name].items() if name != "state")),
+            html.Div(id={"type": IDHome.EQUIPMENT_DETAILS, "index": equipment.class_name})
         ],
         color="primary",
         n_clicks=0,
         action=True,
-        id={"type": IDHome.EQUIPMENT_ITEM, "index": equipment.name}
+        id={"type": IDHome.EQUIPMENT_ITEM, "index": equipment.class_name}
     )
 
 
@@ -106,7 +106,7 @@ def layout_home(app: Dash) -> html.Div:
             State(IDData.EQUIPMENT_ATTRIBUTES, "data")
         ]
     )
-    def equipment_dropdown(n_clicks: int, id_: dict, data: dict[str, object], attributes: dict):
+    def equipment_dropdown(n_clicks: int, id_: dict, data: str, attributes: str):
         if n_clicks % 2 == 0:
             return []
 
@@ -128,7 +128,7 @@ def layout_home(app: Dash) -> html.Div:
         Output(IDHome.EQUIPMENT_LIST, "children"),
         [Input(IDData.EQUIPMENT_REGISTRY, "data"), Input(IDData.EQUIPMENT_UPDATE, "data")],
     )
-    def refresh_equipment_status(data: dict[str, object], update: dict):
+    def refresh_equipment_status(data: str, update: str):
         equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
         update = jsonpickle.loads(update)
 
@@ -147,10 +147,10 @@ def layout_home(app: Dash) -> html.Div:
         Input(IDHome.REFRESH_INTERVAL, 'n_intervals'),
         State(IDData.EQUIPMENT_REGISTRY, "data")
     )
-    def data_equipment_update(_, data: dict[str, object]):
+    def data_equipment_update(_, data: str):
         equipment_registry: EquipmentRegistry = jsonpickle.loads(data)
         logger.debug("equipment update")
-        return get_equipment_update(equipment_registry.equipment.keys())
+        return gui_actions.get_equipment_update(equipment_registry.equipment.keys())
 
     return html.Div(children=[
         dcc.Interval(id=IDHome.REFRESH_INTERVAL, interval=GUIData.default_refresh_rate * 1000, n_intervals=-1),

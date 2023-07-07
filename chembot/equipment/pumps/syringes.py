@@ -33,7 +33,7 @@ class Syringe:
         name:
             anything you like to write
         vendor:
-            name of syringe vendor
+            class_name of syringe vendor
         """
         if sum(1 for i in (volume, diameter, pull) if i is not None) != 2:
             raise ValueError("Provide 2 of 3 values to define a syringe: volume, diameter, pull")
