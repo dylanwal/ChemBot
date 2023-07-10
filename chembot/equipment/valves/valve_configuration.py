@@ -13,7 +13,7 @@ def create_selector_valve(config: str) -> tuple[tuple[int, int]]:
     else:
         raise ValueError(f"Invalid selector port configuration.\nInvalid: {config}")
 
-    return tuple((1, i) for i in range(number_ports))
+    return tuple((0, i) for i in range(1, number_ports+1))
 
 
 class ValvePort:

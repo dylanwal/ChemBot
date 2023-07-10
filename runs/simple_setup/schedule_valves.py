@@ -11,22 +11,22 @@ def job_rotate_through_all_positions() -> JobSequence:
     return JobSequence(
         [
             Event(
-                resource=NamesValves.VALVE_MIDDLE,
+                resource=NamesValves.VALVE_BACK,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
             Event(
-                resource=NamesValves.VALVE_MIDDLE,
+                resource=NamesValves.VALVE_BACK,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
             Event(
-                resource=NamesValves.VALVE_MIDDLE,
+                resource=NamesValves.VALVE_BACK,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
             Event(
-                resource=NamesValves.VALVE_MIDDLE,
+                resource=NamesValves.VALVE_BACK,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
