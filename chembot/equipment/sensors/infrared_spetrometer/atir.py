@@ -1,7 +1,10 @@
+import pathlib
+
 import win32ui  # from pywin32 package
 import dde  # from pywin32 package
 import numpy as np
 
+from chembot.configuration import config
 from chembot.equipment.sensors.sensor import Sensor
 
 
@@ -118,7 +121,7 @@ class ATIRRunner:
 
 class ATIR(Sensor):
     _atir_name = "ATR_DI"
-    _path = "C:\\Users\\Robot2\\Desktop\\test"
+    _path = config.data_directory / pathlib.Path("atir")
 
     def __init__(self,
                  name: str,
@@ -139,8 +142,9 @@ class ATIR(Sensor):
     def write_measure(self, scans: int = 16):
         rf = self._runner.run_background_scans(self._path, self._atir_name, 1)
         res = self._runner.get_results(rf)
+        with open(self._path / "signal.txt", "w") as f:
+            for i in range(len(res)):
+                f.write("%f %f\n" % (res[i, 0], res[i, 1]))
 
     def write_background(self, scans: int = 16):
         self._runner.run_background_scans(self._path, self._atir_name, 1)
-
-

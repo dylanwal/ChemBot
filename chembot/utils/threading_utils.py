@@ -71,10 +71,10 @@ class EquipmentManager:
         finally:
             logger.info("UTILS || Cleaning up threads")
             for equip in self.equipment:
-                # if any alive; tell them to deactivate
-                equip.write_deactivate()
-                logger.debug(f"UTILS || Deactivating thread: {equip.name}")
-                time.sleep(0.2)
+                if equip._deactivate_event:
+                    equip.write_deactivate()
+                    logger.debug(f"UTILS || Deactivating thread: {equip.name}")
+                    time.sleep(0.2)
 
             for _ in range(3):  # sometimes they are still alive on first pass
                 for thread in self.threads.values():

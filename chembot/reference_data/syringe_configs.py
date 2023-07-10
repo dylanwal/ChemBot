@@ -45,5 +45,14 @@ syringe_configs = {
     "min_temperature": 10 * Unit.degC,
     "diameter": 23.0 * Unit.mm,
     "vendor": "hamilton"
+  },
+  "KDS_SS_780802": {  # stainless steel syringe  https://www.kdscientific.com/kds-stainless-steel-syringes.html
+    "volume": 8 * Unit.ml,
+    "max_pressure": 1500 * Unit.psi,
+    "min_pressure": 0 * Unit.bar,
+    "max_temperature": 85 * Unit.degC,
+    "min_temperature": 10 * Unit.degC,
+    "diameter": 9.525 * Unit.mm,
+    "vendor": "kd_scientific"
   }
 }

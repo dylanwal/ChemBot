@@ -165,7 +165,7 @@ class Equipment(abc.ABC):
     def _execute_action(self, message: RabbitMessageAction):
         try:
             func = getattr(self, message.action)
-            if func.__code__.co_argcount == 1:  # the '1' is 'self'
+            if func.__code__.co_argcount == 1 or message.kwargs is None:  # the '1' is 'self'
                 reply = func()
             else:
                 reply = func(**message.kwargs)
