@@ -34,7 +34,7 @@ syringe_configs = {
     "min_pressure": 0 * Unit.bar,
     "max_temperature": 115 * Unit.degC,
     "min_temperature": 10 * Unit.degC,
-    "diameter": 14.6 * Unit.mm,
+    "diameter": 14.567 * Unit.mm,
     "vendor": "hamilton"
   },
   "hamilton_1025": {

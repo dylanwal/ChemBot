@@ -1,11 +1,15 @@
 import pathlib
+import logging
+from datetime import datetime
 
-import win32ui  # from pywin32 package
+import win32ui  # from pywin32 package and must be imported first to expose dde
 import dde  # from pywin32 package
 import numpy as np
 
 from chembot.configuration import config
 from chembot.equipment.sensors.sensor import Sensor
+
+logger = logging.getLogger(config.root_logger_name + ".atir")
 
 
 class ATIRRunner:
@@ -13,9 +17,9 @@ class ATIRRunner:
         self.server = dde.CreateServer()
         self.server.Create("test")
         self.conversation = dde.CreateConversation(self.server)
-        serverName = "OPUS"
-        self.conversation.ConnectTo(serverName, "System")
+        self.conversation.ConnectTo("OPUS", "System")
         self.conversation.Request("REQUEST_MODE")
+        logger.debug(config.log_formatter(ATIRRunner, "atirrunner", "DDE server activated"))
 
     def request(self, command: str) -> list:
         result = self.conversation.Request(command).encode("utf_16_le").decode("utf_8").splitlines()
@@ -54,7 +58,8 @@ class ATIRRunner:
                        resolution: float = None) -> str:
         """
         Measures a sample with the given parameters.
-        The experiment file specifies the default parameters for the experiment, which can be overridden by the other parameters.
+        The experiment file specifies the default parameters for the experiment, which can be overridden by the
+        other parameters.
 
         experiment_path:
             The path to the folder which contains the experiment file.
@@ -74,7 +79,8 @@ class ATIRRunner:
         measurement_display_mode:
             The display mode. 
             0 means that OPUS will not ask the user for confirmation to start measurements beforehand
-            1 means OPUS will show single scans from the device until the "Start Measurements" button is manually pushed, which is undesirable.
+            1 means OPUS will show single scans from the device until the "Start Measurements" button is manually 
+            pushed, which is undesirable.
         """
 
         if scans is not None and scans <= 0:
@@ -89,7 +95,7 @@ class ATIRRunner:
 
         try:
             return result[3]
-        except:
+        except Exception as e:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
     def get_results(self, result_file: str) -> np.array:
@@ -113,15 +119,10 @@ class ATIRRunner:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
 
-# def save_ir_data(res):
-#     with open("signal.txt", "w") as f:
-#         for i in range(len(res)):
-#             f.write("%f %f\n" % (res[i, 0], res[i, 1]))
-
-
 class ATIR(Sensor):
-    _atir_name = "ATR_DI"
-    _path = config.data_directory / pathlib.Path("atir")
+    _method_name = "ATR_DI"
+    _method_path = str(pathlib.Path(__file__).parent)
+    _data_path = config.data_directory / pathlib.Path("atir")
 
     def __init__(self,
                  name: str,
@@ -139,12 +140,14 @@ class ATIR(Sensor):
     def _stop(self):
         pass
 
-    def write_measure(self, scans: int = 16):
-        rf = self._runner.run_background_scans(self._path, self._atir_name, 1)
+    def write_measure(self, data_name: str = None, scans: int = 8):
+        rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
         res = self._runner.get_results(rf)
-        with open(self._path / "signal.txt", "w") as f:
-            for i in range(len(res)):
-                f.write("%f %f\n" % (res[i, 0], res[i, 1]))
 
-    def write_background(self, scans: int = 16):
-        self._runner.run_background_scans(self._path, self._atir_name, 1)
+        if data_name is None:
+            data_name = "atir_data_" + datetime.now().strftime("data_%Y_%m_%d")
+
+        np.savetxt(self._data_path / data_name, res, delimiter=",")
+
+    def write_background(self, scans: int = 8):
+        self._runner.run_background_scans(self._method_path, self._method_name, scans)

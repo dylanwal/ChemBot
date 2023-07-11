@@ -68,6 +68,7 @@ class ArgumentError(Exception):
     """
 
 #######################################################################################################################
+#######################################################################################################################
 
 
 class HarvardPumpVersion:
@@ -98,6 +99,7 @@ class HarvardPumpVersion:
 
         return version
 
+#######################################################################################################################
 #######################################################################################################################
 
 
@@ -196,8 +198,9 @@ class HarvardPumpStatusMessage:
 
         return status
 
-
 #######################################################################################################################
+#######################################################################################################################
+
 
 class RampFlowRate:
     def __init__(self,
@@ -299,7 +302,8 @@ class SyringePumpHarvard(SyringePump):
         self._next_poll_time = 0
 
     def _send_and_receive_message(self, prompt: str, time_out: float = 0.2) -> str:
-        self.serial.write((prompt + "\r").encode(config.encoding))
+        # '@' turns off GUI updates for faster communication rates
+        self.serial.write(("@" + prompt + "\r").encode(config.encoding))
 
         break_time = time.time() + time_out
         while time.time() < break_time:
@@ -320,6 +324,7 @@ class SyringePumpHarvard(SyringePump):
 
     def _activate(self):
         # set syringe settings
+        self._send_and_receive_message("NVRAM off")  # turn off writes of rate to memory -> faster communication
         self._write_diameter(self.syringe.diameter)
         self.write_empty()  #TODO: wait for finish
         super()._activate()
@@ -331,19 +336,51 @@ class SyringePumpHarvard(SyringePump):
         if time.time() < self._next_poll_time:
             return
         self._next_poll_time = time.time() + self.poll_rate
-        self.read_pump_status()
+
+        try:
+            self.read_pump_status()
+        except Exception as e:
+            logger.info(f"{self.name} had error during polling.")
+            logger.exception(e)
+            self._deactivate()
+            return
 
         if self.pump_state.state is self.pump_states.STALLED or \
                 self.pump_state.state is self.pump_states.TARGET_REACHED:
             # self.rabbit.send()  # TODO
-            logger.info(f"{type(self).__name__} | {self.name} finished with status: {self.pump_state.state}")
+            logger.info(f"{self.name} finished with status: {self.pump_state.state}")
 
             self.write_stop()
             self.state = self.states.STANDBY
             self.pump_state.state = self.pump_states.STANDBY
 
+    ## actions ################################################################################################# noqa
     def _stop(self):
         _ = self._send_and_receive_message("stop")
+
+    def _write_run_infuse(self):
+        """
+        run infuse
+        """
+        _ = self._send_and_receive_message('irun')
+        self.state = self.states.RUNNING
+        self.pump_state.state = self.pump_states.INFUSE
+        self.pump_state.running_time = 0 * Unit.s
+        self.pump_state.volume_displace = 0 * self.syringe.volume.unit
+        #TODO: set look for end message
+        # self.watchdog.set_watchdog()  # TODO: check completion
+
+    def _write_run_withdraw(self):
+        """
+        run withdraw
+        """
+        _ = self._send_and_receive_message(f'wrun')
+        self.state = self.states.RUNNING
+        self.pump_state.state = self.pump_states.WITHDRAW
+        self.pump_state.running_time = 0 * Unit.s
+        self.pump_state.volume_displace = 0 * self.syringe.volume.unit
+        #TODO: set look for end message
+        # self.watchdog.set_watchdog()  # TODO: check completion
 
     def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_stall: bool = False):
         """
@@ -359,17 +396,24 @@ class SyringePumpHarvard(SyringePump):
             True: don't throw an error if the pump stops due to stall
             False: will throw an error
         """
+        # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
         if not ignore_stall and self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
+        # setup pump
+        self._write_infuse_volume_clear()
+        self._write_infuse_time_clear()
         self._write_target_time_clear()
-        self.write_infusion_rate(flow_rate)
         self._write_target_volume(volume)
-        self._write_target_time(self.compute_run_time(volume, flow_rate).to_timedelta())
-        self.write_run_infuse()
+        self.write_infusion_rate(flow_rate)
+        # self._write_target_time(self.compute_run_time(volume, flow_rate).to_timedelta())
 
+        # run
+        self._write_run_infuse()
+
+        # update status
         self.pump_state.flow_rate = flow_rate
         self.pump_state.target_volume = volume
         self.pump_state.end_time = self.compute_run_time(volume, flow_rate)
@@ -385,48 +429,47 @@ class SyringePumpHarvard(SyringePump):
         flow_rate:
             flow rate
         """
-        # check current pull and see if there volume will exceed max limit
+        # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
+        validate_quantity(volume, Syringe.flow_rate_dimensionality, "flow_rate", True)
         if self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Too much withdraw volume requested. Lower volume withdraw")
 
+        # setup pump
+        self._write_withdraw_volume_clear()
+        self._write_withdrawn_time_clear()
         self._write_target_time_clear()
-        self.write_withdraw_rate(flow_rate)
         self._write_target_volume(volume)
-        self.write_run_withdraw()
+        self.write_withdraw_rate(flow_rate)
+        # self._write_target_time(self.compute_run_time(volume, flow_rate).to_timedelta())
 
+        # run
+        self._write_run_withdraw()
+
+        # update status
         self.pump_state.flow_rate = flow_rate
         self.pump_state.target_volume = volume
         self.pump_state.end_time = self.compute_run_time(volume, flow_rate)
 
-    def write_run_infuse(self):
-        """
-        run infuse
-        """
-        _ = self._send_and_receive_message('irun')
-        self.state = self.states.RUNNING
-        self.pump_state.state = self.pump_states.INFUSE
-        self.pump_state.running_time = 0 * Unit.s
-        self.pump_state.volume_displace = 0 * self.syringe.volume.unit
-        #TODO: set look for end message
-        # self.watchdog.set_watchdog()  # TODO: check completion
+    def write_empty(self, flow_rate: Quantity = None):
+        """ empty syringe """
+        if flow_rate is None:
+            flow_rate = self.syringe.default_flow_rate
+        self.write_infuse(self.syringe.volume, flow_rate, ignore_stall=True)
+        self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
 
-    def write_run_withdraw(self):
-        """
-        run withdraw
-        """
-        _ = self._send_and_receive_message(f'wrun')
-        self.state = self.states.RUNNING
-        self.pump_state.state = self.pump_states.WITHDRAW
-        self.pump_state.running_time = 0 * Unit.s
-        self.pump_state.volume_displace = 0 * self.syringe.volume.unit
-        #TODO: set look for end message
-        # self.watchdog.set_watchdog()  # TODO: check completion
+    def write_refill(self, flow_rate: Quantity = None):
+        """ refill syringe to max volume """
+        if flow_rate is None:
+            flow_rate = self.syringe.default_flow_rate
+
+        volume = self.syringe.volume - self.pump_state.volume_in_syringe
+        self.write_withdraw(volume, flow_rate)
 
     # def _write_run(self):
     #     _ = self._send_and_receive_message('run')
 
+    ## settings ################################################################################################# noqa
     # def _write_echo_off(self):
     #     """ sets echo state to off """
     #     _ = self._send_and_receive_message('echo off')
@@ -543,6 +586,7 @@ class SyringePumpHarvard(SyringePump):
     #
     #     _ = self._send_and_receive_message(f'gang {gang}')
 
+    ## flow rate ################################################################################################# noqa
     def _read_max_flow_rate(self) -> Quantity:
         """ get max flow rate accepted by pump (dependent on set syringe) """
         reply = self._send_and_receive_message(f'irate lim')
@@ -593,6 +637,7 @@ class SyringePumpHarvard(SyringePump):
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'wrate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
 
+    ## volume ################################################################################################### noqa
     def _read_infuse_volume(self) -> Quantity:
         reply = self._send_and_receive_message(f'ivolume')
 
@@ -624,6 +669,16 @@ class SyringePumpHarvard(SyringePump):
         volume = set_volume_range(volume)
         _ = self._send_and_receive_message(f'tvolume {volume.v:2.4f} {volume.unit.abbr}')
 
+    def _write_target_volume_clear(self):
+        _ = self._send_and_receive_message(f'ctvolume')
+
+    def _write_infuse_volume_clear(self):
+        _ = self._send_and_receive_message(f'civolume')
+
+    def _write_withdraw_volume_clear(self):
+        _ = self._send_and_receive_message(f'cwvolume')
+
+    ## time #################################################################################################### noqa
     def _read_infuse_time(self) -> timedelta:
         reply = self._send_and_receive_message(f'itime')
 
@@ -674,6 +729,20 @@ class SyringePumpHarvard(SyringePump):
         sec = int(sec)
         _ = self._send_and_receive_message(f'ttime {hours:02}:{minutes:02}:{sec:02}')
 
+    def _write_target_time_clear(self):
+        _ = self._send_and_receive_message(f'cttime')
+
+    def _write_withdrawn_time_clear(self):
+        _ = self._send_and_receive_message(f'cwtime')
+
+    def _write_infuse_time_clear(self):
+        _ = self._send_and_receive_message(f'citime')
+
+    def _write_target_clear(self):
+        self._write_target_time_clear()
+        self._write_target_volume_clear()
+
+    ## ramp #################################################################################################### noqa
     def _read_infuse_ramp(self) -> RampFlowRate | None:
         reply = self._send_and_receive_message(f'iramp')
 
@@ -694,6 +763,9 @@ class SyringePumpHarvard(SyringePump):
 
     def write_infuse_ramp(self, ramp: RampFlowRate):
         _ = self._send_and_receive_message(f'iramp {ramp.as_string()}')
+
+        # run
+        self._write_run_infuse()
 
     def _read_withdraw_ramp(self) -> RampFlowRate | None:
         reply = self._send_and_receive_message(f'wramp')
@@ -716,27 +788,5 @@ class SyringePumpHarvard(SyringePump):
     def write_withdraw_ramp(self, ramp: RampFlowRate):
         _ = self._send_and_receive_message(f'wramp {ramp.as_string()}')
 
-    def _write_target_time_clear(self):
-        _ = self._send_and_receive_message(f'cttime')
-
-    def _write_target_volume_clear(self):
-        _ = self._send_and_receive_message(f'ctvolume')
-
-    def _write_target_clear(self):
-        self._write_target_time_clear()
-        self._write_target_volume_clear()
-
-    def write_empty(self, flow_rate: Quantity = None):
-        """ empty syringe """
-        if flow_rate is None:
-            flow_rate = self.syringe.default_flow_rate
-        self.write_infuse(self.syringe.volume, flow_rate, ignore_stall=True)
-        self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
-
-    def write_refill(self, flow_rate: Quantity = None):
-        """ refill syringe to max volume """
-        if flow_rate is None:
-            flow_rate = self.syringe.default_flow_rate
-
-        volume = self.syringe.volume - self.pump_state.volume_in_syringe
-        self.write_withdraw(volume, flow_rate)
+        # run
+        self._write_run_withdraw()
