@@ -13,12 +13,12 @@ def job_rotate_through_all_positions() -> JobSequence:
             Event(
                 resource=NamesSensors.ATIR,
                 callable_=ATIR.write_background,
-                duration=timedelta(seconds=15),
+                duration=timedelta(seconds=20),
             ),
             Event(
                 resource=NamesSensors.ATIR,
                 callable_=ATIR.write_measure,
-                duration=timedelta(seconds=15),
+                duration=timedelta(seconds=20),
             )
         ]
     )
