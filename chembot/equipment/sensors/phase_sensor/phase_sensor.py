@@ -30,40 +30,21 @@ class PhaseSensor:
     def __init__(self,
                  name: str = None,
                  port: str = "COM6",
-                 serial: Serial = None,
                  number_sensors: int = 8,
                  gas: np.ndarray = None,
                  liq: np.ndarray = None):
         """
         :param name: something descriptive
         :param port: serial COM port
-        :param serial: pre-existing serial port
         :param number_sensors: number of ir sensors on a single setup
         :param gas: calibration values for gas
         :param liq: calibration values for liquid
         """
-
-        # Check to see if serial port taken
-        for sensor in self.instances:
-            if sensor.port == port:
-                warnings.warn(f"Phase sensor || ({self.name, self.port}) Serial port already taken.")
-                logging.warning(f"Phase sensor || ({self.name, self.port}) Serial port already taken.")
-        self.port = port
-
-        # Setup communication
-        if serial is None:
-            self.serial_comm = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE,
+        self.serial_comm = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE,
                                       timeout=0.1)
-        else:
-            if isinstance(serial, Serial):
-                self.serial_comm = serial
-            else:
-                raise ValueError(f"Phase sensor || ({self.name, self.port}) Provide serial is not the right"
-                                 f"type. (Use serial from Serial module.)")
-
         self.state = "standby"
         if name is None:
-            self.name = "phase_sensor" + str(len(self.instance))
+            self.name = "phase_sensor" 
         else:
             self.name = name
 
@@ -81,7 +62,7 @@ class PhaseSensor:
                 self.gas = gas
             else:
                 raise ValueError(
-                    f"Phase sensor || ({self.name, self.port}) {gas.size} values for gas calibration, but there are {number_sensors} "
+                    f"Phase sensor || ({self.name}) {gas.size} values for gas calibration, but there are {number_sensors} "
                     f"number of sensors! (change PhaseSensor.number_sensors or PhaseSensor.gas)")
         if liq is None:
             self.liq = None
@@ -90,7 +71,7 @@ class PhaseSensor:
                 self.liq = liq
             else:
                 raise ValueError(
-                    f"Phase sensor || ({self.name, self.port}) {liq.size} values for liquid calibration, but there are "
+                    f"Phase sensor || ({self.name}) {liq.size} values for liquid calibration, but there are "
                     f"{number_sensors} number of sensors!"
                     f"(change PhaseSensor.number_sensors or PhaseSensor.liq)")
 
@@ -100,10 +81,10 @@ class PhaseSensor:
 
         # Extra stuff
         self.__class__.instances.append(self)
-        logging.info(f'Phase sensor || ({self.name, self.port}) Initiated')
+        logging.info(f'Phase sensor || ({self.name}) Initiated')
 
     def __repr__(self):
-        return f"Phase Sensor\n\tclass_name: {self.name}\n\tport: {self.port}\n\tstate: {self.state}"
+        return f"Phase Sensor\n\tclass_name: {self.name}\n\tstate: {self.state}"
 
     def measure_phase(self) -> np.ndarray:
         """
@@ -114,9 +95,9 @@ class PhaseSensor:
         if raw_data is None:
             return None
         if self.liq is None or self.gas is None:
-            warnings.warn(f"Phase sensor || ({self.name, self.port}) has not yet been calibrated. (Run zero "
+            warnings.warn(f"Phase sensor || ({self.name}) has not yet been calibrated. (Run zero "
                           f"method.)")
-            logging.warning(f"Phase sensor || ({self.name, self.port}) has not yet been calibrated. (Run "
+            logging.warning(f"Phase sensor || ({self.name}) has not yet been calibrated. (Run "
                             f"zero method.)")
             return None
 
@@ -134,9 +115,9 @@ class PhaseSensor:
         if raw_data is None:
             return None
         if self.mean is None:
-            warnings.warn(f"Phase sensor || ({self.name, self.port}) has not yet had mean calculated yet."
+            warnings.warn(f"Phase sensor || ({self.name}) has not yet had mean calculated yet."
                           "(Run get_mean method.)")
-            logging.warning(f"Phase sensor || ({self.name, self.port}) has not yet had mean calculated yet."
+            logging.warning(f"Phase sensor || ({self.name}) has not yet had mean calculated yet."
                             "(Run get_mean method.)")
             return None
         raw_data[1:] = np.divide(np.multiply(raw_data[1:], 1000), self.mean)
@@ -171,13 +152,13 @@ class PhaseSensor:
                             self.add_data(data)
                         return data
         except UnicodeDecodeError:
-            warnings.warn(f"Phase sensor || ({self.name, self.port}) not responding correctly; reset Pico.")
-            logging.warning(f"Phase sensor || ({self.name, self.port}) not responding; reset Pico.")
+            warnings.warn(f"Phase sensor || ({self.name}) not responding correctly; reset Pico.")
+            logging.warning(f"Phase sensor || ({self.name}) not responding; reset Pico.")
             return None
 
         # if the sensor doesn't respond after 10 calls, stop and report warning
-        warnings.warn(f"Phase sensor || ({self.name, self.port}) not responding.")
-        logging.warning(f"Phase sensor || ({self.name, self.port}) not responding.")
+        warnings.warn(f"Phase sensor || ({self.name}) not responding.")
+        logging.warning(f"Phase sensor || ({self.name}) not responding.")
         return None
 
     def add_data(self, data: np.array):
@@ -197,7 +178,7 @@ class PhaseSensor:
         Save reference_data in buffer to csv file.
         :return: None
         """
-        logging.info(f"Phase sensor || ({self.name, self.port}) dataset saved.")
+        logging.info(f"Phase sensor || ({self.name}) dataset saved.")
         np.savetxt(file_loc + str(self.name) + "_" + str(time.time()) + ".csv",
                    self.data_buffer[:self.buffer_level, :],
                    delimiter=",")
@@ -244,7 +225,7 @@ class PhaseSensor:
         print(f"calibration values:")
         print(f"mean: \t{self.liq}")
         print(f"std:  \t{std}")
-        logging.info(f"Phase sensor || ({self.name, self.port}) Manual calibration done." + "\n" +
+        logging.info(f"Phase sensor || ({self.name}) Manual calibration done." + "\n" +
                      f"Gas values: {self.gas}" + "\n"
                                                  f"Liquid values: {self.liq}"
                      )
@@ -298,14 +279,14 @@ def main():
         Output: Prints to screen reference_data and every 50 datapoint, the reference_data rate in Hz.
         """
     PS1 = PhaseSensor(name="in_phase_sensor", port="COM7")
-    n = 8000
+    n = 100
     start = time.time()
     data_save = np.zeros((n, 9))
     np.set_printoptions(precision=3)
     try:
         for i in range(n):
             data = PS1.measure()
-            time.sleep(.05)
+            time.sleep(.1)
 
             data_save[i, :] = data
             print(data)

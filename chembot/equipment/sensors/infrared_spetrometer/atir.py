@@ -99,7 +99,10 @@ class ATIRRunner:
         except Exception as e:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
-    def get_results(self) -> np.array:
+    def get_results(self, result_file: str) -> np.array:
+        result_read = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
+        result_block = self.request("READ_FROM_BLOCK AB")
+        result_data_points = self.request("DATA_VALUES")
         result_data = self.request("READ_DATA")
         status = result_data[0]
         if status != "OK":
