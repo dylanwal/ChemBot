@@ -83,7 +83,7 @@ class Schedular:
         if end_time is None or end_time < datetime.now():
             end_time = datetime.now()
 
-        return end_time + self.delay  # TODO could be improved.
+        return end_time + self.delay  # TODO: could be improved.
 
     def clear_all_jobs(self):
         self._job_running = None

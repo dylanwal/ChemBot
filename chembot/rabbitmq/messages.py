@@ -1,7 +1,8 @@
 import uuid
 from typing import Callable
+import pickle
 
-import jsonpickle
+from chembot.configuration import config
 
 
 class RabbitMessage:
@@ -16,8 +17,8 @@ class RabbitMessage:
     def __repr__(self):
         return self.__str__()
 
-    def to_JSON(self) -> str:  # noqa
-        return jsonpickle.dumps(self)
+    def to_bytes(self) -> bytes:
+        return pickle.dumps(self, protocol=config.pickle_protocol)
 
     def to_str(self) -> str:
         return f"\n\t{type(self).__name__}" \
@@ -44,20 +45,30 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    def __init__(self, destination: str, source: str, action: str | Callable, kwargs: dict = None):
+    __slots__ = ("destination", "source", "action", "kwargs", "job_id")
+
+    def __init__(self,
+                 destination: str,
+                 source: str,
+                 action: str | Callable,
+                 kwargs: dict = None,
+                 id_job: int = None
+                 ):
         super().__init__(destination, source)
 
         if isinstance(action, Callable):
             action = action.__name__
         self.action = action
         self.kwargs = kwargs
+        self.id_job = id_job
 
     def to_str(self) -> str:
         text = super().to_str()
+        text += f"\n\tid_job: {self.id_job}"
         text += f"\n\taction: {self.action}"
         text += "\n\tkwargs: "
         if self.kwargs is not None:
-            text += "".join(f"\n\t\t{k}: {v}" for k, v in self.kwargs.items())
+            text += "".join(f"\n\t\t{k}: {repr(v)}" for k, v in self.kwargs.items())
 
         return text
 
@@ -69,7 +80,7 @@ class RabbitMessageReply(RabbitMessage):
         self.value = value
 
     def to_str(self) -> str:
-        return super().to_str() + f"\n\tid_reply: {self.id_reply}" + f"\n\tvalue: {self.value}"
+        return super().to_str() + f"\n\tid_reply: {self.id_reply}" + f"\n\tvalue: {repr(self.value)}"
 
     @staticmethod
     def create_reply(message: RabbitMessage, value):
@@ -86,13 +97,7 @@ class RabbitMessageRegister(RabbitMessage):
         super().__init__("master_controller", source)
         self.equipment_interface = equipment_interface
 
-    def to_str(self) -> str:
-        return super().to_str()
-
 
 class RabbitMessageUnRegister(RabbitMessage):
     def __init__(self, source: str):
         super().__init__("master_controller", source)
-
-    def to_str(self) -> str:
-        return super().to_str()

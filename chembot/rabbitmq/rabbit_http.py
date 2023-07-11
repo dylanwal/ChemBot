@@ -7,7 +7,7 @@ Many more http methods are available. see RabbitMQ docs
 
 
 """
-
+import base64
 import json
 
 import requests
@@ -101,18 +101,27 @@ def create_binding(
 
 def publish(
         routing_key: str,
-        payload: str,
+        payload: str | bytes,  # str is json
         exchange: str = config.rabbit_exchange,
         ip: str = config.rabbit_host,
         port: int = config.rabbit_port_http
 ):
     API = f"http://{ip}:{port}/api/exchanges/%2f/{exchange}/publish"
     headers = {'content-type': 'application/json'}
-    pdata = {'properties': {}, 'routing_key': routing_key, 'payload': payload, 'payload_encoding': 'string'}
+    pdata = {'properties': {}, 'routing_key': routing_key}
+    if isinstance(payload, bytes):
+        pdata['payload_encoding'] = 'base64'
+        pdata["payload"] = base64.b64encode(payload).decode('ascii')
+    else:
+        pdata['payload_encoding'] = 'string'
+        pdata["payload"] = payload
+
     reply = requests.post(url=API, auth=config.rabbit_auth, json=pdata, headers=headers)
 
     if not reply.ok:
-        raise ValueError(f"Error publishing message to exchange {exchange}. status code: {reply.status_code}")
+        raise ValueError(f"Error publishing message to exchange {exchange}."
+                         f"\nstatus code: {reply.status_code}"
+                         f"\nreply: {reply.text}")
 
     reply_dict = json.loads(reply.text)
     if not reply_dict["routed"]:
@@ -127,7 +136,7 @@ def get(
         ackmode: str = "ack_requeue_false",
         encoding: str = "auto",
         truncate: str = 50_000
-        ) -> list[dict]:
+        ) -> list[str | bytes]:
     """
 
     Parameters
@@ -150,6 +159,9 @@ def get(
 
     Returns
     -------
+    returns
+        str -> json
+        bytes -> pickled python object
 
     """
     API = f"http://{ip}:{port}/api/queues/%2f/{queue}/get"
@@ -160,10 +172,21 @@ def get(
     reply = requests.post(url=API, auth=config.rabbit_auth, json=pdata, headers=headers)
 
     if not reply.ok:
-        raise ValueError(f"Error getting message from queue {queue}. status code: {reply.status_code}")
+        raise ValueError(f"Error 'get' message from queue {queue}."
+                         f"\nstatus code: {reply.status_code}"
+                         f"\nreply: {reply.text}")
 
     reply_list = json.loads(reply.text)
-    return [json.loads(message["payload"]) for message in reply_list]
+
+    # undo encoding
+    messages = []
+    for message in reply_list:
+        if message['payload_encoding'] == 'base64':
+            messages.append(base64.b64decode(message["payload"]))
+        else:
+            message.append(message["payload"])
+
+    return messages
 
 
 class PaginationParameters:
@@ -178,7 +201,7 @@ class PaginationParameters:
         text += f"page={self.page}"
         text += f"&page_size={self.page_size}"
         if self.name is not None:
-            text += f"&name={self.name}"
+            text += f"&class_name={self.name}"
         if self.use_regex is not None:
             text += f"&use_regex={str(self.use_regex).lower()}"
         return text

@@ -1,5 +1,8 @@
+import logging
+import traceback
 from typing import Any
 
+from chembot.configuration import config
 from chembot.equipment.equipment_interface import EquipmentRegistry, EquipmentInterface, ActionParameter
 from chembot.equipment.profile import Profile
 from chembot.scheduler.event import Event
@@ -7,10 +10,16 @@ from chembot.scheduler.schedule import Schedule
 from chembot.scheduler.resource import Resource
 from chembot.scheduler.submit_result import JobSubmitResult
 
+logger = logging.getLogger(config.root_logger_name + ".master_controller")
+
 
 def validate_schedule(schedule: Schedule, registry: EquipmentRegistry, result: JobSubmitResult):
-    check_job(schedule, registry, result)
-    check_schedule_for_overlapping_events(schedule, result)
+    try:
+        check_job(schedule, registry, result)
+        check_schedule_for_overlapping_events(schedule, result)
+    except Exception as e:
+        logger.exception(e)  # + traceback.format_exc()
+        return
 
     if len(result.errors) == 0:
         result.validation_success = True
@@ -70,22 +79,26 @@ def validate_event_arguments(
     required_actions = [arg.required for arg in inputs]  # true for required, will be changed to false if provided
     input_names = [input_.name for input_ in inputs]
 
-    for k, v in kwargs.items():
-        if k not in input_names:
-            result.register_error(
-                ValueError(f"{event_label}: '{k}' is invalid parameter.")
-            )
-            continue
+    if not kwargs:
+        if not any(required_actions):
+            return
 
-        index = input_names.index(k)
-        required_actions[index] = False
+        for k, v in kwargs.items():
+            if k not in input_names:
+                result.register_error(
+                    ValueError(f"{event_label}: '{k}' is invalid parameter.")
+                )
+                continue
 
-        try:
-            inputs[index].validate(v)
-        except (ValueError, TypeError) as e:
-            result.register_error(
-                type(e)(f"{event_label}: " + str(e))
-            )
+            index = input_names.index(k)
+            required_actions[index] = False
+
+            try:
+                inputs[index].validate(v)
+            except (ValueError, TypeError) as e:
+                result.register_error(
+                    type(e)(f"{event_label}: " + traceback.format_exc())
+                )
 
     # check if any required parameters are missing
     if any(required_actions):

@@ -4,10 +4,15 @@ import types
 import inspect
 from typing import Iterable, Callable
 import functools
+import logging
 
 from unitpy import Unit, Quantity
 
+from chembot.configuration import config
 import chembot.utils.numpy_parser as numpy_parser
+
+
+logger = logging.getLogger(config.root_logger_name + ".equipment_interface")
 
 
 class EquipmentState(enum.Enum):
@@ -28,6 +33,10 @@ class ActionType(enum.Enum):
 
 
 class ParameterRange(abc.ABC):
+
+    def __repr__(self):
+        return self.__str__()
+
     @abc.abstractmethod
     def validate(self, value) -> bool:
         ...
@@ -59,8 +68,8 @@ class NumericalRangeDiscretized(ParameterRange):
         return text + f"{self.max_}]"
 
     def validate(self, value):
-        if not (self.min_ < value < self.max_) or (value % self.step) == (self.min_ % self.step):
-            raise ValueError(f"{type(self).__name__}: Outside Range: [{self.min_}:{self.max_}:{self.step}]")
+        if not (self.min_ <= value <= self.max_) or (value % self.step) != (self.min_ % self.step):
+            raise ValueError(f"{type(self).__name__}: Outside Range: [{self.min_}:{self.step}:{self.max_}]")
 
 
 class CategoricalRange(ParameterRange):
@@ -125,7 +134,7 @@ class ActionParameter:
                                  f"({self.unit})")
             value = value.to(self.unit)
 
-        if self.range_ is not None:
+        if self.range_ is not self.empty:
             self.range_.validate(value)
 
 
@@ -168,7 +177,7 @@ class EquipmentInterface:
         return self.__str__()
 
     @property
-    def name(self) -> str:
+    def class_name(self) -> str:
         return self.class_.__name__
 
     @property
@@ -183,7 +192,7 @@ class EquipmentInterface:
         raise ValueError(f"Action ({name}) not found in EquipmentInterface ({self.class_}).")
 
     # def data_row(self) -> dict:
-    #     return {"name": self.name, "class": self.class_, "actions": len(self.actions)}
+    #     return {"class_name": self.class_name, "class": self.class_, "actions": len(self.actions)}
 
 
 class EquipmentRegistry:
@@ -198,7 +207,10 @@ class EquipmentRegistry:
         self.register(name, equipment_interface)
 
     def unregister(self, name: str):
-        del self.equipment[name]
+        try:
+            del self.equipment[name]
+        except KeyError:
+            logger.error(f"Error unregistering '{name}'. Not in registry.")
 
 
 #######################################################################################################################
@@ -243,7 +255,7 @@ def parse_parameters(list_: list[numpy_parser.Parameter] | None) -> list[ActionP
         results.append(
             ActionParameter(
                 parms.name,
-                parms.type_,
+                get_type(parms.type_),
                 description,
                 range_,
                 unit
@@ -254,12 +266,13 @@ def parse_parameters(list_: list[numpy_parser.Parameter] | None) -> list[ActionP
 
 
 def parse_description(text: list[str]) -> list[str, ParameterRange | None, str | None]:
-    result = ["", None, ActionParameter.empty]  # [description, range, unit]
+    result = ["", ActionParameter.empty, ActionParameter.empty]  # [description, range, unit]
 
     if text is None:
         return result
 
     for line in text:
+        line = line.strip()
         if line.startswith("range"):
             result[1] = parse_range(line)
         elif line.startswith("unit"):
@@ -290,9 +303,7 @@ def parse_numerical_range(text: str) -> NumericalRangeContinuous | NumericalRang
         options_numerical = []
         for op in options:
             try:
-                num = float(op)
-                if num == int(num):
-                    num = int(num)
+                num = number_to_int_or_float(op)
             except ValueError:
                 if "None" in op:
                     num = None
@@ -303,13 +314,61 @@ def parse_numerical_range(text: str) -> NumericalRangeContinuous | NumericalRang
 
     if count_collen == 1:
         text = text.split(":")
-        return NumericalRangeContinuous(float(text[0]), float(text[1]))
+        return NumericalRangeContinuous(number_to_int_or_float(text[0]), number_to_int_or_float(text[1]))
 
     if count_collen == 2:
         text = text.split(":")
-        return NumericalRangeDiscretized(float(text[0]), float(text[2]), float(text[1]))
+        return NumericalRangeDiscretized(
+            min_=number_to_int_or_float(text[0]),
+            max_=number_to_int_or_float(text[2]),
+            step=number_to_int_or_float(text[1])
+        )
 
     raise ValueError(f"Invalid doc-sting range. \ntext: {text}")
+
+
+def number_to_int_or_float(number: str) -> int | float:
+    num = float(number)
+    if num == int(num):
+        return int(num)
+    return num
+
+
+import builtins
+builtin_types = {d: getattr(builtins, d) for d in dir(builtins) if isinstance(getattr(builtins, d), type)}
+
+
+def get_type(type_: str | type) -> type | types.UnionType:
+    if isinstance(type_, type) or isinstance(type_, types.UnionType):
+        return type_
+
+    if type_ in builtin_types:
+        return builtin_types[type_]
+    if type_ == "Quantity":
+        return Quantity
+
+    if type_ == "RampFlowRate":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import RampFlowRate
+        return RampFlowRate
+
+    if type_ == "Syringe":
+        from chembot.equipment.pumps.syringes import Syringe
+        return Syringe
+
+    if type_ == "HarvardPumpStatusMessage":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import HarvardPumpStatusMessage
+        return HarvardPumpStatusMessage
+
+    if type_ == "HarvardPumpVersion":
+        from chembot.equipment.pumps.harvard_apparatus_syringe_pump import HarvardPumpVersion
+        return HarvardPumpVersion
+
+    if type_ == "ValvePosition":
+        from chembot.equipment.valves.valve_configuration import ValvePosition
+        return ValvePosition
+
+    # TODO: make more general
+    raise TypeError(f"Type not known: {type_}; it needs to be added.")
 
 
 def validate_type(type_: type, value):

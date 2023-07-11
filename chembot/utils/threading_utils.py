@@ -61,8 +61,9 @@ class EquipmentManager:
         # wait for them all to finish
         try:
             while True:
-                for thread in self.threads.values():
-                    thread.join(timeout=1)
+                if all(not thread.is_alive() for thread in self.threads.values()):
+                    break
+                time.sleep(0.2)
 
         except KeyboardInterrupt:
             logger.info("\n\n\tKeyboardInterrupt raised\n")
@@ -70,10 +71,10 @@ class EquipmentManager:
         finally:
             logger.info("UTILS || Cleaning up threads")
             for equip in self.equipment:
-                # if any alive; tell them to deactivate
-                equip.write_deactivate()
-                logger.debug(f"UTILS || Deactivating thread: {equip.name}")
-                time.sleep(0.2)
+                if equip._deactivate_event:
+                    equip.write_deactivate()
+                    logger.debug(f"UTILS || Deactivating thread: {equip.name}")
+                    time.sleep(0.2)
 
             for _ in range(3):  # sometimes they are still alive on first pass
                 for thread in self.threads.values():

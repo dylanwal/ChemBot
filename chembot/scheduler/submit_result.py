@@ -17,7 +17,10 @@ class JobSubmitResult:
             return f"Success || validation successful: {self.validation_success}," \
                    f" start: {self.time_start} ({self.position_in_queue}/{self.length_of_queue})"
         return f"Unsuccessful || validation successful: {self.validation_success}, # errors: {len(self.errors)}" \
-               + '\n\t'.join(str(e) for e in self.errors)
+               + "\n\t\t" + '\n\t\t'.join(repr(e) for e in self.errors)
+
+    def __repr__(self):
+        return self.__str__()
 
     def register_error(self, error: Exception):
         self.success = False

@@ -67,6 +67,10 @@ class Communication(Equipment, abc.ABC):
         self.write(message)
         return self.read_until(symbol)
 
+    def write_plus_read(self, message: str, read_bytes: int = 1) -> str:
+        self.write(message)
+        return self.read(read_bytes)
+
     @abc.abstractmethod
     def _write_flush_buffer(self):
         ...

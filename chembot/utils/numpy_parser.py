@@ -133,12 +133,15 @@ def split_parameter_lines(lines: list[str, ...]) -> list[list[str, ...]]:
     parameters = []
     parameter_lines = []
     for line in lines:
-        if line[0] != " ":
+        if line[:2] != "  ":
             if parameter_lines:
                 parameters.append(parameter_lines)
             parameter_lines = [line]
         else:
-            parameter_lines.append(line)
+            parameter_lines.append(line.strip())
+
+    if parameter_lines:
+        parameters.append(parameter_lines)
 
     return parameters
 
@@ -195,6 +198,8 @@ def parse_numpy_docstring(name: str, docstring: str) -> NumpyDocString:
 
         section_lines.append(line)
 
+    doc.add(current_section, section_lines)
+
     return doc
 
 
@@ -206,7 +211,7 @@ def add_signature(function: typing.Callable, doc: NumpyDocString):
     doc.parameters = merge_parameters(parameter_objs, doc.parameters)
 
     returns_objs = get_return_parameters(signature.return_annotation)
-    doc.returns = merge_parameters_return(returns_objs, doc.parameters)
+    doc.returns = merge_parameters_return(returns_objs, doc.returns)
 
 
 def get_signature_parameters(parameter_signatures: list[inspect.Parameter]) -> list[Parameter]:

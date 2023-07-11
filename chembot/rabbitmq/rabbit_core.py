@@ -1,10 +1,9 @@
 import logging
+import pickle
 
 import pika
 import pika.exceptions
 logging.getLogger("pika").setLevel(logging.WARNING)
-
-import jsonpickle
 
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply
@@ -67,18 +66,18 @@ class RabbitMQConnection:
 
                 return None
 
-            return self._process_message(body.decode(config.encoding))
+            return self._process_message(body)
 
-    def _process_message(self, body: str) -> RabbitMessage | None:
+    def _process_message(self, body: bytes) -> RabbitMessage | None:
         try:
-            message = jsonpickle.loads(body)
+            message = pickle.loads(body)
             logger.debug(config.log_formatter(self, self.topic, "Message received:" + message.to_str()))
             return message
         except Exception as e:
             logger.exception(config.log_formatter(self, self.topic, "Received message caused Exception."))
 
-    def send(self, message: RabbitMessage):
-        if not queue_exists(message.destination):
+    def send(self, message: RabbitMessage, check: bool = True):
+        if check and not queue_exists(message.destination):
             logger.error(config.log_formatter(self, self.topic, "Queue does not exist yet:" + message.destination))
             raise ValueError("Queue does not exist yet:" + message.destination)
 
@@ -86,7 +85,7 @@ class RabbitMQConnection:
             self.channel.basic_publish(
                 exchange=config.rabbit_exchange,
                 routing_key=config.rabbit_exchange + "." + message.destination,
-                body=message.to_JSON().encode(config.encoding),
+                body=message.to_bytes(),
                 properties=pika.BasicProperties(delivery_mode=2)
             )
             logger.debug(config.log_formatter(self, self.topic, "Message sent:" + message.to_str()))
@@ -94,7 +93,7 @@ class RabbitMQConnection:
             logger.error(config.log_formatter(self, self.topic, "Message not sent:" + message.to_str()))
             raise e
 
-    def send_and_consume(self, message: RabbitMessage, timeout: int | float = 0.1, error_out: bool = False) \
+    def send_and_consume(self, message: RabbitMessage, timeout: int | float = 0.3, error_out: bool = False) \
             -> RabbitMessageReply | None:
         self.send(message)
         try:

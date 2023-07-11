@@ -1,110 +1,146 @@
-"""
-Valve Class
+import logging
 
-"""
-#
-# import warnings
-# import logging
-# from time import time
-#
-# from serial import Serial, PARITY_EVEN, STOPBITS_ONE
-# import numpy as np
-#
-# import os
-#
-# from main_code.core_equip import Valve
-# from main_code.core_equip import communication
-# from main_code.utils.pico_checks import check_GPIO_pins
-#
-#
-# class ValveServo(Valve):
-#     def __init__(self, servo_timing: list[int], pin: int, comm_port: str, **kwargs):
-#         """
-#
-#         :param servo_timing:
-#         :param pin:
-#         :param comm_port: COM port; format COM#
-#         :param hover_text:
-#         :param kwargs:
-#         """
-#         super().__init__(**kwargs)
-#
-#         # Will be all set in _servo_check
-#         self.pin = None
-#         self.servo_timing = None
-#         self._servo_check(pin, servo_timing)
-#
-#         self.serial = communication.connect_serial(comm_port=comm_port, **kwargs)
-#
-#     def initialize(self, start_pos: int):
-#         """Needs to be defined in subclass."""
-#         self.state = "standby"
-#         self.move(start_pos)
-#
-#     def execute(self, position):
-#         """Needs to be defined in subclass."""
-#         # Send command to pico
-#         _pin = str(self.pin).zfill(2)
-#         _pos = str(self.positions[position]).zfill(4)
-#         self.serial.write(f"v{_pin}{_pos}\r".encode())
-#
-#         # reply from pico
-#         reply = self.serial.read_until()
-#         reply = reply.decode()
-#         if reply[0] == "v" and self.serial_comm.in_waiting == 0:
-#             return
-#
-#         raise ConnectionError("no reply received. ")
-#
-#     def _servo_check(self, pin, servo_timing):
-#         # Checking pin
-#         if type(pin) == int:
-#             if check_GPIO_pins(pin):
-#                 self.pin = pin
-#             else:
-#                 raise ValueError(f"pin out of valid range [0-28] (excluding 24). given {pin}")
-#         else:
-#             raise TypeError(f"pin invalid type; given: {type(pin)}, expect: int")
-#
-#         # Checking servo timing
-#         for value in servo_timing:
-#             if type(value) != int:
-#                 raise TypeError(f"invalid type in servo_timing. given: {type(value)}, expected: int")
-#             if 400 > value > 2600:
-#                 raise ValueError(f"servo_timing outside expected range [400, 2600]. given: {value}")
-#         self.servo_timing = servo_timing
-#
-#
-# if __name__ == '__main__':
-#     """
-#     Example code for a single valve.
-#     You will likely need to change the COM port to match your devices.
-#     Cycles through positions once.
-#
-#     Output: Prints to screen the position.
-#     """
-#     # from time import sleep
-#     #
-#     # # Logging stuff
-#     # logging.basicConfig(filename=r'.\testing.log',
-#     #                     level=logging.DEBUG,
-#     #                     format='%(asctime)s %(message)s',
-#     #                     datefmt='%m/%d/%Y %I:%M:%S %p')
-#     # logging.info("\n\n")
-#     # logging.info("---------------------------------------------------")
-#     # logging.info("---------------------------------------------------")
-#
-#
-#
-#     # Initiate to servo valve
-#     V1 = ValveServo(servo_timing=servo_timing, pin=15)
-#
-#     print("Done")
+from chembot.configuration import config
+from chembot.equipment.valves.valve_configuration import ValveConfiguration, ValvePosition
+from chembot.equipment.valves.base_valve import Valve
+from chembot.communication.serial_pico import PicoSerial
+from chembot.reference_data.pico_pins import PicoHardware
+from chembot.rabbitmq.messages import RabbitMessageAction
+
+logger = logging.getLogger(config.root_logger_name + ".valve")
 
 
-        # "servo_timing": [
-        #     545,
-        #     1190,
-        #     1820,
-        #     2480,
-        # ]
+class ValveServo(Valve):
+    """
+    Servo settings must be set in configuration for each position.
+    duty = 400 > value > 2600
+
+    50 Hz (or 20 ms period): This is the most common PWM frequency used for hobbyist servos.
+    The pulse width ranges from 1 ms to 2 ms, with 1.5 ms typically representing the center position.
+    angles = {
+        0: int(65535/20*0.5), 1638 # 65535 bits/ 20 ms * 0.5 = 0.5 ms duty
+        90: int(65535/20*1.2), 3932 #
+        180: int(65535/20*1.9), 6225 #
+        270: int(65535/20*2.5),  8191 # 2.5 ms duty
+    }
+    """
+    def __init__(self,
+                 name: str,
+                 communication: str,
+                 configuration: ValveConfiguration,
+                 pin: int,
+                 frequency: int = 50
+                 ):
+        super().__init__(name, configuration)
+
+        self.communication = communication
+        self._pin = None
+        self.pin = pin
+        self._frequency = None
+        self.frequency = frequency
+
+    @property
+    def pin(self) -> int:
+        return self._pin
+
+    @pin.setter
+    def pin(self, pin: int):
+        PicoHardware.validate_GPIO_pin(pin)
+        self._pin = pin
+
+    @property
+    def frequency(self) -> int:
+        return self._frequency
+
+    @frequency.setter
+    def frequency(self, frequency: int):
+        PicoHardware.validate_pwm_frequency(frequency)
+        if not isinstance(frequency, int):
+            raise TypeError("'frequency' must be an integer.")
+        if not (10 <= frequency <= 50_000):
+            raise ValueError("'frequency' must be between [100, 50_000]")
+        self._frequency = frequency
+
+    def _activate(self):
+        # ping communication to ensure it is alive
+        message = RabbitMessageAction(self.communication, self.name, "read_name")
+        self.rabbit.send_and_consume(message, error_out=True)
+
+        # check that pwm settings set in configuration
+        for pos in self.configuration.positions:
+            if pos.setting is None:
+                raise ValueError("Set servo settings in configuration positions settings.")
+
+        super()._activate()
+
+    def _stop(self):
+        pass
+
+    def _move(self, position: ValvePosition):
+        message = RabbitMessageAction(
+            destination=self.communication,
+            source=self.name,
+            action=PicoSerial.write_pwm,
+            kwargs={"pin": self.pin, "duty": position.setting, "frequency": self.frequency}
+        )
+        self.rabbit.send(message)
+
+    def read_pin(self) -> int:
+        """ read_pin """
+        return self.pin
+
+    def write_pin(self, pin: int):
+        """
+        write_pin
+
+        Parameters
+        ----------
+        pin:
+            range: [0, 27]
+
+        """
+        self.pin = pin
+
+    def read_communication(self) -> str:
+        """ read_communication """
+        return self.communication
+
+    def write_communication(self, communication: str):
+        """
+        write_communication
+
+        Parameters
+        ----------
+        communication:
+            communication port (e.g. 'COM9')
+
+        """
+        self.communication = communication
+
+    def read_frequency(self) -> int:
+        """ read_frequency """
+        return self.frequency
+
+    def write_frequency(self, frequency: int):
+        """
+        write_frequency
+
+        Parameters
+        ----------
+        frequency:
+            range: [100, 50_000]
+
+        Returns
+        -------
+
+        """
+        self.frequency = frequency
+
+    def _deactivate(self):
+        # write to pico
+        param = {"pin": self.pin, "value": 0}
+        message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_digital, param)
+        self.rabbit.send(message)
+
+        # get reply
+        self.watchdog.set_watchdog(message, 5)

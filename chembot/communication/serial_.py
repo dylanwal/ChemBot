@@ -1,4 +1,5 @@
 import logging
+import time
 
 import serial
 from serial.tools.list_ports import comports
@@ -22,9 +23,7 @@ class Serial(Communication):
                  timeout: float = 10,
                  ):
         super().__init__(name)
-
-        if port not in self.available_ports:
-            raise ValueError(f"Port '{port}' is not connected to computer.")
+        self.available_port(port)
         self.serial = serial.Serial(port=port, baudrate=baud_rate, stopbits=stop_bits, bytesize=bytes_,
                                     parity=parity, timeout=timeout)
         self.port = port
@@ -106,3 +105,27 @@ class Serial(Communication):
     def read_baudrate(self) -> str:
         """ read_baudrate """
         return self.serial.baudrate
+
+    def read_bytes_in_buffer_in(self) -> int:
+        """ read number of bytes in the 'in' buffer """
+        return self.serial.in_waiting
+
+    def read_bytes_in_buffer_out(self) -> int:
+        """ read number of bytes in the 'in' buffer """
+        return self.serial.out_waiting
+
+    def read_all_buffer(self) -> str:
+        """ read all data in buffer """
+        return self.read(self.serial.in_waiting)
+
+    def write_plus_read_all_buffer(self, message: str, delay: float = 0.2) -> str:
+        """ write then read all buffer """
+        self.write(message)
+        time.sleep(delay)  # give time for replay
+        return self.read_all_buffer()
+
+    @classmethod
+    def available_port(cls, port: str):
+        """ Validate a port is available to the computer. """
+        if port not in cls.available_ports:
+            raise ValueError(f"Port '{port}' is not connected to computer.")

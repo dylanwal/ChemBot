@@ -3,6 +3,7 @@ from unitpy import U, Quantity
 
 class PicoHardware:
     # all pins GPIO numbering (except adc)
+    ADC_resolution = 65535
     pins_GPIO = list(range(0, 22)) + [25, 26, 27, 28]
     pin_LED = 25
     pin_adc = [0, 1, 2, 4]
@@ -96,7 +97,7 @@ class PicoHardware:
         if resistor is None:
             return "n"
         else:
-            if resistor in ("u", "d"):
+            if resistor in ("u", "d", "n"):
                 return resistor
 
         raise ValueError("Invalid resistor option for pico digital.")

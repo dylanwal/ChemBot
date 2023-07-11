@@ -12,7 +12,7 @@ from chembot.scheduler.vizualization.job_tree import generate_job_flowchart
 from chembot.scheduler.vizualization.gantt_chart_app import create_app
 from chembot.scheduler.vizualization.schedule_to_gantt_chart import schedule_to_gantt_chart
 
-from runs.individual_setup.equipment_names import LEDColors, Serial
+from runs.individual_setup.names import NamesLEDColors
 
 
 def rainbow(n: int) -> list[list[int, int, int], ...]:
@@ -44,11 +44,11 @@ def rainbow_job(n: int, duration: timedelta, power: int = 65535, delay: timedelt
         [
             JobConcurrent(
                 [
-                    Event(LEDColors.DEEP_RED, LightPico.write_profile, red_profile.duration,
+                    Event(NamesLEDColors.DEEP_RED, LightPico.write_profile, red_profile.duration,
                           kwargs={"profile": red_profile}),
-                    Event(LEDColors.GREEN, LightPico.write_profile, green_profile.duration,
+                    Event(NamesLEDColors.GREEN, LightPico.write_profile, green_profile.duration,
                           kwargs={"profile": green_profile}),
-                    Event(LEDColors.BLUE, LightPico.write_profile, blue_profile.duration,
+                    Event(NamesLEDColors.BLUE, LightPico.write_profile, blue_profile.duration,
                           kwargs={"profile": blue_profile}),
                 ],
                 delay=delay,
@@ -56,9 +56,9 @@ def rainbow_job(n: int, duration: timedelta, power: int = 65535, delay: timedelt
             ),
             JobConcurrent(
                 [
-                    Event(LEDColors.DEEP_RED, LightPico.write_off, timedelta(microseconds=100)),
-                    Event(LEDColors.GREEN, LightPico.write_off, timedelta(microseconds=100)),
-                    Event(LEDColors.BLUE, LightPico.write_off, timedelta(microseconds=100)),
+                    Event(NamesLEDColors.DEEP_RED, LightPico.write_off, timedelta(microseconds=100)),
+                    Event(NamesLEDColors.GREEN, LightPico.write_off, timedelta(microseconds=100)),
+                    Event(NamesLEDColors.BLUE, LightPico.write_off, timedelta(microseconds=100)),
                 ],
                 delay=timedelta(milliseconds=100),
                 name="turn_off"
@@ -71,7 +71,7 @@ def rainbow_job(n: int, duration: timedelta, power: int = 65535, delay: timedelt
 def main():
     job_submitter = JobSubmitter()
 
-    job = rainbow_job(n=50, duration=timedelta(seconds=5), power=65535)
+    job = rainbow_job(n=300, duration=timedelta(seconds=30), power=656)
     result = job_submitter.submit(job)
     print(result)
 

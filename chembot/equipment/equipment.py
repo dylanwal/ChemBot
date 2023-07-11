@@ -17,10 +17,7 @@ logger = logging.getLogger(config.root_logger_name + ".equipment")
 
 
 class EquipmentConfig:
-    states = EquipmentState
-
     def __init__(self,
-                 # sensors: list[Sensor],
                  max_pressure: Quantity = Quantity("1.1 atm"),
                  min_pressure: Quantity = Quantity("0.9 atm"),
                  max_temperature: Quantity = Quantity("15 degC"),
@@ -35,6 +32,7 @@ class EquipmentConfig:
 class Equipment(abc.ABC):
     """ Equipment """
     pulse = 0.01  # time of each loop in seconds
+    states = EquipmentState
 
     def __init__(self, name: str, **kwargs):
         """
@@ -42,7 +40,7 @@ class Equipment(abc.ABC):
         Parameters
         ----------
         name:
-            name is a **unique** identifier in the system
+            class_name is a **unique** identifier in the system
         """
         self.name = name
         self.state: EquipmentState = EquipmentState.OFFLINE
@@ -52,11 +50,11 @@ class Equipment(abc.ABC):
         self.update = ["state"]
         self._deactivate_event = True  # set to False to deactivate
         self._reply_callback = None
-        self.equipment_config = EquipmentConfig()
         self.equipment_interface = get_equipment_interface(type(self))
         self.watchdog = RabbitWatchdog(self)
         self.action_in_progress = None
         self.profile: Profile | None = None
+        self.poll = False
 
         if kwargs:
             for k, v in kwargs:
@@ -88,7 +86,7 @@ class Equipment(abc.ABC):
             self._activate()
             self._register_equipment()
             logger.info(config.log_formatter(self, self.name, "Activated\n" + "#" * 80 + "\n\n"))
-            self.state = self.equipment_config.states.STANDBY
+            self.state = self.states.STANDBY
 
             self._run()  # infinite loop
 
@@ -97,18 +95,33 @@ class Equipment(abc.ABC):
 
         finally:
             logger.debug(config.log_formatter(self, self.name, "Deactivating"))
-            self._deactivate()
-            self._deactivate_()
+
+            try:
+                self._deactivate()
+                self._deactivate_()
+            except Exception as e:
+                logger.exception(str(e))
             logger.info(config.log_formatter(self, self.name, "Deactivated"))
 
     def _run(self):
         # infinite loop
         while self._deactivate_event:
+            self._poll()
             self.watchdog.check_watchdogs()
             self._read_message()  # blocking with timeout
-            self._run_profile()
 
-    def _run_profile(self):
+    def _poll(self):
+        """ checks to see if additional writes or reads needed to be preformed. """
+        if not self.poll:
+            return
+
+        self._poll_profile()
+        self._poll_status()
+
+    def _poll_status(self):
+        pass
+
+    def _poll_profile(self):
         if self.profile is None:
             return
 
@@ -152,7 +165,7 @@ class Equipment(abc.ABC):
     def _execute_action(self, message: RabbitMessageAction):
         try:
             func = getattr(self, message.action)
-            if func.__code__.co_argcount == 1:  # the '1' is 'self'
+            if func.__code__.co_argcount == 1 or message.kwargs is None:  # the '1' is 'self'
                 reply = func()
             else:
                 reply = func(**message.kwargs)
@@ -165,11 +178,12 @@ class Equipment(abc.ABC):
                 self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
 
             logger.info(
-                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"))
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
+                                                      f"\n reply: {repr(reply)}"))
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"))
+            self.rabbit.send(RabbitMessageError(self.name, f"ActionError: {message.to_str()}"), check=False)
 
     def read_all_attributes(self) -> dict:
         """
@@ -207,13 +221,13 @@ class Equipment(abc.ABC):
 
     def read_name(self) -> str:
         """
-        returns equipment name
+        returns equipment class_name
         """
         return self.name
 
     def write_name(self, name: str):
         """
-        write a new name for the equipment
+        write a new class_name for the equipment
         """
         self.name = name
 
@@ -221,6 +235,7 @@ class Equipment(abc.ABC):
         """
         deactivate equipment (shut down)
         """
+        self._stop()
         self._deactivate_event = False
         # self._deactivate is called by self._run
 
@@ -230,6 +245,7 @@ class Equipment(abc.ABC):
         """
         self.state = EquipmentState.STANDBY
         self.profile = None
+        self.poll = False
         self._stop()
 
     def write_profile(self, profile: Profile):
@@ -243,9 +259,10 @@ class Equipment(abc.ABC):
         """
         self.profile = profile
         self.profile.start_time = datetime.now()
+        self.poll = True
 
     def _deactivate_(self):
-        self.equipment_config.state = self.equipment_config.states.SHUTTING_DOWN
+        self.state = self.states.SHUTTING_DOWN
         self._unregister_equipment()
         self.rabbit.deactivate()
 

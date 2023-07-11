@@ -18,6 +18,10 @@ class Configurations:
     def __init__(self):
         self.encoding = "UTF-8"
 
+        # data
+        self._data_directory = None
+        self.root_file = pathlib.Path(sys.argv[0])
+
         # logging
         self.logging = True
         self._logging_directory = None
@@ -36,15 +40,35 @@ class Configurations:
         self.rabbit_exchange = 'chembot'
         self.rabbit_queue_timeout = 1  # sec
         self.rabbit_auth = (self.rabbit_username, self.rabbit_password)
+        self.pickle_protocol = 5
 
     @property
-    def logging_directory(self) -> str:
+    def data_directory(self) -> pathlib.Path:
+        if self._data_directory is None:
+            # create new folder 'data'
+            path = self.root_file.parent / pathlib.Path("data")
+            create_folder(path)
+            # create new folder 'data.date'
+            self._data_directory = path / pathlib.Path(datetime.datetime.now().strftime("data_%Y_%m_%d"))
+            create_folder(self._data_directory)
+
+        return self._data_directory
+
+    @data_directory.setter
+    def data_directory(self, data_directory: str):
+        if not check_if_folder_exists(data_directory):
+            raise ValueError("'data_directory' not found.")
+
+        self._data_directory = data_directory
+
+    @property
+    def logging_directory(self) -> pathlib.Path:
         if self._logging_directory is None:
             # create new folder 'logs'
             path = self.root_file.parent / pathlib.Path("logs")
             create_folder(path)
             # create new folder 'logs.date'
-            self._logging_directory = str(path / pathlib.Path(datetime.datetime.now().strftime("log_%Y_%m_%d")))
+            self._logging_directory = path / pathlib.Path(datetime.datetime.now().strftime("log_%Y_%m_%d"))
             create_folder(self._logging_directory)
 
         return self._logging_directory
@@ -60,7 +84,7 @@ class Configurations:
         self.logger.setLevel(logging.DEBUG)
 
         # file handler
-        file_handler = logging.FileHandler(self.logging_directory + r"\\" + self.root_file.stem + '.log',
+        file_handler = logging.FileHandler(self.logging_directory / pathlib.Path(self.root_file.stem + '.log'),
                                            encoding="UTF-8", mode='a')
         # file_handler.setLevel(logging.DEBUG)
 
@@ -85,6 +109,11 @@ class Configurations:
     def log_formatter(class_, name: str, message: str) -> str:
         message = message.replace('\t', '\t\t')
         return f"{type(class_).__name__}: {name}\n\t{message}"
+
+    def error(self):
+        exc_type, exc_obj, exc_tb = sys.exc_info()
+        fname = '\\'.join(os.path.split(exc_tb.tb_frame.f_code.co_filename))
+        return f"{exc_type}:{exc_obj.args[0]} \nfile: {fname}, line: {exc_tb.tb_lineno}"
 
 
 config = Configurations()

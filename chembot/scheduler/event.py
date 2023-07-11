@@ -10,6 +10,7 @@ class Parent(Protocol):
     time_start: datetime
     name: str
     root: Parent
+    id_job: int
 
     def _get_time_start(self, obj) -> datetime:
         ...
@@ -52,6 +53,10 @@ class Event:
 
     def __repr__(self):
         return self.__str__()
+
+    @property
+    def id_job(self) -> int:
+        return self.parent.id_job
 
     @property
     def time_start(self) -> datetime:

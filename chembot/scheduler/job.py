@@ -50,6 +50,12 @@ class Job(abc.ABC):
         return count
 
     @property
+    def id_job(self) -> int:
+        if self.parent is not None:
+            return self.parent.id_job
+        return self.id_
+
+    @property
     def time_start_actual(self) -> datetime:
         """ does not included delay"""
         time_ = self.time_start

@@ -1,4 +1,5 @@
 import logging
+import time
 from datetime import datetime, timedelta
 
 from chembot.configuration import config
@@ -34,8 +35,12 @@ class MasterController:
         self._next_update = datetime.now()
 
     def _deactivate(self):
-        for equip in self.registry.equipment:
-            self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_deactivate))
+        for equip in reversed(self.registry.equipment):
+            # loop backwards to ensure equipment can send stop signals over serial before serial shuts down
+            # TODO: this could be made more rigorous --> maybe wait for deactivation reply before continuing
+            self.rabbit.send(RabbitMessageAction(equip, self.name, Equipment.write_deactivate), check=False)
+            time.sleep(0.1)
+
         self.rabbit.deactivate()
         logger.info(config.log_formatter(self, self.name, "Deactivated"))
         self._deactivate_event = False
@@ -76,7 +81,8 @@ class MasterController:
                 destination=event.resource,
                 source=self.name,
                 action=event.callable_,
-                kwargs=event.kwargs
+                kwargs=event.kwargs,
+                id_job=event.id_job
             )
         )
 
@@ -125,7 +131,7 @@ class MasterController:
 
         except Exception as e:
             logger.error(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
-            logger.error(e)
+            logger.exception(config.error())
             logger.info("master controller continues to operate as nothing happened.")
 
     def _error_handling(self):
@@ -139,7 +145,7 @@ class MasterController:
         self._next_update = datetime.now() + self.status_update_time
 
         # for equipment in self.registry.equipment:
-        #     message = RabbitMessageUpdate(equipment.name)
+        #     message = RabbitMessageUpdate(equipment.class_name)
         #     self.rabbit.send(message)
         #     self.watchdog.set_watchdog(message, delay=1)
 

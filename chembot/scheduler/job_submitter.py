@@ -30,7 +30,11 @@ class JobSubmitter:
             action=MasterController.write_add_job,
             kwargs={"job": job}
         )
-        return self.rabbit.send_and_consume(message, timeout=1, error_out=True).value
+        reply: JobSubmitResult = self.rabbit.send_and_consume(message, timeout=1, error_out=True).value
+        if not reply.success:
+            raise ValueError(str(reply))
+
+        return reply
 
     def delete(self, job: Job):
         raise NotImplementedError
