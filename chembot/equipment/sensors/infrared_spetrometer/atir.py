@@ -99,7 +99,7 @@ class ATIRRunner:
         except Exception as e:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
-    def get_results(self, result_file: str) -> np.array:
+    def get_results(self) -> np.array:
         result_data = self.request("READ_DATA")
         status = result_data[0]
         if status != "OK":
@@ -111,7 +111,7 @@ class ATIRRunner:
         scaling_factor = int(result_data[5])
         x = np.linspace(wavenumber_lower, wavenumber_upper, data_length)
         y = np.array(result_data[6:-1], dtype="float64") * scaling_factor
-        return np.vstack((x, y)).T
+        return np.column_stack((x, y))
 
 
 class ATIR(Sensor):

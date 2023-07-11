@@ -78,7 +78,7 @@ class TemperatureProbePicoADC(Sensor):
         pass
 
     def write_measure(self) -> Quantity:
-        message = RabbitMessageAction(self.communication, self.name, PicoSerial.read_analog)
+        message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_serial, kwargs="FIX ME")
         reply = self.rabbit.send_and_consume(message, error_out=True)
 
         adc_reading = reply.value

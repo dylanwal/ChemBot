@@ -398,7 +398,7 @@ class SyringePumpHarvard(SyringePump):
         """
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.volume_dimensionality, "flow_rate", True)
+        validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
         if not ignore_stall and self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
@@ -431,7 +431,7 @@ class SyringePumpHarvard(SyringePump):
         """
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
-        validate_quantity(volume, Syringe.flow_rate_dimensionality, "flow_rate", True)
+        validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
         if self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Too much withdraw volume requested. Lower volume withdraw")
 
