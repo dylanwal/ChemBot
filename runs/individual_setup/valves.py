@@ -33,9 +33,9 @@ config_middle.ports[3].name = "blocked"
 config_middle.ports[3].blocked = True
 
 config_middle.positions[0].setting = 1638  # calibrated on 7/7/23 DW
-config_middle.positions[0].name = "flow"
+config_middle.positions[0].name = "load"  # "flow"
 config_middle.positions[1].setting = 3932  # calibrated on 7/7/23 DW
-config_middle.positions[1].name = "fill"
+config_middle.positions[1].name = "bypass"
 config_middle.positions[2].setting = 6225  # calibrated on 7/7/23 DW
 config_middle.positions[3].setting = 8191  # calibrated on 7/7/23 DW
 
