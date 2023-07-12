@@ -19,7 +19,7 @@ import select
 import sys
 import machine
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 # a list to keep record of what's going on
 pins = [["", None]] * 28
@@ -487,7 +487,7 @@ def do_stuff(message: str):
         reset()
         print("r")
     elif message == "v":
-        print(__version__)
+        print("v" + __version__)
     else:
         print("Invalid message:" + str(message))
 

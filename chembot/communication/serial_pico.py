@@ -62,7 +62,9 @@ class PicoSerial(Serial):
     def _activate(self):
         super()._activate()
         reply = self.write_plus_read_until("v")
-        self.pico_version = reply
+        if reply[0] != "v":
+            raise ValueError(f"Unexpected reply from Pico during activation.\n reply:{reply}")
+        self.pico_version = reply[1:]
 
     def _deactivate(self):
         self.write_reset()
@@ -75,6 +77,9 @@ class PicoSerial(Serial):
     def _read(self, read_bytes: int) -> str:
         message = super()._read(read_bytes)
         return decode_message(message.strip("\n"))
+
+    def _stop(self):
+        self.write_plus_read_until("r")
 
     def read_pico_version(self) -> str:
         """

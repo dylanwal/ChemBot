@@ -42,16 +42,70 @@ Parameters:
 
 """
 
-from time import time, sleep, ticks_ms, ticks_us
 from rp2 import PIO, asm_pio, StateMachine
-from machine import Pin
-import sys
 import select
+import sys
+import machine
+import array
+
+__version__ = "0.0.1"
+
+
+def main():
+    print("startup")
+    reset()
+    main_loop()
+
+
+def reset():
+    # set all pins to low right away
+    for i in range(28):
+        machine.Pin(i, machine.Pin.OUT).value(0)
+
+    # Turn LED on
+    machine.Pin(25, machine.Pin.OUT).value(1)
+
+
+def main_loop():
+    # a list to keep record of what's going on
+    pins = [12, 13, 14, 15, 16, 17, 18, 19]
+    data = array.array('I', [0] * len(pins))
+    state_machines = get_state_machines(pins)
+
+    # Set up the poll object
+    poll_obj = select.poll()
+    poll_obj.register(sys.stdin, select.POLLIN)
+
+    wdt = machine.WDT(timeout=10000)  # 10 sec
+
+    while True:  # infinite loop
+        poll_results = poll_obj.poll(10)
+        wdt.feed()
+        if poll_results:
+            message = sys.stdin.readline().strip()
+            try:
+                do_stuff(message, state_machines, data)
+            except Exception as e:
+                print(str(type(e)) + " " + str(e))
+
+
+def do_stuff(message: str, state_machines: list, data: array.array):
+    if message[0] == "w":
+        number_of_scans = int(message[1:3])
+        measure(number_of_scans, state_machines, data)
+    elif message[0] == "r":
+        reset()
+        print("r")
+    elif message == "v":
+        print("v" + __version__)
+    else:
+        print("Invalid message:" + str(message))
+
 
 # Too short of a charge_time wont charge the capacitor enough
 # Too long is fine but it slows down measurement rate.
 charge_time = const(100_000)
-count_down = const(1_000_000) # Don't change
+count_down = const(1_000_000)  # Don't change
 
 
 @asm_pio(set_init=PIO.OUT_LOW)
@@ -84,144 +138,41 @@ def reflect_measurement():
     push()
 
 
-class reflect_ir:
-    def __init__(self, state_machine, pin):
-        self.pin = Pin(pin, Pin.OUT)
-        self.sm = StateMachine(state_machine, reflect_measurement, freq=125_000_000, set_base=self.pin,
-                                   in_base=self.pin, jmp_pin=self.pin)
-        self.sm.active(1)
+def get_state_machines(pins: list[int]) -> list:
+    state_machines = []
+    for pin in pins:
+        pin = machine.Pin(pin, machine.Pin.OUT)
+        sm = StateMachine(reflect_measurement, freq=125_000_000, set_base=pin, in_base=pin, jmp_pin=pin)
+        sm.active(1)
 
-    def _put(self):
-        self.sm.put(charge_time)
-        self.sm.put(count_down)
-
-    def _read(self):
-        return count_down - self.sm.get()
-
-    def deactivate(self):
-        self.sm.active(0)
-        self.pin.value(0)
+    return state_machines
 
 
-class reflect_ir_array:
-    def __init__(self, pin_list):
-        if len(pin_list) > 8:
-            exit("only 8 state machines on the pico.")
-        self.pins = pin_list
-        self.num_sensor = len(pin_list)
-        self.sensors = []
-        for i, pin in enumerate(self.pins):
-            self.sensors.append(reflect_ir(i, pin))
-
-    def measure(self):
-        data = [0] * self.num_sensor
-
-        # start measurement
-        for sensor in self.sensors:
-            sensor._put()
-
-        # read reference_data out
-        for i, sensor in enumerate(self.sensors):
-            data[i] = sensor._read()  # read is blocking (will wait till measurement done)
-
-        return data
-
-    def deactivate(self):
-        for sensor in self.sensors:
-            sensor.deactivate()
+def deactivate(state_machines: list, pins: list[int]):
+    for sm in state_machines:
+        sm.active(0)
+    for pin in pins:
+        p = machine.Pin(pin, machine.Pin.OUT)
+        p.value(0)
 
 
-def main():
-    # Initialize state machines
-    pins = [12, 13, 14, 15, 16, 17, 18, 19]
-    sen_array = reflect_ir_array(pins)
-
-    # Get mean
-    n = 50
-    num =len(pins)
-    mean = [0] * num
-    for _ in range(n):
-        data = sen_array.measure()
-        for i in range(num):
-            mean[i] = mean[i] + data[i]
-
-    for i in range(num):
-        mean[i] = int(mean[i]/n)
-
-    # main loop (infinite loop)
-    while True:
-        while sys.stdin in select.select([sys.stdin], [], [], 0)[0]:
-            message = sys.stdin.read(1)
-
-            if message == "r":
-                # taking reference_data
-                data = sen_array.measure()
-                for i in range(num):
-                    data[i] = int(data[i]/mean[i]*1000)
-
-                # send reference_data
-                print("d" + str(ticks_us()) + "+" + str(data))
-                continue
-
-            # Polling Reply
-            if message == "a":
-                print("a" + "phase_sensor;"+"pins:" + str(len(pins)))
-                continue
-
-            sleep(0.0005)
+def measure(number_of_scans: int, state_machines: list, data: array.array):
+    counter = 0
+    while counter < number_of_scans:
+        _measure(state_machines, data)
+        print("w" + ','.join(map(str, data)))
 
 
-def main_no_comm():
-    """
-    No communication; Just for testing/development
-    """
-    pins = [12, 13, 14, 15, 16, 17, 18, 19]
-    sen_array = reflect_ir_array(pins)
+def _measure(state_machines: list, data: array.array):
+    # start measurement
+    for sm in state_machines:
+        sm.put(charge_time)
+        sm.put(count_down)
 
-    # Get max reference_data rate
-    n = 100
-    start = ticks_us()
-    for _ in range(n):
-        sen_array.measure()
-
-    end = ticks_us()
-    print("reference_data rate:")
-    print(n/(end-start)*1_000_000)
-
-    # Get mean
-    num = len(pins)
-    mean = [0] * num
-    for _ in range(n):
-        data = sen_array.measure()
-        for i in range(num):
-            mean[i] = mean[i] + data[i]
-
-    for i in range(num):
-        mean[i] = mean[i]/n
-
-    # Get max reference_data rate with mean calculation
-    n = 100
-    start = ticks_us()
-    for _ in range(n):
-        data = sen_array.measure()
-        for i in range(num):
-            data[i] = int(data[i]/mean[i]*1000)
-
-    end = ticks_us()
-    print("reference_data rate(with mean):")
-    print(n/(end-start)*1_000_000)
-
-    # Continually just take reference_data
-    sleep(1)
-    std = [0]*num
-    for _ in range(1_000):
-        data = sen_array.measure()
-        for i in range(num):
-            data[i] = int(data[i]/mean[i]*1000)
-        print(data)
+    # read reference_data out
+    for i, sm in enumerate(state_machines):
+        data[i] = count_down - sm.get()  # read is blocking (will wait till measurement done)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()
-    # main_no_comm()
-
