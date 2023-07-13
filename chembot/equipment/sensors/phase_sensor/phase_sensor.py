@@ -1,14 +1,13 @@
 
 import pathlib
 import logging
-import time
 
 from serial import Serial, PARITY_EVEN, STOPBITS_ONE
 import numpy as np
-import numpy_da
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
+from chembot.equipment.sensors.buffer_ring import BufferRing
 
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
@@ -55,7 +54,7 @@ class PhaseSensor(Sensor):
         self.number_sensors = number_sensors
         self._background = np.zeros(self.number_sensors, dtype="uint16")
 
-        self.data = numpy_da.DynamicArray(())
+        self.buffer = BufferRing(self._data_path / self.name, "uint16", (10_000, 8), 500)
 
     def __repr__(self):
         return f"Phase Sensor\n\tclass_name: {self.name}\n\tstate: {self.state}"
@@ -107,16 +106,19 @@ class PhaseSensor(Sensor):
 
         return data
 
-    def write_measure(self, number_of_measurements: int = 1) -> list[int]:
+    def write_measure(self, number_of_measurements: int = 1) -> np.ndarray:
         data = self._measure(number_of_measurements)
         data -= self._background
-        return data.tolist()
+        return data
 
-    def read_background(self) -> list[int]:
-        return self._background.tolist()
+    def read_background(self) -> np.ndarray:
+        return self._background
 
     def write_background(self, number_of_measurements: int = 25):
         data = self._measure(number_of_measurements)
         self._background = np.mean(data, axis=0)
 
     def write_continuously_measure(self):
+        theading
+        for i in range(100):
+            self.buffer.add_data(self.write_measure())
