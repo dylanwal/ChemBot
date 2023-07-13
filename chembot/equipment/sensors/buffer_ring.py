@@ -1,10 +1,11 @@
+import os
 import pathlib
-
+import queue
 import threading
+
 import numpy as np
 
-
-def save_data(file_path: pathlib.Path, data: np.ndarray):
+from chembot.configuration import config
 
 
 class BufferRing:
@@ -29,23 +30,40 @@ class BufferRing:
         self.dtype = dtype
         self.buffer_shape = buffer_shape
         self.buffer = np.empty((buffer_shape, 4), dtype=dtype)
-        self.window_size = window_size
-        self.lag = lag
+        self.window_live = window_live
+        self.window_save = window_save
         self.position = -1
         self.total_rows = 0
 
-        self.lock = threading.Lock()
+        self.data_queue = queue.Queue()
+        self.save_thread = threading.Thread(target=self._thread_save)
+        self.save_thread.daemon = True  # Set the save thread as a daemon thread to automatically exit with the main
+        self.save_thread.start()
+
         self._next_save = None
+        self._last_save = 0
         self._compute_first_save()
         self._resets = 0
 
     @property
-    def window_index(self) -> tuple[int, int]:
-        tail = self.position - self.window_size if self.position - self.window_size else 0
-        return tail, self.position
+    def window_data(self) -> np.ndarray:
+        if self.position - self.window_live < 0:
+            return np.concatenate((
+                self.buffer[-1 - (self.window_live - self.position):-1, :],
+                self.buffer[0:self.position, :]
+            ))
+
+        return self.buffer[self.position - self.window_live:self.position, :]
 
     @property
-    def window_
+    def save_data(self) -> np.ndarray:
+        if self._last_save - self.window_live < 0:
+            return np.concatenate((
+                self.buffer[-1 - (self.window_live - self.position):-1, :],
+                self.buffer[0:self.position, :]
+            ))
+
+        return self.buffer[self.position - self.window_live:self.position, :]
 
     @property
     def file_path(self) -> pathlib.Path:
@@ -69,14 +87,13 @@ class BufferRing:
         self.buffer[self.position] = data
 
         # Check if saving is necessary
-        if self.position == self._next_save:
-            self.save()
+        if self.position >= self._next_save:
+            self.save(self._last_save, self._next_save)
 
         self.total_rows += 1
 
-    def save(self):
-        save_thread = threading.Thread(target=save_data, args=(self.file_path, self.buffer))
-        save_thread.start()
+    def save(self, start: int, end: int):
+        self.data_queue.put(self.save_data)
         self._compute_next_save()
 
     def reset(self):
@@ -86,5 +103,18 @@ class BufferRing:
         self._compute_first_save()
 
     def save_reset(self):
-        self.save()
+        self.save(self._last_save, self.position)
         self.reset()
+
+    def _thread_save(self):
+        while True:
+            data: np.ndarray = self.data_queue.get()
+
+            file_name = self.file_path
+            if os.path.isfile(file_name):
+                edit_type = "a"
+            else:
+                edit_type = "w"
+            with open(file_name, mode=edit_type, encoding=config.encoding) as f:
+                f.write(','.join(map(str, data)))
+                f.write('\n')

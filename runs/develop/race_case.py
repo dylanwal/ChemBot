@@ -1,4 +1,5 @@
 import threading
+import time
 
 import numpy as np
 
@@ -21,15 +22,30 @@ def add_many_int(a: list[int], index: int):
         add_int(a, index)
 
 
+def read_only(a, b):
+    for i in range(10_000):
+        b[1] += a[1]
+
+
 def main():
-    a = [0] #np.linspace(0, 9, 10, dtype="int")
+    a = np.linspace(0, 9, 10, dtype="int")
+    b = np.linspace(0, 9, 10, dtype="int")
 
-    save_thread = threading.Thread(target=add_many_int, args=(a, 0))
-    save_thread.start()
+    # save_thread = threading.Thread(target=read_only, args=(a, b))
+    # save_thread.start()
+    read_only(a,b)
 
-    add_many_int(a, 0)
-    print(a)
+    add_many(a, 0)
+    print("run")
+    # save_thread.join()
+    if a[0] != b[1]-1:
+        print(a)
+        print(b)
 
 
 if __name__ == "__main__":
-    main()
+    start = time.process_time()
+    for i in range(100):
+        main()
+    end = time.process_time()
+    print("time: ", end-start)
