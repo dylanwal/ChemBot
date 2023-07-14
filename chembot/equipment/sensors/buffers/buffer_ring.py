@@ -6,8 +6,6 @@ import time
 
 import numpy as np
 
-from chembot.configuration import config
-
 
 class BufferRing:
     """
@@ -87,7 +85,7 @@ class BufferRing:
     def get_file_path(self, index: int) -> pathlib.Path:
         path = self.path
         if self._resets > 0:
-            path.stem += "_r" + str(self._resets)
+            path = path.with_stem(path.stem + "_r" + str(self._resets))
         path = path.with_stem(path.stem + "_" + str(index))
         path = path.with_suffix(".csv")
         return path
@@ -144,7 +142,7 @@ class BufferRing:
         self._next_save = self.number_of_rows_per_save - 1
 
     def save_and_reset(self):
-        self.save(self._last_save, self.position)
+        self.save_all()
         self.reset()
 
     def _thread_save(self):
@@ -157,18 +155,19 @@ class BufferRing:
         while True:
             index += 1  # counter for index path name for each new file
             counter = 0  # counter when to start a new file
-            with open(self.get_file_path(index), mode="w", encoding=config.encoding) as f:
+            with open(self.get_file_path(index), mode="w", encoding="utf-8") as f:
                 while True:
                     try:
-                        data: np.ndarray = self.data_queue.get(timeout=1)  # blocking
-                    except queue.Empty:
+                        data: np.ndarray = self.data_queue.get(timeout=1) # blocking
+                    except (queue.Empty):
                         # check to make sure main thread is still running
                         if main_thread.is_alive():
                             continue
                         # if main thread done; save everything
-                        if not self._done:
+                        elif not self._done:
                             self.save_all()
                             self._done = True
+                            continue
                         else:  # exit once everything is saved close thread
                             sys.exit()
 
@@ -207,17 +206,20 @@ class BufferRingTime(BufferRing):
             save data periodical to csv as the buffer fills up
         """
         super().__init__(path, dtype, buffer_shape, number_of_rows_per_save, save_data)
-        self.time = time.time()
+        self.time = np.empty(buffer_shape[0])
 
     def add_data(self, data: int | float | np.ndarray):
         if self.position == self._buffer.shape[0] - 1:
-            self.position = 0
+            position = 0
         else:
-            self.position += 1
-        self.time = time.time()
+            position = self.position + 1
+        self.time[position] = time.time()
         super().add_data(data)
 
     def save(self, last_save: int, next_save: int):
+        if next_save < 0:
+            return
+
         if not self.save_thread.is_alive():
             self.save_thread.start()
 

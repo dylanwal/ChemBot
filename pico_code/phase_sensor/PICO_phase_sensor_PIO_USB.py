@@ -39,7 +39,6 @@ from rp2 import PIO, asm_pio, StateMachine
 import select
 import sys
 import machine
-import array
 
 __version__ = "0.0.1"
 
@@ -62,7 +61,7 @@ def reset():
 def main_loop():
     # a list to keep record of what's going on
     pins = [12, 13, 14, 15, 16, 17, 18, 19]
-    data = array.array('I', [0] * len(pins))
+    data = [0] * len(pins)
     state_machines = get_state_machines(pins)
 
     # Set up the poll object
@@ -82,7 +81,7 @@ def main_loop():
                 print(str(type(e)) + " " + str(e))
 
 
-def do_stuff(message: str, state_machines: list, data: array.array):
+def do_stuff(message: str, state_machines: list, data: list[int]):
     if message[0] == "w":
         number_of_scans = int(message[1:3])
         measure(number_of_scans, state_machines, data)
@@ -97,8 +96,8 @@ def do_stuff(message: str, state_machines: list, data: array.array):
 
 # Too short of a charge_time wont charge the capacitor enough
 # Too long is fine but it slows down measurement rate.
-charge_time = const(100_000)
-count_down = const(1_000_000)  # Don't change
+charge_time = const(150_000)
+count_down = const(1_050_000)  # Don't change
 
 
 @asm_pio(set_init=PIO.OUT_LOW)
@@ -133,10 +132,11 @@ def reflect_measurement():
 
 def get_state_machines(pins: list[int]) -> list:
     state_machines = []
-    for pin in pins:
-        pin = machine.Pin(pin, machine.Pin.OUT)
-        sm = StateMachine(reflect_measurement, freq=125_000_000, set_base=pin, in_base=pin, jmp_pin=pin)
+    for i, pin in enumerate(pins):
+        pin_ = machine.Pin(pin, machine.Pin.OUT)
+        sm = StateMachine(i, reflect_measurement, freq=125_000_000, set_base=pin_, in_base=pin_, jmp_pin=pin_)
         sm.active(1)
+        state_machines.append(sm)
 
     return state_machines
 
@@ -149,14 +149,15 @@ def deactivate(state_machines: list, pins: list[int]):
         p.value(0)
 
 
-def measure(number_of_scans: int, state_machines: list, data: array.array):
+def measure(number_of_scans: int, state_machines: list, data: list[int]):
     counter = 0
-    while counter < number_of_scans:
+    while counter != number_of_scans:
+        counter += 1
         _measure(state_machines, data)
         print("w" + ','.join(map(str, data)))
 
 
-def _measure(state_machines: list, data: array.array):
+def _measure(state_machines: list, data: list[int]):
     # start measurement
     for sm in state_machines:
         sm.put(charge_time)
@@ -169,3 +170,4 @@ def _measure(state_machines: list, data: array.array):
 
 if __name__ == "__main__":
     main()
+

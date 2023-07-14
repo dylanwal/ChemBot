@@ -3,7 +3,7 @@ import logging
 
 from chembot.configuration import config
 from chembot.equipment.valves.valve_configuration import ValveConfiguration, ValvePosition
-from equipment.equipment import Equipment
+from chembot.equipment.equipment import Equipment
 
 logger = logging.getLogger(config.root_logger_name + ".valve")
 

@@ -8,7 +8,7 @@ from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.controllers.controller import Controller
 from chembot.equipment.sensors.buffers.buffers import Buffer
-from equipment.sensors.buffers.buffer_ring import BufferRingTime
+from chembot.equipment.sensors.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
@@ -27,9 +27,9 @@ class PhaseSensor(Sensor):
                  controllers: list[Controller] | Controller = None,
                  buffer: Buffer = None
                  ):
-        dtype = "uint16"
+        dtype = "uint64"
         if buffer is None:
-            buffer = BufferRingTime(self._data_path / self.name, dtype, (10_000, number_sensors), 500)
+            buffer = BufferRingTime(self._data_path / (name + ".csv"), dtype, (10_000, number_sensors), 500)
 
         super().__init__(name, buffer, controllers)
         self.serial = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE, timeout=0.1)
@@ -46,33 +46,36 @@ class PhaseSensor(Sensor):
 
     def _write(self, message: str):
         message = message + "\n"
+        logger.info(f"send: {message}")
         self.serial.write(message.encode(config.encoding))
 
     def _read(self, read_bytes: int) -> str:
         message = self.serial.read(read_bytes).decode(config.encoding)
+        logger.info(f"receive: {message}")
         return message.strip("\n")
 
     def _read_until(self, symbol: str = "\n"):
-        reply = self.serial.read_until(symbol)
-        return reply.strip(symbol)
+        message = self.serial.read_until(symbol).decode(config.encoding)
+        logger.info(f"receive: {message}")
+        return message.strip(symbol)
 
     def _activate(self):
         self.serial.flushInput()
         self.serial.flushOutput()
-        self.serial.write("v")
+        self._write("v")
         reply = self._read_until()
         if reply[0] != "v":
             raise ValueError(f"Unexpected reply from Pico during activation.\n reply:{reply}")
         self.pico_version = reply[1:]
 
     def _deactivate(self):
-        self.serial.write("r")
+        self._write("r")
         reply = self._read_until()
-        if reply != "r":
+        if reply[0] != "r":
             raise ValueError(f"Unexpected reply from Pico when deactivating.\n reply:{reply}")
 
     def _stop(self):
-        self._stop_thread = True
+        super()._stop()
         self.serial.flushOutput()
         self.serial.flushInput()
 
@@ -86,7 +89,7 @@ class PhaseSensor(Sensor):
             reply = self._read_until()
             if reply[0] != "w":
                 raise ValueError(f"Unexpected reply from Pico when measuring from phase sensor.\n reply:{reply}")
-            data[i] = np.array(np.array(reply[1:].split(',')), dtype="uint32")
+            data[i] = np.array(reply[1:].split(','), dtype="uint64")
 
         return data
 

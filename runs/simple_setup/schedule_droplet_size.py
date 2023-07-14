@@ -19,7 +19,7 @@ def job_flow(volume: Quantity, flow_rate: Quantity):
                 resource=NamesSensors.PHASE_SENSOR1,
                 callable_=PhaseSensor.write_measure_continuously,
                 duration=timedelta(milliseconds=1),
-                kwargs={"write_measure_continuously": 1/50}
+                kwargs={"time_between_measurements": 1/50}
             ),
             _flow(volume, flow_rate),
             Event(
@@ -40,12 +40,12 @@ def _valves() -> JobConcurrent:
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "flow"}
             ),
-            Event(
-                resource=NamesValves.VALVE_MIDDLE,
-                callable_=ValveServo.write_move,
-                duration=timedelta(seconds=1.5),
-                kwargs={"position": "flow"}
-            ),
+            # Event(
+            #     resource=NamesValves.VALVE_MIDDLE,
+            #     callable_=ValveServo.write_move,
+            #     duration=timedelta(seconds=1.5),
+            #     kwargs={"position": "load"}
+            # ),
             Event(
                 resource=NamesValves.VALVE_FRONT,
                 callable_=ValveServo.write_move,
@@ -67,12 +67,6 @@ def _flow(volume: Quantity, flow_rate: Quantity) -> JobConcurrent:
             ),
             Event(
                 resource=NamesPump.PUMP_FRONT,
-                callable_=SyringePumpHarvard.write_infuse,
-                duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
-                kwargs={"volume": volume, "flow_rate": flow_rate}
-            ),
-            Event(
-                resource=NamesSensors.PHASE_SENSOR1,
                 callable_=SyringePumpHarvard.write_infuse,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"volume": volume, "flow_rate": flow_rate}
@@ -176,7 +170,7 @@ def main():
     job_submitter = JobSubmitter()
 
     job = job_droplets(
-        volume=0.4 * Unit.mL,
+        volume=0.1 * Unit.mL,
         flow_rate=0.2 * (Unit.mL / Unit.min),
         flow_rate_fill=1.5 * (Unit.mL / Unit.min)
     )

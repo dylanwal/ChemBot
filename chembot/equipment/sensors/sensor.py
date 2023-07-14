@@ -13,7 +13,9 @@ class Sensor(Equipment, abc.ABC):
     def __init__(self, name: str, buffer: Buffer, controllers: list[Controller] | Controller = None):
         super().__init__(name)
 
-        if not isinstance(controllers, list):
+        if controllers is None:
+            controllers = []
+        elif not isinstance(controllers, list):
             controllers = [controllers]
         self.controllers = controllers
         self.buffer = buffer
@@ -22,6 +24,9 @@ class Sensor(Equipment, abc.ABC):
         self.filter_ = None
         self._thread = threading.Thread(target=self._thread_measure)
         self._stop_thread = False
+
+    def _stop(self):
+        self._stop_thread = True
 
     @abc.abstractmethod
     def write_measure(self):
@@ -71,5 +76,8 @@ class Sensor(Equipment, abc.ABC):
             # stop
             if self._stop_thread:
                 self._stop_thread = False
-                self.buffer.reset()
+                if self.buffer.save_data:
+                    self.buffer.save_and_reset()
+                else:
+                    self.buffer.reset()
                 break
