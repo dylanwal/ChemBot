@@ -1,6 +1,5 @@
 import pathlib
 import logging
-from datetime import datetime
 
 import win32ui  # from pywin32 package and must be imported first to expose dde
 import dde  # from pywin32 package
@@ -8,6 +7,9 @@ import numpy as np
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
+from chembot.equipment.sensors.controllers.controller import Controller
+from chembot.equipment.sensors.buffers.buffers import Buffer
+from equipment.sensors.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".atir")
 
@@ -100,9 +102,9 @@ class ATIRRunner:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
     def get_results(self, result_file: str) -> np.array:
-        result_read = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
-        result_block = self.request("READ_FROM_BLOCK AB")
-        result_data_points = self.request("DATA_VALUES")
+        _ = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
+        _ = self.request("READ_FROM_BLOCK AB")
+        _ = self.request("DATA_VALUES")
         result_data = self.request("READ_DATA")
         status = result_data[0]
         if status != "OK":
@@ -120,13 +122,22 @@ class ATIRRunner:
 class ATIR(Sensor):
     _method_name = "ATR_DI"
     _method_path = str(pathlib.Path(__file__).parent)
-    _data_path = config.data_directory / pathlib.Path("atir")
-    create_folder(_data_path)
+
+    @property
+    def _data_path(self):
+        path = config.data_directory / pathlib.Path("atir")
+        create_folder(path)
+        return path
 
     def __init__(self,
                  name: str,
+                 controllers: list[Controller] | Controller = None,
+                 buffer: Buffer = None
                  ):
-        super().__init__(name)
+        if buffer is None:
+            buffer = BufferRingTime(self._data_path / self.name, "float64", (10, 1), 2)
+
+        super().__init__(name, buffer, controllers)
 
         self._runner = ATIRRunner()
 
@@ -143,13 +154,17 @@ class ATIR(Sensor):
         rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
         res = self._runner.get_results(rf)
 
-        if data_name is None:
-            data_name = "atir_data_" + datetime.now().strftime("data_%Y_%m_%d")
-        if not data_name.endswith(".csv"):
-            data_name += ".csv"
+        # reshape buffer on first measurement
+        if self.buffer.shape[1] != len(res):
+            self.buffer.reshape((self.buffer.shape[0], len(res)))
 
-        np.savetxt(self._data_path / data_name, res, delimiter=",")
-        logger.info(config.log_formatter(self, self.name, "Data saved"))
+        # if data_name is None:
+        #     data_name = "atir_data_" + datetime.now().strftime("data_%Y_%m_%d")
+        # if not data_name.endswith(".csv"):
+        #     data_name += ".csv"
+        #
+        # np.savetxt(self._data_path / data_name, res, delimiter=",")
+        # logger.info(config.log_formatter(self, self.name, "Data saved"))
 
     def write_background(self, scans: int = 8):
         self._runner.run_background_scans(self._method_path, self._method_name, scans)

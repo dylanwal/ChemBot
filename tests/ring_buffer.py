@@ -1,7 +1,7 @@
 import pathlib
 import time
 
-from chembot.equipment.sensors.buffer_ring import BufferRing
+from equipment.sensors.buffers.buffer_ring import BufferRing
 
 
 def main():
@@ -14,8 +14,6 @@ def main():
         if i % 1000 == 0:
             time.sleep(delay)
         #     print(i)
-
-    b.done()
 
 
 if __name__ == "__main__":

@@ -1,7 +1,7 @@
 """
 Phase sensor code:
 
-This code runs on the Rasberry Pi Pico.
+This code runs on the Raspberry Pi Pico.
 The phase sensor consists of one or more SparkFun Line Sensor Breakout - QRE1113 (Digital)
 [https://www.sparkfun.com/products/9454] in a line with clear PTFE or PFA tubing running a few millimeters in front of the
 sensor.
@@ -16,16 +16,9 @@ capacitor to drain as electricity from the capacitor leaves through the phototra
 PIO states machines were used to get accurate timing of capacitor draining, as it is quite quick. Additionally, state machines
 provides the ability to simultaneous measure 8 sensors at once, given that the pico has 8 state machines.
 The state machines run at 125 MHz (8 ns per cycle) and the time loop is two cycles so (16 ns timing accuracy is expected).
-Max sample rate is ~300 Hz; can be less if it takes the capacoitor a while to de-energize (140 Hz worst). Can be faster
+Max sample rate is ~300 Hz; can be less if it takes the capacitor a while to de-energize (140 Hz worst). Can be faster
 if you decrease the {charge_time} but then the reference_data may be more noisy.
 
-High level steps of code:
-1) define PIO states machines
-2) start infinite loop:
-    3-1) Read from UART
-    3-2-1) if None: do nothing
-    3-2-2) if "r": take measurement, and send reference_data back over UART
-    3-2-3) if "s": send "s" back over UART - just used to check the PICO/communication is running correctly
 
 
 Wiring
@@ -94,7 +87,7 @@ def do_stuff(message: str, state_machines: list, data: array.array):
         number_of_scans = int(message[1:3])
         measure(number_of_scans, state_machines, data)
     elif message[0] == "r":
-        reset()
+        # reset()   # it commented out to avoid messing up state machines
         print("r")
     elif message == "v":
         print("v" + __version__)

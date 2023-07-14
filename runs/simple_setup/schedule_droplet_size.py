@@ -6,6 +6,7 @@ from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.scheduler.job_submitter import JobSubmitter
 from chembot.equipment.valves import ValveServo
 from chembot.equipment.pumps import SyringePumpHarvard
+from chembot.equipment.sensors import PhaseSensor
 
 from runs.individual_setup.names import NamesPump, NamesValves, NamesSensors
 
@@ -14,7 +15,18 @@ def job_flow(volume: Quantity, flow_rate: Quantity):
     return JobSequence(
         [
             _valves(),
-            _flow(volume, flow_rate)
+            Event(
+                resource=NamesSensors.PHASE_SENSOR1,
+                callable_=PhaseSensor.write_measure_continuously,
+                duration=timedelta(milliseconds=1),
+                kwargs={"write_measure_continuously": 1/50}
+            ),
+            _flow(volume, flow_rate),
+            Event(
+                resource=NamesSensors.PHASE_SENSOR1,
+                callable_=PhaseSensor.write_stop,
+                duration=timedelta(milliseconds=1)
+            ),
         ]
     )
 
@@ -153,12 +165,6 @@ def job_air_purge() -> JobSequence:
 def job_droplets(volume: Quantity, flow_rate: Quantity, flow_rate_fill: Quantity) -> JobSequence:
     return JobSequence(
         [
-            Event(
-                resource=NamesValves.VALVE_MIDDLE,
-                callable_=ValveServo.write_move,
-                duration=timedelta(seconds=1.5),
-                kwargs={"position": "bypass"}
-            ),
             job_fill(volume, flow_rate_fill),
             job_flow(volume, flow_rate),
             job_air_purge(),

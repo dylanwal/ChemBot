@@ -1,4 +1,3 @@
-
 import pathlib
 import logging
 
@@ -7,57 +6,43 @@ import numpy as np
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
-from chembot.equipment.sensors.buffer_ring import BufferRing
+from chembot.equipment.sensors.controllers.controller import Controller
+from chembot.equipment.sensors.buffers.buffers import Buffer
+from equipment.sensors.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
 
-def data_decode(message: str) -> np.array:
-    """
-    This parses the message from the PICO into an numpy array.
-    :param message: raw message from PICO.
-    :return: reference_data in numpy array.
-    """
-    message = message.replace("d", "").replace("\n", "")
-    _time, values = message.split("+")
-    values = values.replace("[", "").replace("]", "")
-    values = values.split(", ")
-    return np.array([int(_time)] + [int(value) for value in values], dtype="uint64")
-
-
-def determine_phase(value: np.ndarray, gas: np.ndarray, liq: np.ndarray):
-    """
-    Determine phase from raw reference_data and zero reference_data.
-    :param value: np.array of phase sensor reference_data
-    :param gas: value of phase sensor when gas is flowing through it.
-    :param liq: value of phase sensor when liquid is flowing through it.
-    :return: np.array of bool; True = Liquid, False = gas
-    """
-    gas_diff = np.abs(np.subtract(value, gas))
-    liq_diff = np.abs(np.subtract(value, liq))
-    return liq_diff > gas_diff
-
-
 class PhaseSensor(Sensor):
-    _data_path = config.data_directory / pathlib.Path("phase_sensor")
-    create_folder(_data_path)
+    @property
+    def _data_path(self):
+        path = config.data_directory / pathlib.Path("phase_sensor")
+        create_folder(path)
+        return path
 
     def __init__(self,
                  name: str = None,
                  port: str = "COM6",
-                 number_sensors: int = 8
+                 number_sensors: int = 8,
+                 controllers: list[Controller] | Controller = None,
+                 buffer: Buffer = None
                  ):
-        super().__init__(name)
-        self.serial = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE,
-                             timeout=0.1)
+        dtype = "uint16"
+        if buffer is None:
+            buffer = BufferRingTime(self._data_path / self.name, dtype, (10_000, number_sensors), 500)
 
+        super().__init__(name, buffer, controllers)
+        self.serial = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE, timeout=0.1)
         self.number_sensors = number_sensors
-        self._background = np.zeros(self.number_sensors, dtype="uint16")
-
-        self.buffer = BufferRing(self._data_path / self.name, "uint16", (10_000, 8), 500)
+        self.gas_background = np.zeros(self.number_sensors, dtype=dtype)
+        self.liquid_background = np.zeros(self.number_sensors, dtype=dtype)
 
     def __repr__(self):
         return f"Phase Sensor\n\tclass_name: {self.name}\n\tstate: {self.state}"
+
+    @property
+    def measurement_frequency(self) -> float:
+        return 1/self.time_between_measurements
 
     def _write(self, message: str):
         message = message + "\n"
@@ -87,10 +72,9 @@ class PhaseSensor(Sensor):
             raise ValueError(f"Unexpected reply from Pico when deactivating.\n reply:{reply}")
 
     def _stop(self):
-        self.serial.write("r")
-        reply = self._read_until()
-        if reply != "r":
-            raise ValueError(f"Unexpected reply from Pico when deactivating.\n reply:{reply}")
+        self._stop_thread = True
+        self.serial.flushOutput()
+        self.serial.flushInput()
 
     def _measure(self, number_of_measurements: int = 1) -> np.ndarray:
         if self.serial.in_waiting != 0:
@@ -108,17 +92,23 @@ class PhaseSensor(Sensor):
 
     def write_measure(self, number_of_measurements: int = 1) -> np.ndarray:
         data = self._measure(number_of_measurements)
-        data -= self._background
         return data
 
-    def read_background(self) -> np.ndarray:
-        return self._background
-
-    def write_background(self, number_of_measurements: int = 25):
+    def write_measure_phase(self, number_of_measurements: int = 1) -> np.ndarray:
         data = self._measure(number_of_measurements)
-        self._background = np.mean(data, axis=0)
+        data = (data-self.gas_background) / (self.liquid_background - self.gas_background)
+        return np.round(data).astype(bool)
 
-    def write_continuously_measure(self):
-        theading
-        for i in range(100):
-            self.buffer.add_data(self.write_measure())
+    def read_gas_background(self) -> np.ndarray:
+        return self.gas_background
+
+    def write_measure_gas(self, number_of_measurements: int = 25):
+        data = self._measure(number_of_measurements)
+        self.gas_background = np.mean(data, axis=0)
+
+    def read_liquid_background(self) -> np.ndarray:
+        return self.liquid_background
+
+    def write_measure_liquid(self, number_of_measurements: int = 25):
+        data = self._measure(number_of_measurements)
+        self.liquid_background = np.mean(data, axis=0)
