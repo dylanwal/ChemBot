@@ -31,6 +31,7 @@ Wiring
     usb            usb
 
 Parameters:
+    Pin: 0 control LED power
     * Pins: in main() default: [12, 13, 14, 15, 16, 17, 18, 19]
 
 """
@@ -68,7 +69,7 @@ def main_loop():
     poll_obj = select.poll()
     poll_obj.register(sys.stdin, select.POLLIN)
 
-    wdt = machine.WDT(timeout=10000)  # 10 sec
+    wdt = machine.WDT(timeout=20000)  # 10 sec
 
     while True:  # infinite loop
         poll_results = poll_obj.poll(10)
@@ -83,8 +84,10 @@ def main_loop():
 
 def do_stuff(message: str, state_machines: list, data: list[int]):
     if message[0] == "w":
+        machine.Pin(0, machine.Pin.OUT).value(1)
         number_of_scans = int(message[1:3])
         measure(number_of_scans, state_machines, data)
+        machine.Pin(0, machine.Pin.OUT).value(0)
     elif message[0] == "r":
         # reset()   # it commented out to avoid messing up state machines
         print("r")
@@ -97,7 +100,7 @@ def do_stuff(message: str, state_machines: list, data: list[int]):
 # Too short of a charge_time wont charge the capacitor enough
 # Too long is fine but it slows down measurement rate.
 charge_time = const(150_000)
-count_down = const(1_050_000)  # Don't change
+count_down = const(1_000_000)  # Don't change
 
 
 @asm_pio(set_init=PIO.OUT_LOW)

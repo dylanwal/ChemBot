@@ -46,17 +46,16 @@ class PhaseSensor(Sensor):
 
     def _write(self, message: str):
         message = message + "\n"
-        logger.info(f"send: {message}")
+        # logger.info(f"send: {message}")
         self.serial.write(message.encode(config.encoding))
 
     def _read(self, read_bytes: int) -> str:
         message = self.serial.read(read_bytes).decode(config.encoding)
-        logger.info(f"receive: {message}")
+        # logger.info(f"receive: {message}")
         return message.strip("\n")
 
-    def _read_until(self, symbol: str = "\n"):
+    def _read_until(self, symbol: str = "\n") -> str:
         message = self.serial.read_until(symbol).decode(config.encoding)
-        logger.info(f"receive: {message}")
         return message.strip(symbol)
 
     def _activate(self):
@@ -87,9 +86,15 @@ class PhaseSensor(Sensor):
         data = np.zeros((number_of_measurements, self.number_sensors), dtype="uint32")
         for i in range(number_of_measurements):
             reply = self._read_until()
-            if reply[0] != "w":
-                raise ValueError(f"Unexpected reply from Pico when measuring from phase sensor.\n reply:{reply}")
-            data[i] = np.array(reply[1:].split(','), dtype="uint64")
+            if reply is None:
+                raise ValueError("no reply from pico")
+            try:
+                if reply[0] != "w":
+                    raise ValueError(f"Unexpected reply from Pico when measuring from phase sensor.\n reply:{reply}")
+                data[i] = np.array(reply[1:].split(','), dtype="uint64")
+            except Exception as e:
+                logger.error(f"pico reply: {reply}")
+                raise e
 
         return data
 
@@ -105,13 +110,11 @@ class PhaseSensor(Sensor):
     def read_gas_background(self) -> np.ndarray:
         return self.gas_background
 
-    def write_measure_gas(self, number_of_measurements: int = 25):
-        data = self._measure(number_of_measurements)
-        self.gas_background = np.mean(data, axis=0)
+    def write_gas_background(self, gas_background: list[int, ...] | tuple[int, ...] | np.ndarray):
+        self.gas_background = gas_background
 
     def read_liquid_background(self) -> np.ndarray:
         return self.liquid_background
 
-    def write_measure_liquid(self, number_of_measurements: int = 25):
-        data = self._measure(number_of_measurements)
-        self.liquid_background = np.mean(data, axis=0)
+    def write_liquid_background(self, liquid_background: list[int, ...] | tuple[int, ...] | np.ndarray):
+        self.liquid_background = liquid_background

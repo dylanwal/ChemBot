@@ -1,10 +1,13 @@
+import os
 import pathlib
 import queue
-import sys
 import threading
 import time
+import logging
 
 import numpy as np
+
+logger = logging.getLogger("buffer")
 
 
 class BufferRing:
@@ -60,6 +63,7 @@ class BufferRing:
         self.path = path
         self.data_queue = queue.Queue(maxsize=int(buffer_shape[0]/number_of_rows_per_save)-1)
         self.save_thread = threading.Thread(target=self._thread_save)
+        self._close = False
         self._done = False
         if self.save_data:
             self.save_thread.start()
@@ -113,25 +117,29 @@ class BufferRing:
         self.total_rows += 1
 
     def save_all(self):
+        self._close = True
         self.save(self._last_save, self.position)
 
-    def save(self, last_save: int, next_save: int):
+    def save(self, last_save: int, position: int):
+        if last_save == position:
+            return
+
         if not self.save_thread.is_alive():
             self.save_thread.start()
 
-        if last_save > next_save:
+        if last_save > position:
             data = np.concatenate((
                 self._buffer[last_save:, :],
-                self._buffer[0:next_save, :]
+                self._buffer[0:position, :]
             ))
         else:
-            data = self._buffer[last_save:next_save, :]
+            data = self._buffer[last_save:position, :]
 
         if self.data_queue.full():
             raise OverflowError("Queue is not being saved fast enough. Make buffer bigger or slow down data "
                                 "collection.")
         self.data_queue.put(data)
-        self._last_save = next_save
+        self._last_save = position
         self._next_save = self._compute_next_save()
 
     def reset(self):
@@ -152,24 +160,27 @@ class BufferRing:
         """
         main_thread = threading.main_thread()
         index = -1
-        while True:
+        while not self._done:
             index += 1  # counter for index path name for each new file
             counter = 0  # counter when to start a new file
             with open(self.get_file_path(index), mode="w", encoding="utf-8") as f:
                 while True:
                     try:
-                        data: np.ndarray = self.data_queue.get(timeout=1) # blocking
-                    except (queue.Empty):
-                        # check to make sure main thread is still running
-                        if main_thread.is_alive():
+                        data: np.ndarray = self.data_queue.get(timeout=1)  # blocking
+                    except queue.Empty:
+                        if self._close:
+                            self._close = False
+                            break
+                        elif main_thread.is_alive():
+                            # check to make sure main thread is still running
                             continue
-                        # if main thread done; save everything
                         elif not self._done:
+                            # if main thread done; save everything
                             self.save_all()
                             self._done = True
                             continue
-                        else:  # exit once everything is saved close thread
-                            sys.exit()
+                        # exit once everything is saved close thread
+                        break
 
                     # write row
                     for row in data:
@@ -180,6 +191,9 @@ class BufferRing:
                     counter += data.shape[0]
                     if counter > self._file_size_limit:
                         break
+
+            if counter == 0:
+                os.remove(self.get_file_path(index))
 
 
 class BufferRingTime(BufferRing):
@@ -206,37 +220,42 @@ class BufferRingTime(BufferRing):
             save data periodical to csv as the buffer fills up
         """
         super().__init__(path, dtype, buffer_shape, number_of_rows_per_save, save_data)
-        self.time = np.empty(buffer_shape[0])
+        self._time = np.empty(buffer_shape[0])
 
     def add_data(self, data: int | float | np.ndarray):
         if self.position == self._buffer.shape[0] - 1:
             position = 0
         else:
             position = self.position + 1
-        self.time[position] = time.time()
+        self._time[position] = time.time()
         super().add_data(data)
 
-    def save(self, last_save: int, next_save: int):
-        if next_save < 0:
+    def save(self, last_save: int, position: int):
+        if last_save == position:
             return
 
         if not self.save_thread.is_alive():
             self.save_thread.start()
 
-        if last_save > next_save:
+        if last_save > position:
             data = np.concatenate((
                 self._buffer[last_save:, :],
-                self._buffer[0:next_save, :]
+                self._buffer[0:position, :]
+            ))
+            time_ = np.concatenate((
+                self._time[last_save:],
+                self._time[0:position]
             ))
         else:
-            data = self._buffer[last_save:next_save, :]
+            data = self._buffer[last_save:position, :]
+            time_ = self._time[last_save:position]
 
         # add time row
-        data = np.column_stack((self.time[last_save:next_save], data))
+        data = np.column_stack((time_, data))
 
         if self.data_queue.full():
             raise OverflowError("Queue is not being saved fast enough. Make buffer bigger or slow down data "
                                 "collection.")
         self.data_queue.put(data)
-        self._last_save = next_save
+        self._last_save = position
         self._next_save = self._compute_next_save()
