@@ -98,4 +98,7 @@ prompt: 1,2,3,4,5\n
     Hz:  431.58030348577034
 3) string - std - int conversion - for loop list back to str
     Hz:  221.58030348577034
+    
+4) Rust
+    Hz: 1100
 """
