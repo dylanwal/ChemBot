@@ -1,104 +1,92 @@
-import struct
-import array
 import time
 
 import serial
 
 
-def single_write_str(s):
-    s.write('1,2,3,4,5\r'.encode())
-    mes = s.read_all().decode()
-    print(mes.replace("\n", "_n").replace("\r", "_r"))
-    time.sleep(0.1)
+def encode_message(text: str):
+    return text.replace("\n", "__n__").replace("\r", "__r__")
 
 
-def overall_test_str(s, n):
-    start = time.perf_counter()
-    for i in range(n):
-        s.write('1,2,3,4,5\r'.encode())
-        mes = s.read_all()
-
-    end = time.perf_counter()
-    print("total time", end-start, " sec | individual time", (end-start)/n, " sec | Hz: ", n/(end-start))
+def decode_message(text: str):
+    return text.replace("__n__", "\n").replace("__r__", "\r")
 
 
-def single_write_array(s):
-    arr = array.array("i", [1,2,3,4,5])
-    s.write(b"0x01")
-    # reply = s.read_until().decode()
-    # print(reply)
-    time.sleep(0.1)
+def measure(
+        s,
+        message: str,
+        amount: int,
+        spi_id: int,
+        sck_pin: int,
+        mosi_pin: int,
+        miso_pin: int,
+        cs_pin: int,
+        baudrate: int = 115_200,
+        bits: int = 8,
+        polarity: int = 0,
+        phase: int = 0
+) -> str:
+    # write
+    message = f"s{spi_id}{sck_pin:02}{mosi_pin:02}{miso_pin:02}{baudrate:06}{bits}{polarity}{phase}" \
+              f"{cs_pin:02}b{amount:03}{message}"
+    s.write((encode_message(message) + "\n").encode("UTF-8"))
 
-def single_write_struct(s):
-    arr = array.array("i", [1,2,3,4,5])
-    s.write(arr.tobytes())
-    reply = s.read_all()
-    time.sleep(0.1)
+    # read
+    reply = s.read_until()
+    reply = decode_message(reply.decode("UTF-8").strip("\n"))
+
+    if reply[0] != "s":
+        print(reply)
+        reply = s.read(s.in_waiting)
+        print(reply)
+        raise ValueError("unexpected reply from pico")
+
+    return reply[1:]
 
 
-def overall_test_byte_array(s, n):
-    start = time.perf_counter()
-    for i in range(n):
-        arr = array.array("i", [1,2,3,4,5])
-        s.write(arr.tobytes())
-        mes = s.read_all()
-
-    end = time.perf_counter()
-    print("total time", end-start, " sec | individual time", (end-start)/n, " sec | Hz: ", n/(end-start))
+def adc_message(pin: int) -> str:
+    if not 0 <= pin <= 7:
+        raise IndexError('Outside the channels scope, please use: 0, 1 ..., 7')
+    data = [0x1, pin << 4, 0x0]  # [start bit, configuration, listen space]
+    data = [chr(i) for i in data]
+    return "".join(data)
 
 
-def individual(s, n):
-    start = time.perf_counter()
-    time_write = 0
-    time_read = 0
-    for i in range(n):
-        write_start = time.perf_counter()
-        s.write("1\r".encode())
-        time_write += time.perf_counter() - write_start
-        read_start = time.perf_counter()
-        mes = s.read_until()
-        time_read += time.perf_counter() - read_start
-        result = mes.decode().strip("\n").strip("\r")
-        if f"a 1" != result:
-            print(f"{i} 1", f" return:{result}")
-            raise ValueError()
+def digital_write(s, pin: int, value: int):
+    s.write(f"d{pin:02}od{value}\n".encode())
+    reply = s.read_until()
+    reply = decode_message(reply.decode("UTF-8").strip("\n"))
 
-    end = time.perf_counter()
-    print(end-start, " ", n/(end-start))
-    print("read: ", time_read)
-    print("write: ", time_write)
+    if reply[0] != "d":
+        raise ValueError("unexpected reply from pico")
 
 
 def main():
-    s = serial.Serial(port="COM4")
+    s = serial.Serial(port="COM6")
     s.flushOutput()
     s.flushInput()
 
-    n = 10_000
+    digital_write(s, 25, 0)
+    time.sleep(1)
+    digital_write(s, 25, 1)
 
-    # str
-    # single_write(s)
-    # overall_test_str(s, n)
+    pin = 0
+    try:
+        digital_write(s, 0, 1)
+        data = measure(
+            s,
+            message=adc_message(pin),
+            amount=3,
+            spi_id=1,
+            sck_pin=14,
+            mosi_pin=15,
+            miso_pin=12,
+            cs_pin=13,
+        )
+        print(data)
 
-    single_write_array(s)
+    finally:
+        digital_write(s, 0, 0)
 
 
 if __name__ == "__main__":
     main()
-
-
-"""
-prompt: 1,2,3,4,5\n
-
-1) string - print - no conversion to int  
-    Hz:  1042.6089136330086
-2) string - std - no conversion to int  
-    Hz:  1100
-3) string - std - int conversion - str(list)
-    Hz:  431.58030348577034
-3) string - std - int conversion - for loop list back to str
-    Hz:  221.58030348577034
-    
-4) Rust
-    Hz: 1100
-"""
