@@ -53,10 +53,6 @@ def main_loop():
         if poll_results:
             message = sys.stdin.readline().strip()
             do_stuff(message)
-            # try:
-            #     do_stuff(message)
-            # except Exception as e:
-            #     print(str(type(e)), str(e))
 
 
 def digital(message: str):
