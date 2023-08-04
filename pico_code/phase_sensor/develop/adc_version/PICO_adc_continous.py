@@ -1,37 +1,30 @@
 """
-
-2.34V empty
-2.6V water
-
-              # 16 bit resolution adc = 2**16 -1   (minus 1 is it starts at zero)
-                    # divide by 2 as the 16 bit is center at zero with both positive and negative
-                    # 5 volts is used
-                    voltage = value / ((2**16 - 1)/2) * 5
+ads1115
 
 """
-import select
 import sys
+import select
+import time
+from machine import I2C, Pin
+from micropython import const
 import struct
 
-import machine
-from micropython import const
-
-__version__ = const("0.0.1")
-
-# ADS1115
 _ADS1X15_POINTER_CONVERSION = const(0x00)
 _ADS1X15_POINTER_CONFIG = const(0x01)
+_ADS1X15_POINTER_LOW_Thresh = const(0x02)
+_ADS1X15_POINTER_HIGH_Thresh = const(0x03)
+
 _ADS1X15_CONFIG_OS_SINGLE = const(0x8000)
 _ADS1X15_CONFIG_MUX_OFFSET = const(12)
-_ADS1X15_CONFIG_COMP_QUE_DISABLE = const(0x0003)
+_ADS1X15_CONFIG_COMP_QUE_DISABLE = const(0x0000)  # const(0x0003)
 
 # Gains
 GAINS = {
-    2 / 3: 0x0000,  # 6.144 V
-    1: 0x0200,  # 4.096 V
-    2: 0x0400,  # 2.048 V
-    4: 0x0600,  # 1.024 V
-    8: 0x0800,  # 0.512 V
+    2/3: 0x0000, # 6.144 V
+    1: 0x0200,   # 4.096 V
+    2: 0x0400,   # 2.048 V
+    4: 0x0600,   # 1.024 V
+    8: 0x0800,   # 0.512 V
     16: 0x0A00,  # 0.256 V
 }
 
@@ -51,9 +44,8 @@ SAMPLE_RATE = {
     860: 0x00E0,
 }
 
-
 class ADS1115:
-    def __init__(self, i2c, gain=1, data_rate=128, mode=SINGLE, address=0x48):
+    def __init__(self, i2c, gain=1, data_rate=860, mode=SINGLE, address=0x48):
         self._last_pin_read = None
         self.buf = bytearray(3)
         self._data_rate = self._gain = self._mode = None
@@ -62,6 +54,9 @@ class ADS1115:
         self.mode = mode
         self.i2c_device = i2c
         self.address = address
+        self.alert_pin = Pin(15, Pin.IN)
+        if mode is CONTINUOUS:
+            self.set_alert_pin()
 
     @property
     def gain(self):
@@ -74,6 +69,10 @@ class ADS1115:
         if gain not in possible_gains:
             raise ValueError("Gain must be one of: {}".format(possible_gains))
         self._gain = gain
+
+    def set_alert_pin(self):
+        self._write_register(_ADS1X15_POINTER_LOW_Thresh, 0x0000)
+        self._write_register(_ADS1X15_POINTER_HIGH_Thresh, 0xFFFF)
 
     def read(self, pin, differential=False):
         """I2C Interface for ADCs reads.
@@ -94,19 +93,20 @@ class ADS1115:
 
     def _read(self, pin):
         """Perform an ADC read. Returns the signed integer result of the read."""
-        # Immediately return conversion register result if in CONTINUOUS mode and pin has not changed
-        # if self.mode == CONTINUOUS and self._last_pin_read == pin:
-        #     return self._conversion_value(self.get_last_result(True))
+        # Immediately return conversion register result if in CONTINUOUS mode
+        # and pin has not changed
+        if self.mode == CONTINUOUS and self._last_pin_read == pin:
+            return self._conversion_value(self.get_last_result(True))
 
         # Assign last pin read if in SINGLE mode or first sample in CONTINUOUS mode on this pin
-        # self._last_pin_read = pin
+        self._last_pin_read = pin
 
         # Configure ADC every time before a conversion in SINGLE mode
         # or changing channels in CONTINUOUS mode
-        # if self.mode == SINGLE:
-        config = _ADS1X15_CONFIG_OS_SINGLE
-        # else:
-        #    config = 0
+        if self.mode == SINGLE:
+            config = _ADS1X15_CONFIG_OS_SINGLE
+        else:
+            config = 0
         config |= (pin & 0x07) << _ADS1X15_CONFIG_MUX_OFFSET
         config |= GAINS[self.gain]
         config |= self.mode
@@ -117,14 +117,19 @@ class ADS1115:
 
         # Wait for conversion to complete
         # ADS1x1x devices settle within a single conversion cycle
-        # if self.mode == SINGLE:
-        # Continuously poll conversion complete status bit
-        while not self._conversion_complete():
-            pass
-        # else:
-        # Can't poll registers in CONTINUOUS mode
-        # Wait expected time for two conversions to complete
-        # time.sleep(2 / self.data_rate)
+        if self.mode == SINGLE:
+            # Continuously poll conversion complete status bit
+            while not self._conversion_complete():
+                pass
+        else:
+            # Can't poll registers in CONTINUOUS mode
+            # Wait expected time for two conversions to complete
+            time.sleep(2 / self.data_rate)
+
+#             while not self.alert_pin.value():
+#                 pass
+#             time.sleep_us(10)
+
 
         return self._conversion_value(self.get_last_result(False))
 
@@ -164,64 +169,61 @@ class ADS1115:
         # print("read: " + str(self.buf))
         return self.buf[0] << 8 | self.buf[1]
 
+#The MCP4725 has support from 2 addresses
+BUS_ADDRESS = [0x62,0x63]
 
-# The MCP4725 has support from 2 addresses
-BUS_ADDRESS = [0x62, 0x63]
-
-# The device supports a few power down modes on startup and during operation
-POWER_DOWN_MODE = {'Off': 0, '1k': 1, '100k': 2, '500k': 3}
-
+#The device supports a few power down modes on startup and during operation
+POWER_DOWN_MODE = {'Off':0, '1k':1, '100k':2, '500k':3}
 
 class MCP4725:
-    def __init__(self, i2c, address=BUS_ADDRESS[0], supply_voltage: float = 5):
-        self.i2c = i2c
-        self.address = address
-        self._writeBuffer = bytearray(2)
+    def __init__(self,i2c, address=BUS_ADDRESS[0], supply_voltage: float = 5) :
+        self.i2c=i2c
+        self.address=address
+        self._writeBuffer=bytearray(2)
         self.supply_voltage = supply_voltage
 
-    def write(self, voltage: float):
+    def write(self,voltage: float):
         if voltage > self.supply_voltage:
-            value = self.supply_voltage
+            value=self.supply_voltage
         if voltage < 0:
-            voltage = 0
+            voltage=0
 
         value = int(voltage / self.supply_voltage * 0xFFF)
-        value = value & 0xFFF
-        self._writeBuffer[0] = (value >> 8) & 0xFF
-        self._writeBuffer[1] = value & 0xFF
-        return self.i2c.writeto(self.address, self._writeBuffer) == 2
+        value=value & 0xFFF
+        self._writeBuffer[0]=(value>>8) & 0xFF
+        self._writeBuffer[1]=value & 0xFF
+        return self.i2c.writeto(self.address,self._writeBuffer)==2
 
     def read(self):
-        buf = bytearray(5)
-        if self.i2c.readfrom_into(self.address, buf) == 5:
-            eeprom_write_busy = (buf[0] & 0x80) == 0
-            power_down = self._powerDownKey((buf[0] >> 1) & 0x03)
-            value = ((buf[1] << 8) | (buf[2])) >> 4
-            eeprom_power_down = self._powerDownKey((buf[3] >> 5) & 0x03)
-            eeprom_value = ((buf[3] & 0x0f) << 8) | buf[4]
-            return (eeprom_write_busy, power_down, value, eeprom_power_down, eeprom_value)
+        buf=bytearray(5)
+        if self.i2c.readfrom_into(self.address,buf) ==5:
+            eeprom_write_busy=(buf[0] & 0x80)==0
+            power_down=self._powerDownKey((buf[0] >> 1) & 0x03)
+            value=((buf[1]<<8) | (buf[2])) >> 4
+            eeprom_power_down=self._powerDownKey((buf[3]>>5) & 0x03)
+            eeprom_value=((buf[3] & 0x0f)<<8) | buf[4]
+            return (eeprom_write_busy,power_down,value,eeprom_power_down,eeprom_value)
         return None
 
-    def config(self, power_down='Off', value=0, eeprom=False):
-        buf = bytearray()
-        conf = 0x40 | (POWER_DOWN_MODE[power_down] << 1)
+    def config(self,power_down='Off',value=0,eeprom=False):
+        buf=bytearray()
+        conf=0x40 | (POWER_DOWN_MODE[power_down] << 1)
         if eeprom:
-            # store the powerdown and output value in eeprom
-            conf = conf | 0x60
+            #store the powerdown and output value in eeprom
+            conf=conf | 0x60
         buf.append(conf)
-        # check value range
-        if value < 0:
-            value = 0
-        value = value & 0xFFF
+        #check value range
+        if value<0:
+            value=0
+        value=value & 0xFFF
         buf.append(value >> 4)
-        buf.append((value & 0x0F) << 4)
-        return self.i2c.writeto(self.address, buf) == 3
+        buf.append((value & 0x0F)<<4)
+        return self.i2c.writeto(self.address,buf)==3
 
-    def _powerDownKey(self, value):
-        for key, item in POWER_DOWN_MODE.items():
+    def _powerDownKey(self,value):
+        for key,item in POWER_DOWN_MODE.items():
             if item == value:
                 return key
-
 
 def main():
     # print("startup")
@@ -240,7 +242,7 @@ def reset():
 
 def main_loop():
     i2c = machine.I2C(0, sda=machine.Pin(16), scl=machine.Pin(17), freq=400_000)
-    ADC = ADS1115(i2c)
+    ADC = ADS1115(i2c, mode=CONTINUOUS)
     DAC = MCP4725(i2c)
     leds = machine.Pin(0, machine.Pin.OUT, pull=machine.Pin.PULL_UP)
     leds.value(1)
@@ -330,6 +332,31 @@ def set_led_value(message, leds):
     sys.stdout.write("d\n")
 
 
+def main_local():
+    i2c = I2C(0, sda=Pin(16), scl=Pin(17), freq=400000)
+    ADC = ADS1115(i2c, mode=CONTINUOUS)
+    DAC = MCP4725(i2c)
+
+    leds = Pin(0, Pin.OUT, pull=Pin.PULL_UP)
+    leds.value(0)
+    time.sleep(0.1)
+    try:
+        DAC.write(2.42+0.125)
+        ADC.gain = 16
+        start = time.ticks_ms()
+        n=10
+        for i in range(n):
+            print(ADC.read(0, differential=True), ADC.read(1, differential=True))
+        end = time.ticks_ms()
+        print(end-start, n/(end-start)*1000)
+
+    finally:
+        leds.value(1)
+
+
 if __name__ == "__main__":
     main()
+    # main_local()
+
+
 
