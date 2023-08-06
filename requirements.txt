@@ -7,3 +7,4 @@ requests==2.31.0
 dash==2.9.3
 dash-bootstrap-components==1.4.1
 jsonpickle>=3.0.1
+pywin32>=306

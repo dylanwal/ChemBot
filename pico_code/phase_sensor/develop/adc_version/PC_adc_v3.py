@@ -1,7 +1,11 @@
+import pathlib
 import time
-import numpy as np
 
+import numpy as np
 import serial
+import plotly.graph_objs as go
+
+from chembot.utils.buffers.buffer_ring import BufferRingTime
 
 
 def format_pin(pin: int, mode: int) -> str:
@@ -10,8 +14,14 @@ def format_pin(pin: int, mode: int) -> str:
 
 def single(s, pins: list[int], modes: list[int]) -> np.array:
     s.write(("s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)) + "\n").encode())
-    reply = s.readline().decode().strip().split(",")
-    return np.array(reply, dtype=np.int16)
+    try:
+        reply = s.readline().decode().strip().split(",")
+        return np.array(reply, dtype=np.int16)
+    except ValueError as e:
+        print(reply)
+        if s.in_waiting > 0:
+            print(s.read_all())
+        raise e
 
 
 def leds_power(s, value: int = 0):
@@ -52,7 +62,7 @@ def set_offset_gain(s, gain: int=16):
     # 5 volts is used
     voltage = np.mean(np.mean(data, axis=0)) / ((2**16 - 1)/2) * 4.096
     print(voltage)
-    voltage += gains[gain]/1.5
+    voltage += gains[gain]/2
 
     # write DAC voltage
     s.write(f"o{voltage:.06}\n".encode())
@@ -75,25 +85,35 @@ def time_single(s):
     print("single", end-start, n/(end-start))
 
 
-def print_single(s):
-    n = 100
-    leds_power(s, 0)
-    time.sleep(0.2)
-    for i in range(n):
-        data = single(s, [0, 1], [1, 1])
-        print(data)
-    leds_power(s, 1)
-
-
 def main():
     s = serial.Serial(port="COM3")
     s.flushOutput()
     s.flushInput()
-
     try:
         set_offset_gain(s)
-        print_single(s)
-        # time_single(s)
+
+        n = 2000
+        leds_power(s, 0)
+        print("switch")
+        time.sleep(0.1)
+
+        path = pathlib.Path(__file__)
+        buffer = BufferRingTime(path.parent, np.int16, (10_000, 2))
+        data = np.empty((n, 2), dtype=np.int16)
+        time_ = np.empty(n)
+        print("running")
+        for i in range(n):
+            buffer.add_data(single(s, [1, 2], [1, 1]))
+            data[i, :] = buffer.last_measurement
+            time_[i] = buffer.last_time
+
+        leds_power(s, 1)
+        print("done")
+
+        fig = go.Figure()
+        fig.add_trace(go.Scatter(x=time_-time_[0], y=data[:, 0], mode="lines"))
+        fig.add_trace(go.Scatter(x=time_-time_[0], y=data[:, 1], mode="lines"))
+        fig.show()
 
     finally:
         s.close()
@@ -101,3 +121,15 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+"""
+000 : AINP = AIN0 and AINN = AIN1 (default)
+001 : AINP = AIN0 and AINN = AIN3
+010 : AINP = AIN1 and AINN = AIN3
+011 : AINP = AIN2 and AINN = AIN3
+100 : AINP = AIN0 and AINN = GND
+101 : AINP = AIN1 and AINN = GND
+110 : AINP = AIN2 and AINN = GND
+111 : AINP = AIN3 and AINN = GND
+
+"""

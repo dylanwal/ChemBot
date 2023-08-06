@@ -82,6 +82,10 @@ class BufferRing:
     def dtype(self):
         return self._buffer.dtype
 
+    @property
+    def last_measurement(self) -> np.ndarray:
+        return self._buffer[self.position, :]
+
     def reshape(self, shape: tuple[int, int]):
         """ reshaping clears buffer """
         self._buffer = np.empty(shape, dtype=self.dtype)
@@ -221,6 +225,10 @@ class BufferRingTime(BufferRing):
         """
         super().__init__(path, dtype, buffer_shape, number_of_rows_per_save, save_data)
         self._time = np.empty(buffer_shape[0])
+
+    @property
+    def last_time(self) -> np.ndarray:
+        return self._time[self.position]
 
     def add_data(self, data: int | float | np.ndarray):
         if self.position == self._buffer.shape[0] - 1:

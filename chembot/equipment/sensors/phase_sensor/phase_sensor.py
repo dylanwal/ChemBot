@@ -7,8 +7,8 @@ import numpy as np
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.controllers.controller import Controller
-from chembot.equipment.sensors.buffers.buffers import Buffer
-from chembot.equipment.sensors.buffers.buffer_ring import BufferRingTime
+from chembot.utils.buffers.buffers import Buffer
+from chembot.utils.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 

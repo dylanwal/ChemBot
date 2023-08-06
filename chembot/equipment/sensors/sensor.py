@@ -6,7 +6,7 @@ import logging
 from chembot.configuration import config
 from chembot.equipment.equipment import Equipment
 from chembot.equipment.sensors.controllers.controller import Controller
-from chembot.equipment.sensors.buffers.buffers import Buffer
+from utils.buffers.buffers import Buffer
 from chembot.utils.algorithms.data_filtering import Filter
 
 logger = logging.getLogger(config.root_logger_name + ".sensor")

@@ -1,15 +1,15 @@
 import pathlib
 import logging
 
-import win32ui  # from pywin32 package and must be imported first to expose dde
+import win32ui  # need to find 'dde' package
 import dde  # from pywin32 package
 import numpy as np
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.controllers.controller import Controller
-from chembot.equipment.sensors.buffers.buffers import Buffer
-from chembot.equipment.sensors.buffers.buffer_ring import BufferRingTime
+from utils.buffers.buffers import Buffer
+from utils.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".atir")
 

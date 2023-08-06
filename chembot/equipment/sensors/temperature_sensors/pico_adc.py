@@ -10,8 +10,8 @@ from chembot.communication.serial_pico import PicoSerial
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.temperature_sensors.calibration import ThermalCalibration
 from chembot.equipment.sensors.controllers.controller import Controller
-from chembot.equipment.sensors.buffers.buffers import Buffer
-from chembot.equipment.sensors.buffers.buffer_ring import BufferRingTime
+from utils.buffers.buffers import Buffer
+from utils.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".temperature")
 

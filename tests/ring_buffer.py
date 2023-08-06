@@ -1,7 +1,7 @@
 import pathlib
 import time
 
-from equipment.sensors.buffers.buffer_ring import BufferRing
+from utils.buffers import BufferRing
 
 
 def main():
