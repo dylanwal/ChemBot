@@ -122,8 +122,8 @@ def convert_to_binary(array, threshold):
 
 
 class Slug:
-    sensor_spacer = 0.95
-    __slots__ = ("time_start_1", "time_end_1", "time_start_2", "time_end_2", "_volume", "_velocity")
+    sensor_spacer = 0.95  # cm
+    __slots__ = ("time_start_1", "time_end_1", "time_start_2", "time_end_2", "_length", "_velocity")
 
     def __init__(self,
                  time_start_1: float | int,
@@ -135,14 +135,14 @@ class Slug:
         self.time_end_1 = time_end_1
         self.time_start_2 = time_start_2
         self.time_end_2 = time_end_2
-        self._volume = None
+        self._length = None
         self._velocity = None
 
     def __str__(self):
-        if self.is_complete:
+        if not self.is_complete:
             text = f"slug_start: ({self.time_start_1}, {self.time_start_2}); No end detected"
         else:
-            text = f"vel:{self.velocity}, len: {self.length}"
+            text = f"vel:{self.velocity:03.02}, len: {self.length:03.02}"
         return text
 
     @property
@@ -155,18 +155,18 @@ class Slug:
             if not self.is_complete:
                 return None
             self._velocity = self.sensor_spacer / \
-                             ((self.time_end_1 - self.time_start_1 + self.time_end_2 - self.time_start_2) / 2)
+                             ((self.time_start_2 - self.time_start_1 + self.time_end_2 - self.time_end_1) / 2)
 
         return self._velocity
 
     @property
     def length(self) -> float | None:
-        if self._volume is None:
+        if self._length is None:
             if self.velocity is None:
                 return None
-            self._volume = self.velocity * (self.time_end_1 - self.time_end_1)
+            self._length = self.velocity * (self.time_end_1 - self.time_start_1 + self.time_end_2 - self.time_start_2)/2
 
-        return self._volume
+        return self._length
 
 
 def extract_transitions(data: array_bool_n):
@@ -179,57 +179,12 @@ def extract_transitions(data: array_bool_n):
     return np.where(ups | downs)[0]  # index of transitions
 
 
-def edges_to_slugs_reduced(data: np.ndarray) -> list[Slug]:
-    # reduce data to transitions
-    data = data[np.concatenate((extract_transitions(data[:, 1]), extract_transitions(data[:, 2]))), :]
-
-    slugs = []
-    slug_buffer = None
-    slug_buffer2 = None
-    for i in range(1, data.shape[0]):
-        if data[i, 1] == 1:
-            if slug_buffer is not None:
-                if slug_buffer2 is None:
-                    slug_buffer2 = slug_buffer
-                else:
-                    slugs.append(slug_buffer2)  # not complete
-
-            slug_buffer = Slug(time_start_1=data[i, 0])
-
-        elif data[i, 1] == 0:
-            if slug_buffer is None:
-                continue
-            slug_buffer.time_end_1 = data[i, 0]
-        elif data[i, 2] - data[i - 1, 2] == 1:
-            if slug_buffer is None:
-                continue
-            slug_buffer.time_start_2 = data[i, 0]
-        elif data[i, 2] - data[i - 1, 2] == -1:
-            if slug_buffer is None:
-                continue
-            if slug_buffer2 is not None:
-                slug_buffer2.time_end_2 = data[i, 0]
-                slugs.append(slug_buffer2)
-                slug_buffer2 = None
-            else:
-                slug_buffer.time_end_2 = data[i, 0]
-                slugs.append(slug_buffer)
-                slug_buffer = None
-
-    if slug_buffer is not None:
-        slugs.append(slug_buffer)
-    if slug_buffer2 is not None:
-        slugs.append(slug_buffer2)
-
-    return slugs
-
-
 def edges_to_slugs(data: np.ndarray) -> list[Slug]:
-    index = np.concatenate((extract_transitions(data[:, 1]), extract_transitions(data[:, 2])))
-    index.sort()
-    index = np.concatenate((index, index - 1, index + 1))
-    index.sort()
-    data = data[index, :]
+    # index = np.concatenate((extract_transitions(data[:, 1]), extract_transitions(data[:, 2])))
+    # index.sort()
+    # index = np.concatenate((index, index - 1, index + 1))
+    # index.sort()
+    # data = data[index, :]
 
     slugs = []
     slug_buffer = None
@@ -286,7 +241,7 @@ def main():
     data[:, 0] = data[:, 0] - data[0, 0]
 
     # exponential
-    data_proc = exponatial_filter(data, 0.95)
+    data_proc = exponatial_filter(data, 0.9)
     data_proc[:, 1] = convert_to_binary(data_proc[:, 1],
                                         (np.max(data_proc[:, 1]) - np.min(data_proc[:, 1])) / 2 + np.min(
                                             data_proc[:, 1]))
@@ -296,13 +251,32 @@ def main():
 
     slugs = edges_to_slugs(data_proc)
     print_slug_data(slugs)
+    """
+    
+    drop 1:
+        real: 3.8 cm 
+        by hand: 3.8 cm 2.01 cm/s
+        
+    drop 2:
+        real: 2.5 cm 
+        by hand: 2.2 cm 2.05 cm/s
+        
+    drop 3:
+        real: 3.1 cm 
+        by hand: 2.6 cm 2.1 cm/s
+        
+    drop 4:
+        real: 2.5 cm 
+        by hand: 2.5 cm 2.65 cm/s
+        
+    """
 
     # figure
     fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 1], mode="lines", legendgroup="raw"))
-    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 2], mode="lines", legendgroup="raw"))
+    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 1], mode="lines"))
+    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 2], mode="lines"))
     fig.add_trace(go.Scatter(x=data_proc[:, 0], y=data_proc[:, 1], mode="lines",
-                             legendgroup="process"), secondary_y=True)
+                              legendgroup="process"), secondary_y=True)
     fig.add_trace(go.Scatter(x=data_proc[:, 0], y=data_proc[:, 2], mode="lines",
                              legendgroup="process"), secondary_y=True)
     fig.show()
