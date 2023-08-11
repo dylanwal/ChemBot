@@ -86,7 +86,7 @@ def time_single(s):
 
 
 def main():
-    s = serial.Serial(port="COM3")
+    s = serial.Serial(port="COM7")
     s.flushOutput()
     s.flushInput()
     try:
@@ -113,8 +113,8 @@ def main():
         fig = go.Figure()
         fig.add_trace(go.Scatter(x=time_-time_[0], y=data[:, 0], mode="lines"))
         fig.add_trace(go.Scatter(x=time_-time_[0], y=data[:, 1], mode="lines"))
-        fig.show()
-
+        # fig.show()
+        fig.write_html("temp.html", auto_open=True)
     finally:
         s.close()
 
