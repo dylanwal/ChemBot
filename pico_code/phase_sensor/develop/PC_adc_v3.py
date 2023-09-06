@@ -92,7 +92,7 @@ def main():
     try:
         set_offset_gain(s)
 
-        n = 2000
+        n = 800
         leds_power(s, 0)
         print("switch")
         time.sleep(0.1)
