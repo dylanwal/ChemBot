@@ -11,31 +11,16 @@ from chembot.equipment.sensors import PhaseSensor
 
 from runs.individual_setup.names import NamesPump, NamesValves, NamesSensors
 
-gas_background = np.array((48776, 36423, 35949, 27334, 30876, 30768, 50346, 28041), dtype="uint64")
-liquid_background = np.array((56157, 44772, 44267, 34047, 29480, 33828, 171358, 30869), dtype="uint64")
-
 
 def job_flow(volume: Quantity, flow_rate: Quantity):
     return JobSequence(
         [
-            Event(
-                resource=NamesSensors.PHASE_SENSOR1,
-                callable_=PhaseSensor.write_gas_background,
-                duration=timedelta(milliseconds=1),
-                kwargs={"gas_background": gas_background}
-            ),
-            Event(
-                resource=NamesSensors.PHASE_SENSOR1,
-                callable_=PhaseSensor.write_liquid_background,
-                duration=timedelta(milliseconds=20),
-                kwargs={"liquid_background": liquid_background}
-            ),
             _valves(),
             Event(
                 resource=NamesSensors.PHASE_SENSOR1,
                 callable_=PhaseSensor.write_measure_continuously,
                 duration=timedelta(milliseconds=100),
-                kwargs={"func": "write_measure_phase", "time_between_measurements": 1/20}
+                kwargs={"func": "write_measure"}
             ),
             _flow(volume, flow_rate),
             Event(
@@ -56,12 +41,6 @@ def _valves() -> JobConcurrent:
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "flow"}
             ),
-            # Event(
-            #     resource=NamesValves.VALVE_MIDDLE,
-            #     callable_=ValveServo.write_move,
-            #     duration=timedelta(seconds=1.5),
-            #     kwargs={"position": "load"}
-            # ),
             Event(
                 resource=NamesValves.VALVE_FRONT,
                 callable_=ValveServo.write_move,

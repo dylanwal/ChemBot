@@ -1,7 +1,8 @@
 import pathlib
 import logging
+import time
 
-from serial import Serial, PARITY_EVEN, STOPBITS_ONE
+from serial import Serial
 import numpy as np
 
 from chembot.configuration import config, create_folder
@@ -13,7 +14,24 @@ from chembot.utils.buffers.buffer_ring import BufferRingTime
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
 
+def format_pin(pin: int, mode: int) -> str:
+    return f"{pin:02}{mode}"
+
+
 class PhaseSensor(Sensor):
+    """
+    signal increase when gas -> liquid
+    """
+    gains = {
+        1: 4.096,
+        2: 2.048,
+        4: 1.024,
+        8: 0.512,
+        16: 0.256
+    }
+    pins = (0, 1)
+    modes = (0, 1)
+
     @property
     def _data_path(self):
         path = config.data_directory / pathlib.Path("phase_sensor")
@@ -23,7 +41,7 @@ class PhaseSensor(Sensor):
     def __init__(self,
                  name: str = None,
                  port: str = "COM6",
-                 number_sensors: int = 8,
+                 number_sensors: int = 2,
                  controllers: list[Controller] | Controller = None,
                  buffer: Buffer = None
                  ):
@@ -32,17 +50,19 @@ class PhaseSensor(Sensor):
             buffer = BufferRingTime(self._data_path / (name + ".csv"), dtype, (10_000, number_sensors), 500)
 
         super().__init__(name, buffer, controllers)
-        self.serial = Serial(port=port, baudrate=115200, parity=PARITY_EVEN, stopbits=STOPBITS_ONE, timeout=0.1)
+        self.serial = Serial(port=port)
+
         self.number_sensors = number_sensors
-        self.gas_background = np.zeros(self.number_sensors, dtype=dtype)
-        self.liquid_background = np.zeros(self.number_sensors, dtype=dtype)
+        self.gain = 1
+        self.offset_voltage = 0
+        self._led_on = False
 
     def __repr__(self):
         return f"Phase Sensor\n\tclass_name: {self.name}\n\tstate: {self.state}"
 
     @property
-    def measurement_frequency(self) -> float:
-        return 1/self.time_between_measurements
+    def led_on(self) -> bool:
+        return self._led_on
 
     def _write(self, message: str):
         message = message + "\n"
@@ -75,46 +95,78 @@ class PhaseSensor(Sensor):
 
     def _stop(self):
         super()._stop()
+        self.write_leds_power(False)
         self.serial.flushOutput()
         self.serial.flushInput()
 
-    def _measure(self, number_of_measurements: int = 1) -> np.ndarray:
+    def write_measure(self, pins: tuple[int] = (0, 1), modes: tuple[int] = (1, 1)) -> np.ndarray:
         if self.serial.in_waiting != 0:
             self.serial.flushInput()
+        if not self.led_on:
+            self.write_leds_power(on=True)
 
-        self._write(f"w{number_of_measurements:02}")
-        data = np.zeros((number_of_measurements, self.number_sensors), dtype="uint32")
-        for i in range(number_of_measurements):
+        self._write("s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)))
+        try:
             reply = self._read_until()
-            if reply is None:
-                raise ValueError("no reply from pico")
-            try:
-                if reply[0] != "w":
-                    raise ValueError(f"Unexpected reply from Pico when measuring from phase sensor.\n reply:{reply}")
-                data[i] = np.array(reply[1:].split(','), dtype="uint64")
-            except Exception as e:
-                logger.error(f"pico reply: {reply}")
-                raise e
+            return np.array(reply.split(","), dtype=np.int16)
+        except ValueError as e:
+            if "reply" in locals():
+                print(reply)
+            if self.serial.in_waiting > 0:
+                print(self.serial.read_all())
+            raise e
 
-        return data
+    def write_gain(self, value: int = 1):
+        """ 1,2,4,8,16"""
+        self._write(f"g{value:02}")
+        reply = self._read_until()
+        if reply[0] != "g":
+            raise ValueError(f"unexpected reply from pico. received: {reply}")
 
-    def write_measure(self, number_of_measurements: int = 1) -> np.ndarray:
-        data = self._measure(number_of_measurements)
-        return data
+    def write_leds_power(self, on: bool = False):
+        """
+        (flipped from normal due to transistors, pull down voltage to turn on)
 
-    def write_measure_phase(self, number_of_measurements: int = 1) -> np.ndarray:
-        data = self._measure(number_of_measurements)
-        data = (data-self.gas_background) / (self.liquid_background - self.gas_background)
-        return np.round(data).astype(bool)
+        Parameters
+        ----------
+        on:
+            True = led on = value sent: 0
+            False = led off = value sent: 1
 
-    def read_gas_background(self) -> np.ndarray:
-        return self.gas_background
+        """
+        self._write(f"d{int(not on)}")
+        reply = self._read_until()
+        if reply[0] != "d":
+            raise ValueError(f"unexpected reply from pico. received: {reply}")
+        time.sleep(0.1)  # to give time for power up
+        self._led_on = on
 
-    def write_gas_background(self, gas_background: list[int, ...] | tuple[int, ...] | np.ndarray):
-        self.gas_background = gas_background
+    def write_auto_offset_gain(self, gain: int = 16):
+        self.write_gain(1)
 
-    def read_liquid_background(self) -> np.ndarray:
-        return self.liquid_background
+        n = 10
+        self.write_leds_power(on=True)
+        data = np.zeros((n, 2), dtype=np.int16)
+        for i in range(n):
+            data[i, :] = self.write_measure([0, 1], [0, 0])
 
-    def write_liquid_background(self, liquid_background: list[int, ...] | tuple[int, ...] | np.ndarray):
-        self.liquid_background = liquid_background
+        # 16 bit resolution adc = 2**16 -1   (minus 1 is it starts at zero)
+        # divide by 2 as the 16 bit is center at zero with both positive and negative
+        # 5 volts is used
+        voltage = np.mean(np.mean(data, axis=0)) / ((2 ** 16 - 1) / 2) * 4.096
+        print(voltage)
+        voltage += self.gains[gain] / 2
+
+        # write DAC voltage
+        self._write(f"o{voltage:.06}")
+        reply = self._read_until()
+        if reply[0] != "o":
+            raise ValueError(f"unexpected reply from pico: {reply}")
+
+        self.write_gain(gain)
+        self.write_leds_power(on=False)
+
+    # def write_measure_phase(self, number_of_measurements: int = 1) -> np.ndarray:
+    #     data = self._measure(number_of_measurements)
+    #     data = (data-self.gas_background) / (self.liquid_background - self.gas_background)
+    #     return np.round(data).astype(bool)

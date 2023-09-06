@@ -38,9 +38,13 @@ class Sensor(Equipment, abc.ABC):
     def write_measure(self):
         pass
 
+    @property
+    def measurement_frequency(self) -> float:
+        return 1/self.time_between_measurements
+
     def write_measure_continuously(self,
                                    func: str = "write_measure",
-                                   time_between_measurements: float = 1,
+                                   time_between_measurements: float = None,
                                    filter_: Filter = None
                                    ):
         """
