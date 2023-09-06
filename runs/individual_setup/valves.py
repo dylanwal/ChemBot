@@ -29,15 +29,16 @@ config_middle = chembot.equipment.valves.ValveConfiguration.get_configuration("4
 config_middle.ports[0].name = "to_reactor"
 config_middle.ports[1].name = "to_pump"
 config_middle.ports[2].name = "to_fill"
-config_middle.ports[3].name = "blocked"
-config_middle.ports[3].blocked = True
+config_middle.ports[3].name = "to_air"
+# config_middle.ports[3].blocked = True
 
 config_middle.positions[0].setting = 1638  # calibrated on 7/7/23 DW
-config_middle.positions[0].name = "load"  # "flow"
+config_middle.positions[0].name = "flow"
 config_middle.positions[1].setting = 3932  # calibrated on 7/7/23 DW
-config_middle.positions[1].name = "bypass"
+config_middle.positions[1].name = "load"
 config_middle.positions[2].setting = 6225  # calibrated on 7/7/23 DW
 config_middle.positions[3].setting = 8191  # calibrated on 7/7/23 DW
+config_middle.positions[3].name = "flow_air"
 
 valve_middle = chembot.equipment.valves.ValveServo(
     name=NamesValves.VALVE_MIDDLE,

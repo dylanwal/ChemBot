@@ -86,7 +86,7 @@ def time_single(s):
 
 
 def main():
-    s = serial.Serial(port="COM7")
+    s = serial.Serial(port="COM14")
     s.flushOutput()
     s.flushInput()
     try:

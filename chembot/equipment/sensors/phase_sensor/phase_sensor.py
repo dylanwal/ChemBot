@@ -75,7 +75,7 @@ class PhaseSensor(Sensor):
         return message.strip("\n")
 
     def _read_until(self, symbol: str = "\n") -> str:
-        message = self.serial.read_until(symbol).decode(config.encoding)
+        message = self.serial.readline().decode(config.encoding)
         return message.strip(symbol)
 
     def _activate(self):

@@ -55,13 +55,22 @@ syringe_configs = {
     "diameter": 9.525 * Unit.mm,
     "vendor": "kd_scientific"
   },
-  "norm_ject_22768": {  #  https://www.restek.com/en/products/sample-preparation--air-sampling/sample-preparation-products/Syringes/8027/
+  "norm_ject_22768": {  # https://www.restek.com/p/22768
     "volume": 5 * Unit.ml,
     "max_pressure": 10 * Unit.psi,
     "min_pressure": 0 * Unit.bar,
     "max_temperature": 30 * Unit.degC,
     "min_temperature": 20 * Unit.degC,
     "diameter": 12.45 * Unit.mm,
+    "vendor": "norm_ject"
+  },
+  "norm_ject_22767": {  # https://www.restek.com/p/22768
+    "volume": 2 * Unit.ml,
+    "max_pressure": 10 * Unit.psi,
+    "min_pressure": 0 * Unit.bar,
+    "max_temperature": 30 * Unit.degC,
+    "min_temperature": 20 * Unit.degC,
+    "diameter": 9.65 * Unit.mm,
     "vendor": "norm_ject"
   }
 }

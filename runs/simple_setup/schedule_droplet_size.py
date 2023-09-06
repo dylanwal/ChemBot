@@ -187,7 +187,7 @@ def main():
 
     job = job_droplets(
         volume=2 * Unit.mL,
-        flow_rate=0.1 * (Unit.mL / Unit.min),
+        flow_rate=0.3 * (Unit.mL / Unit.min),
         flow_rate_fill=1.5 * (Unit.mL / Unit.min)
     )
     result = job_submitter.submit(job)

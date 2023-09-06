@@ -14,9 +14,9 @@ pump_front = chembot.equipment.pumps.SyringePumpHarvard(
 
 pump_middle = chembot.equipment.pumps.SyringePumpHarvard(
     name=NamesPump.PUMP_MIDDLE,
-    syringe=chembot.equipment.pumps.Syringe.get_syringe("hamilton_1010"),
+    syringe=chembot.equipment.pumps.Syringe.get_syringe("norm_ject_22767"),
     port="COM9",
-    max_pull=12 * Unit.cm,
+    max_pull=4.8 * Unit.cm,
 )
 
 pump_back = chembot.equipment.pumps.SyringePumpHarvard(

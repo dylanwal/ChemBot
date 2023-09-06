@@ -146,9 +146,9 @@ class HarvardPumpStatusMessage:
 
         status = cls()
         # integer terms
-        status.flow_rate = int(message[0]) * Unit("fL")
+        status.flow_rate = int(message[0]) * Unit("fL") #TODO fix
         status.time_ = int(message[1]) * Unit("ms")
-        status.displaced_volume = int(message[2]) * Unit("fL")
+        status.displaced_volume = int(message[2]) * Unit("fL")  #TODO fix
 
         flag_field = message[3]
         # first term
