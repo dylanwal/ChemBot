@@ -23,9 +23,9 @@ class Sensor(Equipment, abc.ABC):
             controllers = [controllers]
         self.controllers = controllers
         self.buffer = buffer
-
-        self.time_between_measurements = 0
         self.filter_ = None
+
+        self.time_between_measurements = 0.001
         self._stop_thread = True
         self._thread_func = self.write_measure
         self._thread = threading.Thread(target=self._thread_measure)
@@ -63,8 +63,10 @@ class Sensor(Equipment, abc.ABC):
             algorithm to filter data
         """
         self._thread_func = getattr(self, func)
-        self.time_between_measurements = time_between_measurements
-        self.filter_ = filter_
+        if time_between_measurements:
+            self.time_between_measurements = time_between_measurements
+        if filter_:
+            self.filter_ = filter_
         self._stop_thread = False
 
     def _thread_measure(self):
@@ -73,7 +75,7 @@ class Sensor(Equipment, abc.ABC):
         while True:
             if not main_thread.is_alive():
                 break
-            if self._stop_thread:
+            if self._stop_thread:  # keeps tread looping while waiting for activation
                 time.sleep(0.1)
                 continue
 

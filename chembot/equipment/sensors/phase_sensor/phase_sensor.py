@@ -22,6 +22,7 @@ class PhaseSensor(Sensor):
     """
     signal increase when gas -> liquid
     """
+    dtype = np.int16
     gains = {
         1: 4.096,
         2: 2.048,
@@ -39,15 +40,14 @@ class PhaseSensor(Sensor):
         return path
 
     def __init__(self,
-                 name: str = None,
+                 name: str,
                  port: str = "COM6",
                  number_sensors: int = 2,
                  controllers: list[Controller] | Controller = None,
                  buffer: Buffer = None
                  ):
-        dtype = "uint64"
         if buffer is None:
-            buffer = BufferRingTime(self._data_path / (name + ".csv"), dtype, (10_000, number_sensors), 500)
+            buffer = BufferRingTime(self._data_path / (name + ".csv"), self.dtype, (10_000, number_sensors), 500)
 
         super().__init__(name, buffer, controllers)
         self.serial = Serial(port=port)
@@ -95,6 +95,7 @@ class PhaseSensor(Sensor):
 
     def _stop(self):
         super()._stop()
+        time.sleep(3)
         self.write_leds_power(False)
         self.serial.flushOutput()
         self.serial.flushInput()
@@ -105,20 +106,30 @@ class PhaseSensor(Sensor):
         if not self.led_on:
             self.write_leds_power(on=True)
 
-        self._write("s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)))
-        try:
-            reply = self._read_until()
-            return np.array(reply.split(","), dtype=np.int16)
-        except ValueError as e:
-            if "reply" in locals():
-                print(reply)
-            if self.serial.in_waiting > 0:
-                print(self.serial.read_all())
-            raise e
+        for i in range(2):
+            self._write("s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)))
+            try:
+                reply = self._read_until()
+                return np.array(reply.split(","), dtype=self.dtype)
+            except ValueError as e:
+                if i == 0:
+                    self.serial.flushInput()
+                    continue
+                if "reply" in locals():
+                    print("reply:", reply)
+                if self.serial.in_waiting > 0:
+                    print("in buffer:", self.serial.read_all())
+                raise e
 
-    def write_gain(self, value: int = 1):
-        """ 1,2,4,8,16"""
-        self._write(f"g{value:02}")
+    def write_gain(self, gain: int = 1):
+        """
+
+        Parameters
+        ----------
+        gain:
+            range: [1, 2, 4, 8, 16]
+        """
+        self._write(f"g{gain:02}")
         reply = self._read_until()
         if reply[0] != "g":
             raise ValueError(f"unexpected reply from pico. received: {reply}")
@@ -141,14 +152,36 @@ class PhaseSensor(Sensor):
         time.sleep(0.1)  # to give time for power up
         self._led_on = on
 
+    def write_offset_voltage(self, offset_voltage: int | float = 0):
+        """
+
+        Parameters
+        ----------
+        offset_voltage:
+            range: [0:5]
+        """
+        # write DAC voltage
+        self._write(f"o{offset_voltage:.06}")
+        reply = self._read_until()
+        if reply[0] != "o":
+            raise ValueError(f"unexpected reply from pico: {reply}")
+
     def write_auto_offset_gain(self, gain: int = 16):
+        """
+
+        Parameters
+        ----------
+        gain:
+            set final desired gain
+
+        """
         self.write_gain(1)
 
         n = 10
         self.write_leds_power(on=True)
         data = np.zeros((n, 2), dtype=np.int16)
         for i in range(n):
-            data[i, :] = self.write_measure([0, 1], [0, 0])
+            data[i, :] = self.write_measure((0, 1), (0, 0))
 
         # 16 bit resolution adc = 2**16 -1   (minus 1 is it starts at zero)
         # divide by 2 as the 16 bit is center at zero with both positive and negative
@@ -157,12 +190,7 @@ class PhaseSensor(Sensor):
         print(voltage)
         voltage += self.gains[gain] / 2
 
-        # write DAC voltage
-        self._write(f"o{voltage:.06}")
-        reply = self._read_until()
-        if reply[0] != "o":
-            raise ValueError(f"unexpected reply from pico: {reply}")
-
+        self.write_voltage_offset(voltage)
         self.write_gain(gain)
         self.write_leds_power(on=False)
 

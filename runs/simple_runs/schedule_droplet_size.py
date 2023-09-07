@@ -82,9 +82,20 @@ def add_phase_sensor(job: JobSequence | JobConcurrent) -> JobSequence:
         [
             Event(
                 resource=NamesSensors.PHASE_SENSOR1,
+                callable_=PhaseSensor.write_offset_voltage,
+                duration=timedelta(seconds=0.2),
+                kwargs={"offset_voltage": 2.65}
+            ),
+            Event(
+                resource=NamesSensors.PHASE_SENSOR1,
+                callable_=PhaseSensor.write_gain,
+                duration=timedelta(seconds=0.2),
+                kwargs={"gain": 16}
+            ),
+            Event(
+                resource=NamesSensors.PHASE_SENSOR1,
                 callable_=PhaseSensor.write_measure_continuously,
                 duration=timedelta(milliseconds=100),
-                kwargs={"func": "write_measure"}
             ),
             job,
             Event(
@@ -109,7 +120,7 @@ def job_air_purge(volume: Quantity = 2 * Unit.ml, flow_rate: Quantity = 5 * Unit
                 resource=NamesValves.VALVE_MIDDLE,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
-                kwargs={"position": "fill"}
+                kwargs={"position": "flow_air"}
             ),
             job_flow(volume, flow_rate, NamesValves.VALVE_BACK, NamesPump.PUMP_BACK)
         ]
@@ -119,24 +130,30 @@ def job_air_purge(volume: Quantity = 2 * Unit.ml, flow_rate: Quantity = 5 * Unit
 def job_droplets() -> JobSequence:
     return JobSequence(
         [
-            job_fill_syringe_multiple(
-                volume=[2 * Unit.ml, 0.5 * Unit.ml],
-                flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
-                valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            ),
+            # job_fill_syringe_multiple(
+            #     volume=[2 * Unit.ml, 0.5 * Unit.ml],
+            #     flow_rate=[2 * Unit("ml/min"), 0.5 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            # ),
             # priming
-            job_flow_syringe_multiple(
-                volume=[2 * Unit.ml, 0.5 * Unit.ml],
-                flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
-                valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            ),
+            # job_flow_syringe_multiple(
+            #     volume=[0.001 * Unit.ml, 0.08 * Unit.ml],
+            #     flow_rate=[0.5 * Unit("ml/min"), 0.5 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            # ),
+            # job_flow_syringe_multiple(
+            #     volume=[0.4 * Unit.ml, 0.1 * Unit.ml],
+            #     flow_rate=[0.6 * Unit("ml/min"), 0.15 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            # ),
             # main job
             add_phase_sensor(
                 job_flow_syringe_multiple(
-                    volume=[2 * Unit.ml, 0.5 * Unit.ml],
-                    flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
+                    volume=[.15 * Unit.ml, 0.15 * Unit.ml],
+                    flow_rate=[0.05 * Unit("ml/min"), 0.05 * Unit("ml/min")],
                     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
                     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
                 )

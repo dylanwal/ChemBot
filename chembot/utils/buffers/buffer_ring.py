@@ -121,8 +121,8 @@ class BufferRing:
         self.total_rows += 1
 
     def save_all(self):
-        self._close = True
         self.save(self._last_save, self.position)
+        self._close = True
 
     def save(self, last_save: int, position: int):
         if last_save == position:
@@ -170,7 +170,7 @@ class BufferRing:
             with open(self.get_file_path(index), mode="w", encoding="utf-8") as f:
                 while True:
                     try:
-                        data: np.ndarray = self.data_queue.get(timeout=1)  # blocking
+                        data: np.ndarray = self.data_queue.get(timeout=0.2)  # blocking
                     except queue.Empty:
                         if self._close:
                             self._close = False
@@ -187,6 +187,7 @@ class BufferRing:
                         break
 
                     # write row
+                    logger.info("saving")
                     for row in data:
                         f.write(','.join(str(i) for i in row))
                         f.write('\n')
