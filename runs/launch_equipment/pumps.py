@@ -2,7 +2,7 @@ from unitpy import Unit
 
 import chembot
 
-from runs.individual_setup.names import NamesPump
+from runs.launch_equipment.names import NamesPump
 
 pump_front = chembot.equipment.pumps.SyringePumpHarvard(
     name=NamesPump.PUMP_FRONT,

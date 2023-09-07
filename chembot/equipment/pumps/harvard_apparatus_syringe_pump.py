@@ -146,9 +146,9 @@ class HarvardPumpStatusMessage:
 
         status = cls()
         # integer terms
-        status.flow_rate = int(message[0]) * Unit("fL") #TODO fix
+        status.flow_rate = int(message[0]) * Unit("fL/s")  # Yes, it is femtoliters per second
         status.time_ = int(message[1]) * Unit("ms")
-        status.displaced_volume = int(message[2]) * Unit("fL")  #TODO fix
+        status.displaced_volume = int(message[2]) * Unit("fL")  # Yes, it is femtoliters
 
         flag_field = message[3]
         # first term

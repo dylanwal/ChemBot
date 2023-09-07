@@ -1,6 +1,6 @@
 import chembot
 
-from runs.individual_setup.names import NamesSerial
+from runs.launch_equipment.names import NamesSerial
 
 serial = chembot.communication.PicoSerial(NamesSerial.PICO2, "COM12")
 serial.activate()

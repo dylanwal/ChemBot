@@ -6,7 +6,7 @@ from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.scheduler.job_submitter import JobSubmitter
 from chembot.equipment.sensors import PhaseSensor
 
-from runs.individual_setup.names import NamesSensors
+from runs.launch_equipment.names import NamesSensors
 
 
 def job_measure(rate: float = 1/20):

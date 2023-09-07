@@ -8,7 +8,7 @@ from chembot.equipment.pumps import SyringePumpHarvard
 from chembot.scheduler.job_submitter import JobSubmitter
 from chembot.equipment import Profile
 
-from runs.individual_setup.names import NamesPump
+from runs.launch_equipment.names import NamesPump
 
 
 # def sine_wave(x: np.ndarray) -> np.ndarray:

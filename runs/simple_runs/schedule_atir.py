@@ -4,7 +4,7 @@ from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.scheduler.job_submitter import JobSubmitter
 from chembot.equipment.sensors import ATIR
 
-from runs.individual_setup.names import NamesSensors
+from runs.launch_equipment.names import NamesSensors
 
 
 def job_rotate_through_all_positions() -> JobSequence:

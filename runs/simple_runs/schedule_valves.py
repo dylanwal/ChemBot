@@ -4,7 +4,7 @@ from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.equipment.valves import ValveServo
 from chembot.scheduler.job_submitter import JobSubmitter
 
-from runs.individual_setup.names import NamesValves
+from runs.launch_equipment.names import NamesValves
 
 
 def job_rotate_through_all_positions() -> JobSequence:

@@ -3,7 +3,7 @@ from unitpy import U
 
 import chembot
 
-from runs.individual_setup.names import NamesLEDColors, NamesSerial
+from runs.launch_equipment.names import NamesLEDColors, NamesSerial
 
 
 red = chembot.equipment.lights.LightPico(

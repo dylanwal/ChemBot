@@ -1,7 +1,7 @@
 
 import chembot
 
-from runs.individual_setup.names import NamesValves, NamesSerial
+from runs.launch_equipment.names import NamesValves, NamesSerial
 
 config_front = chembot.equipment.valves.ValveConfiguration.get_configuration("4L")
 config_front.ports[0].name = "to_reactor"

@@ -3,7 +3,7 @@ from unitpy import U
 
 import chembot
 
-from runs.individual_setup.names import NamesSensors, NamesSerial
+from runs.launch_equipment.names import NamesSensors, NamesSerial
 
 calibration = chembot.equipment.sensors.ThermistorCalibrationB(
     B=3984 * U.K,

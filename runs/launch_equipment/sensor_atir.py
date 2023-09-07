@@ -1,7 +1,7 @@
 
 import chembot
 
-from runs.individual_setup.names import NamesSensors
+from runs.launch_equipment.names import NamesSensors
 
 atir = chembot.equipment.sensors.ATIR(NamesSensors.ATIR)
 atir.activate()

@@ -1,6 +1,6 @@
 
 import chembot
-from runs.individual_setup.equipment_names import NamesSerial
+from runs.launch_equipment.equipment_names import NamesSerial
 
 on_board_LED = chembot.equipment.lights.LightPico(
     name="on_board_LED",
