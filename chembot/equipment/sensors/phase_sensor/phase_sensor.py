@@ -1,3 +1,4 @@
+import functools
 import pathlib
 import logging
 import time
@@ -16,6 +17,10 @@ logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
 def format_pin(pin: int, mode: int) -> str:
     return f"{pin:02}{mode}"
+
+
+def parse_measurement(message: str, dtype=np.np.int64) -> np.ndarray:
+    return np.array(message.split(","), dtype=dtype)
 
 
 class PhaseSensor(Sensor):
@@ -66,36 +71,56 @@ class PhaseSensor(Sensor):
 
     def _write(self, message: str):
         message = message + "\n"
-        # logger.info(f"send: {message}")
+        # logger.debug(f"send: {message}")
         self.serial.write(message.encode(config.encoding))
 
     def _read(self, read_bytes: int) -> str:
         message = self.serial.read(read_bytes).decode(config.encoding)
-        # logger.info(f"receive: {message}")
+        # logger.debug(f"receive: {message}")
         return message.strip("\n")
 
     def _read_until(self, symbol: str = "\n") -> str:
         message = self.serial.readline().decode(config.encoding)
         return message.strip(symbol)
 
+    def _write_and_read(self, message: str, expected_reply: str = None, reply_processing: callable = None):
+        n = 3  # give it 3 tries to work
+        for i in range(n):
+            self._write(message)
+            try:
+                reply = self._read_until()
+                if expected_reply is not None and reply[0] != expected_reply:
+                    raise ValueError(f"Unexpected reply from pico when sending message: {message}.\nReceived: {reply}")
+                if reply_processing is not None:
+                    try:
+                        return reply_processing(reply)
+                    except Exception as ee:
+                        raise ValueError(f"Error parsing a pico reply when sending message: {message}.\nReceived: "
+                                         f"{reply}")
+                return reply
+
+            except ValueError as e:
+                if i > n-1:
+                    self.serial.flushInput()
+                    continue
+                if "reply" in locals():
+                    print("reply:", reply)
+                if self.serial.in_waiting > 0:
+                    print("in buffer:", self.serial.read_all())
+                raise e
+
     def _activate(self):
         self.serial.flushInput()
         self.serial.flushOutput()
-        self._write("v")
-        reply = self._read_until()
-        if reply[0] != "v":
-            raise ValueError(f"Unexpected reply from Pico during activation.\n reply:{reply}")
+        reply = self._write_and_read("v", "v")
         self.pico_version = reply[1:]
 
     def _deactivate(self):
-        self._write("r")
-        reply = self._read_until()
-        if reply[0] != "r":
-            raise ValueError(f"Unexpected reply from Pico when deactivating.\n reply:{reply}")
+        self._write_and_read("r", "r")
 
     def _stop(self):
         super()._stop()
-        time.sleep(3)
+        time.sleep(2)  # allow for last reads to finish before writing to leds
         self.write_leds_power(False)
         self.serial.flushOutput()
         self.serial.flushInput()
@@ -106,20 +131,10 @@ class PhaseSensor(Sensor):
         if not self.led_on:
             self.write_leds_power(on=True)
 
-        for i in range(2):
-            self._write("s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)))
-            try:
-                reply = self._read_until()
-                return np.array(reply.split(","), dtype=self.dtype)
-            except ValueError as e:
-                if i == 0:
-                    self.serial.flushInput()
-                    continue
-                if "reply" in locals():
-                    print("reply:", reply)
-                if self.serial.in_waiting > 0:
-                    print("in buffer:", self.serial.read_all())
-                raise e
+        return self._write_and_read(  # noqa
+            message="s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)),
+            reply_processing=functools.partial(parse_measurement, {"dtype": self.dtype})
+        )
 
     def write_gain(self, gain: int = 1):
         """
@@ -129,10 +144,7 @@ class PhaseSensor(Sensor):
         gain:
             range: [1, 2, 4, 8, 16]
         """
-        self._write(f"g{gain:02}")
-        reply = self._read_until()
-        if reply[0] != "g":
-            raise ValueError(f"unexpected reply from pico. received: {reply}")
+        self._write_and_read(f"g{gain:02}", "g")
 
     def write_leds_power(self, on: bool = False):
         """
@@ -145,10 +157,7 @@ class PhaseSensor(Sensor):
             False = led off = value sent: 1
 
         """
-        self._write(f"d{int(not on)}")
-        reply = self._read_until()
-        if reply[0] != "d":
-            raise ValueError(f"unexpected reply from pico. received: {reply}")
+        self._write_and_read(f"d{int(not on)}", "d")
         time.sleep(0.1)  # to give time for power up
         self._led_on = on
 
@@ -160,11 +169,7 @@ class PhaseSensor(Sensor):
         offset_voltage:
             range: [0:5]
         """
-        # write DAC voltage
-        self._write(f"o{offset_voltage:.06}")
-        reply = self._read_until()
-        if reply[0] != "o":
-            raise ValueError(f"unexpected reply from pico: {reply}")
+        self._write_and_read(f"o{offset_voltage:.06}", "o")
 
     def write_auto_offset_gain(self, gain: int = 16):
         """
@@ -190,7 +195,7 @@ class PhaseSensor(Sensor):
         print(voltage)
         voltage += self.gains[gain] / 2
 
-        self.write_voltage_offset(voltage)
+        self.write_offset_voltage(voltage)
         self.write_gain(gain)
         self.write_leds_power(on=False)
 
