@@ -69,7 +69,29 @@ valve_back = chembot.equipment.valves.ValveServo(
 )
 # valve_back.activate()
 
+config_analytical = chembot.equipment.valves.ValveConfiguration.get_configuration("4L")
+config_analytical.ports[0].name = "to_reactor"
+config_analytical.ports[1].name = "to_pump"
+config_analytical.ports[2].name = "to_fill"
+config_analytical.ports[3].name = "blocked"
+config_analytical.ports[3].blocked = True
+
+config_analytical.positions[0].setting = 1900  # calibrated on 7/7/23 DW
+config_analytical.positions[0].name = "flow"
+config_analytical.positions[1].setting = 4200  # calibrated on 7/7/23 DW
+config_analytical.positions[1].name = "fill"
+config_analytical.positions[2].setting = 6225  # calibrated on 7/7/23 DW
+config_analytical.positions[3].setting = 8450  # calibrated on 7/7/23 DW
+
+valve_analytical = chembot.equipment.valves.ValveServo(
+    name=NamesValves.VALVE_ANALYTICAL,
+    communication=NamesSerial.PICO2,
+    configuration=config_analytical,
+    pin=8,
+)
+# valve_analytical.activate()
+
 
 with chembot.utils.EquipmentManager() as manager:
-    manager.add([valve_front, valve_middle, valve_back])
+    manager.add([valve_front, valve_middle, valve_back, valve_analytical])
     manager.activate()

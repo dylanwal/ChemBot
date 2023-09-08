@@ -23,6 +23,7 @@ class NamesValves:
     VALVE_FRONT = "valve_front"
     VALVE_MIDDLE = "valve_middle"
     VALVE_BACK = "valve_back"
+    VALVE_ANALYTICAL = "valve_analytical"
 
 
 class NamesSensors:

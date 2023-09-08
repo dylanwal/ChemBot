@@ -7,26 +7,26 @@ from chembot.scheduler.job_submitter import JobSubmitter
 from runs.launch_equipment.names import NamesValves
 
 
-def job_rotate_through_all_positions() -> JobSequence:
+def job_rotate_through_all_positions(valve_name: str) -> JobSequence:
     return JobSequence(
         [
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=valve_name,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=valve_name,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=valve_name,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=valve_name,
                 callable_=ValveServo.write_move_next,
                 duration=timedelta(seconds=3),
             ),
@@ -37,7 +37,7 @@ def job_rotate_through_all_positions() -> JobSequence:
 def main():
     job_submitter = JobSubmitter()
 
-    job = job_rotate_through_all_positions()
+    job = job_rotate_through_all_positions(NamesValves.VALVE_ANALYTICAL)
     result = job_submitter.submit(job)
     print(result)
 
