@@ -1,14 +1,17 @@
-import enum
+import sys
+import time
 
 import numpy as np
-
-import plotly.graph_objs as go
-from plotly.subplots import make_subplots
 
 from scipy import sparse
 from scipy.sparse.linalg import spsolve
 
-from typing import Annotated, Literal, TypeVar, Callable
+from PyQt6 import QtWidgets, QtCore
+from PyQt6.QtWidgets import QApplication, QMainWindow
+from pyqtgraph.dockarea import *
+import pyqtgraph as pg
+
+from typing import Annotated, Literal, TypeVar
 import numpy.typing as npt
 
 DType = TypeVar("DType", bound=np.generic)
@@ -17,7 +20,63 @@ array_int16_nx2 = Annotated[npt.NDArray[np.int16], Literal["n", 2]]
 array_bool_n = Annotated[bool, Literal["n"]]
 
 
-def exponatial_filter(data: np.ndarray, a: float = 0.9):
+class MyWindow(QMainWindow):
+    def __init__(self, app):
+        super(MyWindow, self).__init__()
+        self.app = app
+        self.initUI()
+
+    def initUI(self):
+        # Generate window
+        self.area = DockArea()
+        self.setCentralWidget(self.area)
+        self.resize(1200, 600)
+        self.setWindowTitle('Phase sensor')
+
+        # Generate docks
+        self.d1 = Dock("Dock1", size=(1200, 600))
+        self.area.addDock(self.d1)
+
+        # Dock 1
+        self.d1.hideTitleBar()
+        self.w1 = pg.PlotWidget(title="phase sensor")
+        self.d1.addWidget(self.w1)
+        self.w1.setLabel('left', 'Distance', units='cm')
+        self.w1.setLabel('bottom', 'Time', units='sec')
+        self.plot_points = 100
+        self.w1_xdata = np.zeros([self.plot_points])
+        self.w1_ydata = np.zeros([self.plot_points])
+        pen_w1_1 = pg.mkPen(color=(0, 0, 255), width=5)
+        self.w1_plot = self.w2.plot(self.w1_xdata, self.w1_ydata, pen=pen_w1_1)
+
+        # Update everything
+        self.counter = 0
+        self.w2_timer = pg.QtCore.QTimer()
+        self.w2_timer.timeout.connect(self.update_all)
+        self.w2_timer.start(0)
+
+    def update(self):
+        self.update_plots()
+        if self.counter % 10 == 0:   # run every 10 loop
+            self.update_labels()
+        self.app.processEvents()
+        self.counter += 1
+
+
+    def update_plots(self):
+        global data
+        self.w1_plot.setData(xdata, ydata1)
+
+    def update_labels(self):
+        now = time.time()
+        dt = time.time() - self.fps_time
+        self.fps_time = now
+        self.fps = 10 / dt
+        self.l1.setValue(self.fps)
+        self.l2.setValue(self.counter)
+
+
+def exponential_filter(data: np.ndarray, a: float = 0.9):
     data = np.copy(data)
     for row in range(1, len(data)):
         data[row, 1:] = a * data[row - 1, 1:] + (1 - a) * data[row, 1:]
@@ -258,134 +317,16 @@ def main():
     # print_slug_data(slugs)
 
     # figure
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 1], mode="lines"))
-    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 2], mode="lines"))
-    fig.add_trace(
-        go.Scatter(x=data_proc[:, 0], y=data_proc[:, 1], mode="lines", legendgroup="process"),
-                  secondary_y=True
-    )
-    fig.add_trace(go.Scatter(x=data_proc[:, 0], y=data_proc[:, 2], mode="lines",
-                             legendgroup="process"), secondary_y=True)
-    fig.write_html("temp.html", auto_open=True)
+    window()
 
 
-class RingBufferSimple:
-    def __init__(self, buffer: np.ndarray):
-        self._buffer = buffer
-        self.position = 0
-
-    @property
-    def buffer(self) -> np.ndarray:
-        return self._buffer
-
-    def add_data(self, data: int | float | np.ndarray):
-        if self.position == self._buffer.shape[0] - 1:
-            self.position = 0
-        else:
-            self.position += 1
-
-        self._buffer[self.position, :] = data
-
-
-class CUSUM:
-    class States(enum.Enum):
-        init = 0
-        down = 1
-        up = 2
-
-    def __init__(self, c_limit: float | int = 1, n: int = 10, filter_: Callable = None):
-        """
-        Parameters
-        ----------
-        c_limit:
-            Control limit, specified as a real scalar expressed in standard deviations.
-        n:
-            number points to calculate standard_deviation and mean
-        filter_
-        """
-        self.filter_ = filter_
-        self.n = n
-        self.c_limit = c_limit
-
-        self._state = self.States.init
-        self._prior_state = self.States.init
-        self._up_sum = 0
-        self._low_sum = 0
-        self._mean = 0
-        self._standard_deviation = 0
-        self._data = None
-        self._count = 0
-
-    @property
-    def state(self) -> States:
-        return self._state
-
-    def add_data(self, data: np.ndarray) -> States | None:
-        self._count += 1
-        try:  # try loop used for performance
-            self._data.add_data(data)
-        except AttributeError:
-            if isinstance(data, np.ndarray):
-                self._data = RingBufferSimple(np.zeros((self.n, len(data))))
-            else:
-                self._data = RingBufferSimple(np.zeros((self.n, 1)))
-            self._data.add_data(data)
-
-        self._mean = np.mean(self._data.buffer)
-        self._standard_deviation = np.std(self._data.buffer)
-
-        self._up_sum = np.max((0, self._up_sum + data - self._mean - 1/2*3*self._standard_deviation))
-        self._low_sum = np.min((0, self._low_sum + data - self._mean + 1/2*3*self._standard_deviation))
-
-        if self._count > self.n:
-            if self._up_sum > self.c_limit*self._standard_deviation:
-                self._state = self.States.up
-            if self._low_sum < - self.c_limit * self._standard_deviation:
-                self._state = self.States.down
-            if self._state != self._prior_state:
-                return self.state
-
-        return None  # no event detected
-
-
-def main2():
-    data = np.genfromtxt("data_0.csv", delimiter=",")
-    data[:, 0] = data[:, 0] - data[0, 0]
-    # data_proc = exponatial_filter(data, 0.8)
-
-    # exponential
-    algorithm = CUSUM()
-    state = np.zeros(data.shape[0], dtype=np.int8)
-    up = np.zeros(data.shape[0])
-    down = np.zeros(data.shape[0])
-    for i in range(data.shape[0]):
-        new_data_point = data[i, 1]
-        event = algorithm.add_data(new_data_point)
-        up[i] = algorithm._up_sum
-        down[i] = algorithm._low_sum
-        if event:
-            state[i] = event.value
-    # slugs = cumulative_sum_control(data_proc)
-    # print_slug_data(slugs)
-
-    # figure
-    fig = make_subplots(specs=[[{"secondary_y": True}]])
-    fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 1], mode="lines"))
-    # fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 2], mode="lines"))
-    fig.add_trace(
-        go.Scatter(x=data[:, 0], y=up, mode="lines", legendgroup="process"),
-                  secondary_y=True
-    )
-    fig.add_trace(
-        go.Scatter(x=data[:, 0], y=down, mode="lines", legendgroup="process"),
-                  secondary_y=True
-    )
-
-    fig.write_html("temp.html", auto_open=True)
+def window():
+    app = QApplication([])
+    win = MyWindow(app)
+    win.show()
+    sys.exit(app.exec_())
 
 
 if __name__ == "__main__":
-    main2()
-
+    main()
 
