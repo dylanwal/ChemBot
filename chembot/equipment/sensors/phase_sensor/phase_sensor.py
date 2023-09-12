@@ -47,12 +47,13 @@ class PhaseSensor(Sensor):
     def __init__(self,
                  name: str,
                  port: str = "COM6",
-                 number_sensors: int = 2,
+                 # number_sensors: int = 2,
                  controllers: list[Controller] | Controller = None,
                  buffer: Buffer = None
                  ):
+        number_sensors = 2
         if buffer is None:
-            buffer = BufferRingTime(self._data_path / (name + ".csv"), self.dtype, (10_000, number_sensors), 500)
+            buffer = BufferRingTime(self._data_path / name, np.zeros((10_000, number_sensors), dtype=self.dtype))
 
         super().__init__(name, buffer, controllers)
         self.serial = Serial(port=port)
@@ -104,7 +105,7 @@ class PhaseSensor(Sensor):
                     self.serial.flushInput()
                     continue
                 if "reply" in locals():
-                    print("reply:", reply)
+                    print("reply:", reply)  # noqa
                 if self.serial.in_waiting > 0:
                     print("in buffer:", self.serial.read_all())
                 raise e
@@ -125,7 +126,7 @@ class PhaseSensor(Sensor):
         self.serial.flushOutput()
         self.serial.flushInput()
 
-    def write_measure(self, pins: tuple[int] = (0, 1), modes: tuple[int] = (1, 1)) -> np.ndarray:
+    def write_measure(self, pins: tuple[int, int] = (0, 1), modes: tuple[int, int] = (1, 1)) -> np.ndarray:
         if self.serial.in_waiting != 0:
             self.serial.flushInput()
         if not self.led_on:
@@ -198,8 +199,3 @@ class PhaseSensor(Sensor):
         self.write_offset_voltage(voltage)
         self.write_gain(gain)
         self.write_leds_power(on=False)
-
-    # def write_measure_phase(self, number_of_measurements: int = 1) -> np.ndarray:
-    #     data = self._measure(number_of_measurements)
-    #     data = (data-self.gas_background) / (self.liquid_background - self.gas_background)
-    #     return np.round(data).astype(bool)

@@ -270,83 +270,10 @@ def main():
     fig.write_html("temp.html", auto_open=True)
 
 
-class RingBufferSimple:
-    def __init__(self, buffer: np.ndarray):
-        self._buffer = buffer
-        self.position = 0
-
-    @property
-    def buffer(self) -> np.ndarray:
-        return self._buffer
-
-    def add_data(self, data: int | float | np.ndarray):
-        if self.position == self._buffer.shape[0] - 1:
-            self.position = 0
-        else:
-            self.position += 1
-
-        self._buffer[self.position, :] = data
 
 
-class CUSUM:
-    class States(enum.Enum):
-        init = 0
-        down = 1
-        up = 2
 
-    def __init__(self, c_limit: float | int = 1, n: int = 10, filter_: Callable = None):
-        """
-        Parameters
-        ----------
-        c_limit:
-            Control limit, specified as a real scalar expressed in standard deviations.
-        n:
-            number points to calculate standard_deviation and mean
-        filter_
-        """
-        self.filter_ = filter_
-        self.n = n
-        self.c_limit = c_limit
-
-        self._state = self.States.init
-        self._prior_state = self.States.init
-        self._up_sum = 0
-        self._low_sum = 0
-        self._mean = 0
-        self._standard_deviation = 0
-        self._data = None
-        self._count = 0
-
-    @property
-    def state(self) -> States:
-        return self._state
-
-    def add_data(self, data: np.ndarray) -> States | None:
-        self._count += 1
-        try:  # try loop used for performance
-            self._data.add_data(data)
-        except AttributeError:
-            if isinstance(data, np.ndarray):
-                self._data = RingBufferSimple(np.zeros((self.n, len(data))))
-            else:
-                self._data = RingBufferSimple(np.zeros((self.n, 1)))
-            self._data.add_data(data)
-
-        self._mean = np.mean(self._data.buffer)
-        self._standard_deviation = np.std(self._data.buffer)
-
-        self._up_sum = np.max((0, self._up_sum + data - self._mean - 1/2*3*self._standard_deviation))
-        self._low_sum = np.min((0, self._low_sum + data - self._mean + 1/2*3*self._standard_deviation))
-
-        if self._count > self.n:
-            if self._up_sum > self.c_limit*self._standard_deviation:
-                self._state = self.States.up
-            if self._low_sum < - self.c_limit * self._standard_deviation:
-                self._state = self.States.down
-            if self._state != self._prior_state:
-                return self.state
-
-        return None  # no event detected
+def get_slugs(self):
 
 
 def main2():
@@ -360,7 +287,7 @@ def main2():
     up = np.zeros(data.shape[0])
     down = np.zeros(data.shape[0])
     for i in range(data.shape[0]):
-        new_data_point = data[i, 1]
+        new_data_point = data[i, 2]
         event = algorithm.add_data(new_data_point)
         up[i] = algorithm._up_sum
         down[i] = algorithm._low_sum
@@ -373,12 +300,16 @@ def main2():
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 1], mode="lines"))
     # fig.add_trace(go.Scatter(x=data[:, 0], y=data[:, 2], mode="lines"))
+    # fig.add_trace(
+    #     go.Scatter(x=data[:, 0], y=up, mode="lines", legendgroup="process"),
+    #               secondary_y=True
+    # )
+    # fig.add_trace(
+    #     go.Scatter(x=data[:, 0], y=down, mode="lines", legendgroup="process"),
+    #               secondary_y=True
+    # )
     fig.add_trace(
-        go.Scatter(x=data[:, 0], y=up, mode="lines", legendgroup="process"),
-                  secondary_y=True
-    )
-    fig.add_trace(
-        go.Scatter(x=data[:, 0], y=down, mode="lines", legendgroup="process"),
+        go.Scatter(x=data[:, 0], y=state, mode="lines", legendgroup="process"),
                   secondary_y=True
     )
 
