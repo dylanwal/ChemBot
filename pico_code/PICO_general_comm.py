@@ -19,7 +19,7 @@ import select
 import sys
 import machine
 
-__version__ = "0.0.1"
+__version__ = "0.0.3"
 
 # a list to keep record of what's going on
 pins = [["", None]] * 28
@@ -45,17 +45,14 @@ def main_loop():
     poll_obj = select.poll()
     poll_obj.register(sys.stdin, select.POLLIN)
 
-    wdt = machine.WDT(timeout=10000)  # 10 sec
+    wdt = machine.WDT(timeout=30000)  # 30 sec
 
     while True:  # infinite loop
         poll_results = poll_obj.poll(10)
         wdt.feed()
         if poll_results:
             message = sys.stdin.readline().strip()
-            try:
-                do_stuff(message)
-            except Exception as e:
-                print(str(type(e)) + " " + str(e))
+            do_stuff(message)
 
 
 def digital(message: str):
@@ -336,6 +333,12 @@ def spi(message: str):
     """
     SPI – a Serial Peripheral Interface bus protocol
 
+    wiring connections 'Pico --> device'
+    CS --> CS  (chip select)
+    SCLK --SCLK (clock)
+    MOSI (Main Out Sub In, TX) --> SDI
+    MISO (Main In Sub Out, RX) --> SDO
+
     Parameters
     ----------
     message:
@@ -380,7 +383,7 @@ def spi(message: str):
         p = prior_pin[1]
     else:
         p = machine.SPI(spi_id, baudrate=baudrate, sck=machine.Pin(sck_pin), mosi=machine.Pin(mosi_pin),
-                        miso=machine.Pin(miso_pin), bits=bits, polarity=polarity, phase=phase, timeout=1000)
+                        miso=machine.Pin(miso_pin), bits=bits, polarity=polarity, phase=phase)
         pins[sck_pin] = [message[:16], p]  # save pin
         pins[mosi_pin] = [message[:16], p]  # save pin
         pins[miso_pin] = [message[:16], p]  # save pin
@@ -391,23 +394,24 @@ def spi(message: str):
         cs_p = prior_pin[1]
     else:
         cs_p = machine.Pin(cs_pin, mode=machine.Pin.OUT)
+        cs_p.value(1)
         pins[sck_pin] = [cs_pin, cs_p]  # save pin
 
     # do something
-    action = message[20]
-    cs_p.value(1)
+    action = message[19]
+    cs_p.value(0)
     if action == "r":
-        amount = int(message[21:])
+        amount = int(message[20:23])
         print("s" + encode_message(p.read(amount)))
     elif action == "w":
-        p.write(decode_message(message[21:]))
+        p.write(decode_message(message[20:]))
         print("s")
     else:
-        amount = int(message[21:24])
-        reply = p.read(amount, decode_message(message[15:]))
-        print("s" + encode_message(reply))
+        amount = int(message[20:23])
+        p.write(decode_message(message[24:]))
+        print("s" + encode_message(p.read(amount).decode()))
 
-    cs_p.value(0)
+    cs_p.value(1)
 
 
 def i2c(message: str):
@@ -487,7 +491,7 @@ def do_stuff(message: str):
         reset()
         print("r")
     elif message == "v":
-        print(__version__)
+        print("v" + __version__)
     else:
         print("Invalid message:" + str(message))
 

@@ -4,7 +4,7 @@ import time
 
 
 def main():
-    s = serial.Serial(port="COM3", parity=serial.PARITY_EVEN, stopbits=serial.STOPBITS_ONE, timeout=1)
+    s = serial.Serial(port="COM3")
     s.flushOutput()
     s.flushInput()
 

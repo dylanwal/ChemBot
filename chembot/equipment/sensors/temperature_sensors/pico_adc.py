@@ -1,13 +1,17 @@
 import logging
+import pathlib
 
 from unitpy import Quantity
 
 from chembot.reference_data.pico_pins import PicoHardware
-from chembot.configuration import config
+from chembot.configuration import config, create_folder
 from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.communication.serial_pico import PicoSerial
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.temperature_sensors.calibration import ThermalCalibration
+from chembot.equipment.sensors.controllers.controller import Controller
+from utils.buffers.buffers import Buffer
+from utils.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".temperature")
 
@@ -37,6 +41,12 @@ def voltage_divider_voltage_to_ohm(
 
 
 class TemperatureProbePicoADC(Sensor):
+    @property
+    def _data_path(self):
+        path = config.data_directory / pathlib.Path("temperature")
+        create_folder(path)
+        return path
+
     """ Voltage Divider setup"""
     def __init__(self,
                  name: str,
@@ -45,6 +55,8 @@ class TemperatureProbePicoADC(Sensor):
                  resistor: Quantity,
                  resistor_order: bool,
                  reference_voltage: Quantity = PicoHardware.v_sys,
+                 controllers: list[Controller] | Controller = None,
+                 buffer: Buffer = None
                  ):
         """
 
@@ -60,7 +72,12 @@ class TemperatureProbePicoADC(Sensor):
             order = False -> solve for R2
         reference_voltage
         """
-        super().__init__(name)
+
+        dtype = "uint16"
+        if buffer is None:
+            buffer = BufferRingTime(self._data_path / self.name, dtype, (200, 1), 20)
+
+        super().__init__(name, buffer, controllers)
         self.communication = communication
         self.calibration = calibration
         self.resistor = resistor
@@ -78,7 +95,7 @@ class TemperatureProbePicoADC(Sensor):
         pass
 
     def write_measure(self) -> Quantity:
-        message = RabbitMessageAction(self.communication, self.name, PicoSerial.read_analog)
+        message = RabbitMessageAction(self.communication, self.name, PicoSerial.write_serial, kwargs="FIX ME")
         reply = self.rabbit.send_and_consume(message, error_out=True)
 
         adc_reading = reply.value

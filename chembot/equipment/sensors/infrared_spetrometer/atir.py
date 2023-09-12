@@ -1,13 +1,15 @@
 import pathlib
 import logging
-from datetime import datetime
 
-import win32ui  # from pywin32 package and must be imported first to expose dde
+import win32ui  # need to find 'dde' package
 import dde  # from pywin32 package
 import numpy as np
 
-from chembot.configuration import config
+from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
+from chembot.equipment.sensors.controllers.controller import Controller
+from utils.buffers.buffers import Buffer
+from utils.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".atir")
 
@@ -22,6 +24,7 @@ class ATIRRunner:
         logger.debug(config.log_formatter(ATIRRunner, "atirrunner", "DDE server activated"))
 
     def request(self, command: str) -> list:
+        logger.debug(f"commands: {command}")
         result = self.conversation.Request(command).encode("utf_16_le").decode("utf_8").splitlines()
         if result[0] != "OK":
             raise Exception("\n".join(result))
@@ -47,12 +50,12 @@ class ATIRRunner:
         if scans is not None and scans <= 0:
             raise Exception("Number of background scans must be positive.")
 
-        parameters = f"EXP={experiment_name},XPP={experiment_path}"
+        parameters = f"EXP='{experiment_name}',XPP='{experiment_path}'"
         if scans is not None:
             parameters += f",NSR={scans}"
         if resolution is not None:
             parameters += f",RES={resolution}"
-        self.request(f"COMMAND_LINE MeasureReference (0,{parameters});")
+        self.request("COMMAND_LINE MeasureReference (0,{" + parameters + "});")
 
     def measure_sample(self, experiment_path: str, experiment_name: str, scans: int = None,
                        resolution: float = None) -> str:
@@ -86,48 +89,55 @@ class ATIRRunner:
         if scans is not None and scans <= 0:
             raise Exception("Number of scans must be positive.")
 
-        parameters = f"MDM={measurement_display_mode},EXP={experiment_name},XPP={experiment_path}"
+        parameters = f"MDM={measurement_display_mode},EXP='{experiment_name}',XPP='{experiment_path}'"
         if scans is not None:
             parameters += f",NSR={scans}"
         if resolution is not None:
             parameters += f",RES={resolution}"
-        result = self.request(f"COMMAND_LINE MeasureSample (0,{parameters});")
-
+        result = self.request("COMMAND_LINE MeasureSample (0,{" + parameters + "});")
+        logger.debug("result: " + str(result))
         try:
             return result[3]
         except Exception as e:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
     def get_results(self, result_file: str) -> np.array:
-        result_read = self.request("READ_FROM_FILE %s" % result_file)
-        result_block = self.request("READ_FROM_BLOCK AB")
-        result_data_points = self.request("DATA_VALUES")
+        _ = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
+        _ = self.request("READ_FROM_BLOCK AB")
+        _ = self.request("DATA_VALUES")
         result_data = self.request("READ_DATA")
-        try:
-            data_length = int(result_data[2])
-            wavenumber_upper = float(result_data[3])
-            wavenumber_lower = float(result_data[4])
-            scaling_factor = int(result_data[5])
-            data = np.array([
-                [
-                    wavenumber_lower + i * (wavenumber_upper - wavenumber_lower) / (data_length - 1),
-                    float(result_data[6 + i]),
-                ] for i in range(data_length)
-            ])
-            return data
-        except:
-            raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
+        status = result_data[0]
+        if status != "OK":
+            raise ValueError("Error with reading data from AT-IR.")
+
+        data_length = int(result_data[2])
+        wavenumber_upper = float(result_data[3])
+        wavenumber_lower = float(result_data[4])
+        scaling_factor = int(result_data[5])
+        x = np.linspace(wavenumber_lower, wavenumber_upper, data_length)
+        y = np.array(result_data[6:-1], dtype="float64") * scaling_factor
+        return np.column_stack((x, y))
 
 
 class ATIR(Sensor):
     _method_name = "ATR_DI"
     _method_path = str(pathlib.Path(__file__).parent)
-    _data_path = config.data_directory / pathlib.Path("atir")
+
+    @property
+    def _data_path(self):
+        path = config.data_directory / pathlib.Path("atir")
+        create_folder(path)
+        return path
 
     def __init__(self,
                  name: str,
+                 controllers: list[Controller] | Controller = None,
+                 buffer: Buffer = None
                  ):
-        super().__init__(name)
+        if buffer is None:
+            buffer = BufferRingTime(self._data_path / self.name, "float64", (10, 1), 2)
+
+        super().__init__(name, buffer, controllers)
 
         self._runner = ATIRRunner()
 
@@ -144,10 +154,17 @@ class ATIR(Sensor):
         rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
         res = self._runner.get_results(rf)
 
-        if data_name is None:
-            data_name = "atir_data_" + datetime.now().strftime("data_%Y_%m_%d")
+        # reshape buffer on first measurement
+        if self.buffer.shape[1] != len(res):
+            self.buffer.reshape((self.buffer.shape[0], len(res)))
 
-        np.savetxt(self._data_path / data_name, res, delimiter=",")
+        # if data_name is None:
+        #     data_name = "atir_data_" + datetime.now().strftime("data_%Y_%m_%d")
+        # if not data_name.endswith(".csv"):
+        #     data_name += ".csv"
+        #
+        # np.savetxt(self._data_path / data_name, res, delimiter=",")
+        # logger.info(config.log_formatter(self, self.name, "Data saved"))
 
     def write_background(self, scans: int = 8):
         self._runner.run_background_scans(self._method_path, self._method_name, scans)
