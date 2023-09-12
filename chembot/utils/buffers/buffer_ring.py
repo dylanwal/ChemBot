@@ -17,9 +17,10 @@ class BufferRing:
     """
     DEFAULT_LENGTH = 1000
 
-    def __init__(self, buffer: np.ndarray = None):
+    def __init__(self, buffer: np.ndarray = None, length: int = None):
         self.buffer = buffer
         self.position = -1
+        self.length = length
 
     def __str__(self):
         return f"buffer: {self.shape}, position: {self.position}"
@@ -59,12 +60,16 @@ class BufferRing:
             self.position += 1
 
     def _create_buffer(self, data: int | float | np.ndarray):
+        if self.length is not None:
+            length = self.length
+        else:
+            length = self.DEFAULT_LENGTH
         if isinstance(data, int):
-            self.buffer = np.zeros((self.DEFAULT_LENGTH, 1), dtype=np.int64)
+            self.buffer = np.zeros((length, 1), dtype=np.int64)
         elif isinstance(data, float):
-            self.buffer = np.zeros((self.DEFAULT_LENGTH, 1), dtype=np.float64)
+            self.buffer = np.zeros((length, 1), dtype=np.float64)
         elif isinstance(data, np.ndarray):
-            self.buffer = np.zeros((self.DEFAULT_LENGTH, data.shape[0]), dtype=data.dtype)
+            self.buffer = np.zeros((length, data.shape[0]), dtype=data.dtype)
         else:
             raise TypeError("Invalid type")
 
@@ -79,8 +84,8 @@ class BufferRingTime(BufferRing):
     The buffer ring is an efficient way to reuse the same memory over and over  again for data streaming in.
     """
 
-    def __init__(self, buffer: np.ndarray = None, buffer_time: np.ndarray = None):
-        super().__init__(buffer)
+    def __init__(self, buffer: np.ndarray = None, buffer_time: np.ndarray = None, length: int = None):
+        super().__init__(buffer, length)
         if buffer is not None:
             self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.f64)
         self.buffer_time = buffer_time
@@ -206,6 +211,7 @@ class BufferRingSavable(BufferRing, SavingMixin):
                  path: pathlib.Path,
                  buffer: np.ndarray = None,
                  number_of_rows_per_save: int = 1000,
+                 length: int = None
                  ):
         """
 
@@ -218,7 +224,7 @@ class BufferRingSavable(BufferRing, SavingMixin):
         number_of_rows_per_save:
             number of rows saved at a time
         """
-        BufferRing.__init__(self, buffer)
+        BufferRing.__init__(self, buffer, length)
         SavingMixin.__init__(self, path, number_of_rows_per_save*2)
         self.number_of_rows_per_save = number_of_rows_per_save
         self.total_rows = 0
@@ -279,7 +285,8 @@ class BufferRingTimeSavable(BufferRingSavable):
                  path: pathlib.Path,
                  buffer: np.ndarray = None,
                  number_of_rows_per_save: int = 1000,
-                 buffer_time: np.ndarray = None
+                 buffer_time: np.ndarray = None,
+                 length: int = None
                  ):
         """
 
@@ -294,7 +301,7 @@ class BufferRingTimeSavable(BufferRingSavable):
         buffer_time:
 
         """
-        super().__init__(path, buffer, number_of_rows_per_save)
+        super().__init__(path, buffer, number_of_rows_per_save, length=length)
         if buffer is not None:
             self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.f64)
         self.buffer_time = buffer_time

@@ -19,7 +19,7 @@ def format_pin(pin: int, mode: int) -> str:
     return f"{pin:02}{mode}"
 
 
-def parse_measurement(message: str, dtype=np.np.int64) -> np.ndarray:
+def parse_measurement(message: str, dtype=np.int64) -> np.ndarray:
     return np.array(message.split(","), dtype=dtype)
 
 
