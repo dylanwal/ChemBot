@@ -5,12 +5,14 @@ import time
 
 from serial import Serial
 import numpy as np
+from unitpy import Unit, Quantity
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.controllers.controller import Controller
 from chembot.utils.buffers.buffers import Buffer
 from chembot.utils.buffers.buffer_ring import BufferRingTime
+from chembot.utils.algorithms.change_detection import CUSUM
 
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
@@ -21,6 +23,102 @@ def format_pin(pin: int, mode: int) -> str:
 
 def parse_measurement(message: str, dtype=np.int64) -> np.ndarray:
     return np.array(message.split(","), dtype=dtype)
+
+
+class Slug:
+    sensor_spacer = 0.95 * Unit.cm
+    tube_diameter = 0.0762 * Unit.cm
+    __slots__ = ("time_start_1", "time_end_1", "time_start_2", "time_end_2", "_length", "_velocity")
+
+    def __init__(self,
+                 time_start_1: float | int,
+                 time_end_1: float | int = None,
+                 time_start_2: float | int = None,
+                 time_end_2: float | int = None,
+                 velocity: Quantity | None = None
+                 ):
+        self.time_start_1 = time_start_1
+        self.time_end_1 = time_end_1
+        self.time_start_2 = time_start_2
+        self.time_end_2 = time_end_2
+        self._length = None
+        self._velocity = velocity
+
+    def __str__(self):
+        if self.volume is not None:
+            text = f"vel:{self.velocity:3.2f}, len: {self.length:3.2f}, vol:{self.volume:3.2f}"
+        elif self.time_span:
+            text = f"start: {self.time_start_1:3.2f}"
+            if self.velocity is not None:
+                text += f", velocity: {self.velocity:3.2f})"
+        else:
+            text = f"start: {self.time_start_1:3.2f}, No end detected"
+
+        return text
+
+    @property
+    def time_span(self) -> Quantity | None:
+        if self.time_end_1 is None:
+            return None
+        t = self.time_end_1 - self.time_start_1
+        if isinstance(t, Quantity):
+            return t
+        return t * Unit.s
+
+    @property
+    def time_offset(self):
+        if self.is_complete:
+            t = (self.time_start_2 - self.time_start_1 + self.time_end_2 - self.time_end_1) / 2
+            if isinstance(t, Quantity):
+                return t
+            return t * Unit.s
+        return None
+
+    @property
+    def is_complete(self) -> bool:
+        return not (self.time_end_1 is None or self.time_end_2 is None or self.time_start_2 is None)
+
+    @property
+    def velocity(self) -> Quantity | None:
+        if self._velocity is None:
+            if not self.is_complete:
+                return None
+            self._velocity = self.sensor_spacer / self.time_span
+
+        return self._velocity.to("mm/s")
+
+    @property
+    def length(self) -> Quantity | None:
+        if self._length is None:
+            if self.velocity is None or self.time_span is None:
+                return None
+            self._length = self.velocity * self.time_span
+
+        return self._length.to('mm')
+
+    @property
+    def volume(self) -> Quantity | None:
+        if self.length is None:
+            return None
+        return (self.length * np.pi * (self.tube_diameter / 2) ** 2).to("uL")
+
+
+def main2(path):
+    velocity = 0.3 * Unit("ml/min") / (np.pi * (Slug.tube_diameter / 2) ** 2)
+    data = np.genfromtxt(path, delimiter=",")
+    data[:, 0] = data[:, 0] - data[0, 0]
+
+    algorithm = CUSUM()
+    slugs = []
+    up = np.zeros(data.shape[0])
+    down = np.zeros(data.shape[0])
+    for i in range(data.shape[0]):
+        new_data_point = data[i, 1]
+        event = algorithm.add_data(new_data_point)
+        if event is CUSUM.States.up:
+            slugs.append(Slug(time_start_1=data[i, 0], velocity=velocity))
+        if event is CUSUM.States.down and slugs:
+            slugs[-1].time_end_1 = data[i, 0]
 
 
 class PhaseSensor(Sensor):
@@ -199,3 +297,8 @@ class PhaseSensor(Sensor):
         self.write_offset_voltage(voltage)
         self.write_gain(gain)
         self.write_leds_power(on=False)
+
+    def write_next_slug(self, slug_volume: Quantity = None, slug_length: Quantity = None):
+
+
+        flow_rate = self.rabbit.send(read_pump_state)

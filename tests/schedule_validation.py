@@ -6,7 +6,7 @@ from chembot.scheduler.validate import validate_schedule
 from chembot.equipment.lights import LightPico
 from chembot.communication.serial_pico import PicoSerial
 from chembot.equipment.equipment_interface import EquipmentRegistry
-from chembot.equipment.profile import Profile
+from chembot.equipment.continuous_event_handler import ContinuousEventHandler
 
 
 def example_schedule() -> Job:
@@ -33,16 +33,16 @@ def rainbow(n: int) -> list[list[int, int, int], ...]:
 
 def rainbow_job(n: int, duration: timedelta, delay: timedelta = None):
     color_array = rainbow(n)
-    time_delta_array = Profile.linspace_timedelta(timedelta(0), duration, n)
+    time_delta_array = ContinuousEventHandler.linspace_timedelta(timedelta(0), duration, n)
 
     # power is [0, 100] and color is [0, 255] so divide by 255
     red = [int(color[0]/255*100) for color in color_array]
     green = [int(color[1]/255*100) for color in color_array]
     blue = [int(color[2]/255*100) for color in color_array]
 
-    red_profile = Profile(LightPico.write_power, ["power"], red, time_delta_array)
-    green_profile = Profile(LightPico.write_power, ["power"], green, time_delta_array)
-    blue_profile = Profile(LightPico.write_power, ["power"], blue, time_delta_array)
+    red_profile = ContinuousEventHandler(LightPico.write_power, ["power"], red, time_delta_array)
+    green_profile = ContinuousEventHandler(LightPico.write_power, ["power"], green, time_delta_array)
+    blue_profile = ContinuousEventHandler(LightPico.write_power, ["power"], blue, time_delta_array)
 
     return JobConcurrent(
         [

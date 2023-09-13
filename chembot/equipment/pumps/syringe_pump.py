@@ -109,6 +109,12 @@ class SyringePump(Equipment, abc.ABC):
         """ set syringe """
         self.syringe = syringe
 
+    def read_pump_state(self) -> SyringeState:
+        """
+        returns pump_state
+        """
+        return self.pump_state
+
     @staticmethod
     def compute_run_time(volume: Quantity, flow_rate: Quantity) -> Quantity:
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)

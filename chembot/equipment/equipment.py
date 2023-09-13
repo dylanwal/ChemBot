@@ -1,5 +1,7 @@
 import abc
 import logging
+import queue
+import time
 from datetime import datetime
 
 from unitpy import Quantity
@@ -11,7 +13,7 @@ from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitM
     RabbitMessageError, RabbitMessageCritical, RabbitMessageUnRegister
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
-from chembot.equipment.profile import Profile
+from chembot.equipment.continuous_event_handler import ContinuousEventHandler
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
 
@@ -42,19 +44,25 @@ class Equipment(abc.ABC):
         name:
             class_name is a **unique** identifier in the system
         """
+        # self._reply_callback = None
+        # self.action_in_progress = None
+
         self.name = name
         self.state: EquipmentState = EquipmentState.OFFLINE
-        self.rabbit = RabbitMQConnection(name)
         self.actions = get_actions_list(self)
+        self.equipment_interface = get_equipment_interface(type(self))
         self.attrs = []
         self.update = ["state"]
-        self._deactivate_event = True  # set to False to deactivate
-        self._reply_callback = None
-        self.equipment_interface = get_equipment_interface(type(self))
+
+        # managers
+        self.rabbit = RabbitMQConnection(name)
         self.watchdog = RabbitWatchdog(self)
-        self.action_in_progress = None
-        self.profile: Profile | None = None
-        self.poll = False
+        self.profile: ContinuousEventHandler | None = None
+        self._message_queue = queue.Queue(maxsize=3)  # short term storage for later processing (typically used in
+        # continuous mode)
+
+        # flags
+        self._deactivation_event = False  # set to True to deactivate
 
         if kwargs:
             for k, v in kwargs:
@@ -81,6 +89,7 @@ class Equipment(abc.ABC):
         self.watchdog.set_watchdog(message, 5)
 
     def activate(self):
+        """ Called to start equipment infinite loop. """
         try:
             logger.debug(config.log_formatter(self, self.name, "Activating"))
             self._activate()
@@ -104,58 +113,41 @@ class Equipment(abc.ABC):
             logger.info(config.log_formatter(self, self.name, "Deactivated"))
 
     def _run(self):
-        # infinite loop
-        while self._deactivate_event:
-            self._poll()
+        """ Main / infinite event loop """
+        while not self._deactivation_event:
+            self._poll_status()
             self.watchdog.check_watchdogs()
-            self._read_message()  # blocking with timeout
 
-    def _poll(self):
-        """ checks to see if additional writes or reads needed to be preformed. """
-        if not self.poll:
-            return
+            # read message
+            if self.rabbit.messages_in_queue > 0:
+                self._process_message(self.rabbit.consume())
 
-        self._poll_profile()
-        self._poll_status()
+            # execute continuous commands
+            if self.profile is not None:
+                self.profile.poll(self)
+            else:
+                time.sleep(self.pulse)
 
     def _poll_status(self):
         pass
 
-    def _poll_profile(self):
-        if self.profile is None:
-            return
-
-        try:
-            time_, kwargs = next(self.profile)
-            if time_ > datetime.now():
-                self.profile._next_counter -= 1
-                return
-
-        except StopIteration:
-            self.profile = None
-            return
-
-        func = getattr(self, self.profile.callable_)
-        if func.__code__.co_argcount == 1:  # the '1' is 'self'
-            reply = func()
-        else:
-            reply = func(**kwargs)
-
-        if reply is not None:
-            self.rabbit.send(RabbitMessageReply.create_reply(self.profile.message, reply))
-
-    def _read_message(self):
-        message = self.rabbit.consume(self.pulse)
-        if message:
-            self._process_message(message)
-
     def _process_message(self, message: RabbitMessage):
+        if not message:
+            return
+
         if isinstance(message, RabbitMessageCritical):
-            self._deactivate_event = False
+            self._deactivation_event = True
         elif isinstance(message, RabbitMessageError):
-            self._deactivate_event = False
+            self._deactivation_event = True
         elif isinstance(message, RabbitMessageReply):
-            self.watchdog.deactivate_watchdog(message)
+            if message.id_reply in self.watchdog:
+                self.watchdog.deactivate_watchdog(message)
+            else:
+                try:
+                    self._message_queue.put(message, timeout=1)
+                except queue.Full:
+                    logger.exception('Build of RabbitMessageReply in queue. '
+                                     f'The following message dropped: \n{message.to_str()}')
         elif isinstance(message, RabbitMessageAction):
             self._execute_action(message)
         else:
@@ -236,7 +228,7 @@ class Equipment(abc.ABC):
         deactivate equipment (shut down)
         """
         self._stop()
-        self._deactivate_event = False
+        self._deactivation_event = True
         # self._deactivate is called by self._run
 
     def write_stop(self):
@@ -245,10 +237,9 @@ class Equipment(abc.ABC):
         """
         self.state = EquipmentState.STANDBY
         self.profile = None
-        self.poll = False
         self._stop()
 
-    def write_profile(self, profile: Profile):
+    def write_profile(self, profile: ContinuousEventHandler):
         """
         Set profile
 
@@ -259,7 +250,6 @@ class Equipment(abc.ABC):
         """
         self.profile = profile
         self.profile.start_time = datetime.now()
-        self.poll = True
 
     def _deactivate_(self):
         self.state = self.states.SHUTTING_DOWN

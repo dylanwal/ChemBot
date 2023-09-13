@@ -607,9 +607,9 @@ class SyringePumpHarvard(SyringePump):
         index = reply.index("t")
         return Quantity(reply[:index])
 
-    def read_infusion_rate(self) -> Quantity:
+    def read_infusion_rate_command(self) -> Quantity:
         """
-        display the infusion rate
+        pings pump for infusion rate
         """
         reply = self._send_and_receive_message(f'irate')
 
@@ -621,10 +621,11 @@ class SyringePumpHarvard(SyringePump):
     def write_infusion_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'irate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
+        self.pump_state.flow_rate = flow_rate
 
     def read_withdraw_rate(self) -> Quantity:
         """
-        display the withdrawal rate
+        pings pump for infusion rate
         """
         reply = self._send_and_receive_message(f'wrate')
 
@@ -636,6 +637,7 @@ class SyringePumpHarvard(SyringePump):
     def write_withdraw_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'wrate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
+        self.pump_state.flow_rate = flow_rate
 
     ## volume ################################################################################################### noqa
     def _read_infuse_volume(self) -> Quantity:

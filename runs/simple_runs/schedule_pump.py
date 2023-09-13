@@ -6,7 +6,7 @@ from unitpy import Unit, Quantity
 from chembot.scheduler import JobSequence, JobConcurrent, Event, Schedule
 from chembot.equipment.pumps import SyringePumpHarvard
 from chembot.scheduler.job_submitter import JobSubmitter
-from chembot.equipment import Profile
+from chembot.equipment import ContinuousEventHandler
 
 from runs.launch_equipment.names import NamesPump
 
@@ -20,7 +20,7 @@ def sine_wave(x: list[timedelta]) -> list[Quantity]:
 
 
 def job_flow_rate_function(time_: list[timedelta], flow_rate: list[Quantity],  delay: timedelta = None):
-    flow_profile = Profile(SyringePumpHarvard.write_infusion_rate, ["flow_rate"], flow_rate, time_[1:])
+    flow_profile = ContinuousEventHandler(SyringePumpHarvard.write_infusion_rate, ["flow_rate"], flow_rate, time_[1:])
 
     return JobSequence(
         [

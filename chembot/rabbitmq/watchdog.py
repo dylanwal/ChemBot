@@ -33,6 +33,9 @@ class RabbitWatchdog:
         self.parent = parent
         self.watchdogs: dict[int, WatchdogEvent] = {}
 
+    def __contains__(self, item: int) -> bool:
+        return item in self.watchdogs.keys()
+
     def set_watchdog(self, message: RabbitMessage, delay: int | float,
                      expected_reply=None, reply_callback: callable = None
                      ):
