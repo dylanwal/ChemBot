@@ -8,7 +8,6 @@ from chembot.scheduler.job_submitter import JobSubmitter
 from chembot.equipment.valves import ValveServo
 from chembot.equipment.pumps import SyringePumpHarvard
 from chembot.equipment.sensors import PhaseSensor
-from chembot.equipment.continuous_event_handler import ContinuousEventHandlerRepeatingNoEndSaving
 
 from runs.launch_equipment.names import NamesPump, NamesValves, NamesSensors
 
@@ -61,7 +60,7 @@ def job_fill_syringe_multiple(
         flow_rate: Iterable[Quantity],
         valves: Iterable[str],
         pumps: Iterable[str]
-) -> JobConcurrent:
+            ) -> JobConcurrent:
     return JobConcurrent(
         [job_fill_syringe(vol, flow, val, p) for vol, flow, val, p in zip(volume, flow_rate, valves, pumps)]
     )
@@ -72,7 +71,7 @@ def job_flow_syringe_multiple(
         flow_rate: Iterable[Quantity],
         valves: Iterable[str],
         pumps: Iterable[str]
-) -> JobConcurrent:
+            ) -> JobConcurrent:
     return JobConcurrent(
         [job_flow(vol, flow, val, p) for vol, flow, val, p in zip(volume, flow_rate, valves, pumps)]
     )
@@ -95,14 +94,8 @@ def add_phase_sensor(job: JobSequence | JobConcurrent) -> JobSequence:
             ),
             Event(
                 resource=NamesSensors.PHASE_SENSOR1,
-                callable_=PhaseSensor.write_continuous_event_handler,
+                callable_=PhaseSensor.write_measure_continuously,
                 duration=timedelta(milliseconds=100),
-                kwargs={
-                    "event_handler":
-                        ContinuousEventHandlerRepeatingNoEndSaving(
-                            callable_=PhaseSensor.write_measure.__name__
-                        )
-                }
             ),
             job,
             Event(
@@ -111,6 +104,19 @@ def add_phase_sensor(job: JobSequence | JobConcurrent) -> JobSequence:
                 duration=timedelta(milliseconds=1),
             )]
     )
+
+
+def take_ir_scans(job: JobSequence | JobConcurrent) -> JobSequence:
+    return JobSequence([
+        # priming
+        # job_flow_syringe_multiple(
+        #     volume=[0.001 * Unit.ml, 0.08 * Unit.ml],
+        #     flow_rate=[0.5 * Unit("ml/min"), 0.5 * Unit("ml/min")],
+        #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+        #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+        # ),
+        job
+    ])
 
 
 def job_air_purge(volume: Quantity = 2 * Unit.ml, flow_rate: Quantity = 5 * Unit("ml/min")) -> JobSequence:
@@ -157,13 +163,13 @@ def job_droplets() -> JobSequence:
             #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
             # ),
             # main job
-            add_phase_sensor(
+            take_ir_scans(
                 job_flow_syringe_multiple(
                     volume=[.15 * Unit.ml, 0.15 * Unit.ml],
                     flow_rate=[0.05 * Unit("ml/min"), 0.05 * Unit("ml/min")],
                     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
                     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-                )
+                ),
             ),
             # job_air_purge(),
         ]

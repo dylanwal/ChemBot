@@ -57,8 +57,8 @@ class Equipment(abc.ABC):
         # managers
         self.rabbit = RabbitMQConnection(name)
         self.watchdog = RabbitWatchdog(self)
-        self.profile: ContinuousEventHandler | None = None
-        self._message_queue = queue.Queue(maxsize=3)  # short term storage for later processing (typically used in
+        self.continuous_event_handler: ContinuousEventHandler | None = None
+        self._message_queue = queue.Queue(maxsize=6)  # short term storage for later processing (typically used in
         # continuous mode)
 
         # flags
@@ -123,8 +123,8 @@ class Equipment(abc.ABC):
                 self._process_message(self.rabbit.consume())
 
             # execute continuous commands
-            if self.profile is not None:
-                self.profile.poll(self)
+            if self.continuous_event_handler is not None:
+                self.continuous_event_handler.poll(self)
             else:
                 time.sleep(self.pulse)
 
@@ -142,36 +142,37 @@ class Equipment(abc.ABC):
         elif isinstance(message, RabbitMessageReply):
             if message.id_reply in self.watchdog:
                 self.watchdog.deactivate_watchdog(message)
-            else:
+            if message.queue_it:
                 try:
                     self._message_queue.put(message, timeout=1)
                 except queue.Full:
                     logger.exception('Build of RabbitMessageReply in queue. '
                                      f'The following message dropped: \n{message.to_str()}')
         elif isinstance(message, RabbitMessageAction):
-            self._execute_action(message)
+            # we need the message to be added to continuous_event_handler but not sure where best to put it
+            if message.action == self.write_continuous_event_handler.__name__:
+                self.continuous_event_handler.message = message
+
+            reply = self._execute_action(message, message.action, message.kwargs)
+            logger.info(
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
+                                                      f"\n reply: {repr(reply)}"))
         else:
             logger.warning("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
 
-    def _execute_action(self, message: RabbitMessageAction):
+    def _execute_action(self, message: RabbitMessage, func_name: str, kwargs: dict | None):
+        # TODO: wrap this into a thread and use a queue
         try:
-            func = getattr(self, message.action)
-            if func.__code__.co_argcount == 1 or message.kwargs is None:  # the '1' is 'self'
+            func = getattr(self, func_name)
+            if func.__code__.co_argcount == 1 or kwargs is None:  # the '1' is 'self'
                 reply = func()
             else:
-                reply = func(**message.kwargs)
-
-            # we need the message to be added to profile but not sure where best to put it
-            if message.action == self.write_profile.__name__:
-                self.profile.message = message
+                reply = func(**kwargs)
 
             if reply is not None:
                 self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
-
-            logger.info(
-                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
-                                                      f"\n reply: {repr(reply)}"))
+            return reply
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
@@ -236,20 +237,20 @@ class Equipment(abc.ABC):
         stop current action and reset to standby
         """
         self.state = EquipmentState.STANDBY
-        self.profile = None
+        self.continuous_event_handler = None
         self._stop()
 
-    def write_profile(self, profile: ContinuousEventHandler):
+    def write_continuous_event_handler(self, event_handler: ContinuousEventHandler):
         """
-        Set profile
+        Set continuous_event_handler
 
         Parameters
         ----------
-        profile
+        event_handler
 
         """
-        self.profile = profile
-        self.profile.start_time = datetime.now()
+        self.continuous_event_handler = event_handler
+        self.continuous_event_handler.start_time = datetime.now()
 
     def _deactivate_(self):
         self.state = self.states.SHUTTING_DOWN

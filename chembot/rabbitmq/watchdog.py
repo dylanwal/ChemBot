@@ -9,9 +9,9 @@ from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 logger = logging.getLogger(config.root_logger_name + ".watchdog")
 
 
-class WatchdogParent(Protocol):
-    name = None
-    rabbit: RabbitMQConnection = None
+class ParentInterfaceWatchdog(Protocol):
+    name: str
+    rabbit: RabbitMQConnection
 
 
 class WatchdogEvent:
@@ -28,8 +28,7 @@ class WatchdogEvent:
 
 
 class RabbitWatchdog:
-
-    def __init__(self, parent: WatchdogParent):
+    def __init__(self, parent: ParentInterfaceWatchdog):
         self.parent = parent
         self.watchdogs: dict[int, WatchdogEvent] = {}
 

@@ -6,6 +6,8 @@ from chembot.configuration import config
 
 
 class RabbitMessage:
+    __slots__ = ("id_", "destination", "source")
+
     def __init__(self, destination: str, source: str):
         self.id_: int = uuid.uuid4().int
         self.destination = destination
@@ -27,6 +29,8 @@ class RabbitMessage:
 
 
 class RabbitMessageError(RabbitMessage):
+    __slots__ = ("error",)
+
     def __init__(self, source: str, error: str):
         super().__init__("master_controller", source)
         self.error = error
@@ -36,6 +40,8 @@ class RabbitMessageError(RabbitMessage):
 
 
 class RabbitMessageCritical(RabbitMessage):
+    __slots__ = ("error",)
+
     def __init__(self, source: str, error: str):
         super().__init__("master_controller", source)
         self.error = error
@@ -45,7 +51,7 @@ class RabbitMessageCritical(RabbitMessage):
 
 
 class RabbitMessageAction(RabbitMessage):
-    __slots__ = ("destination", "source", "action", "kwargs", "job_id")
+    __slots__ = ("action", "kwargs", "id_job")
 
     def __init__(self,
                  destination: str,
@@ -74,10 +80,13 @@ class RabbitMessageAction(RabbitMessage):
 
 
 class RabbitMessageReply(RabbitMessage):
-    def __init__(self, destination: str, source: str, id_reply: int, value):
+    __slots__ = ("id_reply", "value", "queue_it")
+
+    def __init__(self, destination: str, source: str, id_reply: int, value, queue_it: bool = False):
         super().__init__(destination, source)
         self.id_reply = id_reply
         self.value = value
+        self.queue_it = queue_it
 
     def to_str(self) -> str:
         return super().to_str() + f"\n\tid_reply: {self.id_reply}" + f"\n\tvalue: {repr(self.value)}"

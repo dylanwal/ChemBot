@@ -1,15 +1,14 @@
 import pathlib
 import logging
+import queue
+import threading
 
-import win32ui  # need to find 'dde' package
+import win32ui  # needed to find 'dde' package  /  from pywin32 package
 import dde  # from pywin32 package
 import numpy as np
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
-from chembot.equipment.sensors.controllers.controller import Controller
-from utils.buffers.buffers import Buffer
-from utils.buffers.buffer_ring import BufferRingTime
 
 logger = logging.getLogger(config.root_logger_name + ".atir")
 
@@ -129,16 +128,8 @@ class ATIR(Sensor):
         create_folder(path)
         return path
 
-    def __init__(self,
-                 name: str,
-                 controllers: list[Controller] | Controller = None,
-                 buffer: Buffer = None
-                 ):
-        if buffer is None:
-            buffer = BufferRingTime(self._data_path / self.name, "float64", (10, 1), 2)
-
-        super().__init__(name, buffer, controllers)
-
+    def __init__(self, name: str):
+        super().__init__(name)
         self._runner = ATIRRunner()
 
     def _activate(self):
@@ -150,21 +141,9 @@ class ATIR(Sensor):
     def _stop(self):
         pass
 
-    def write_measure(self, data_name: str = None, scans: int = 8):
+    def write_measure(self, data_name: str = None, scans: int = 8) -> np.ndarray:
         rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
-        res = self._runner.get_results(rf)
-
-        # reshape buffer on first measurement
-        if self.buffer.shape[1] != len(res):
-            self.buffer.reshape((self.buffer.shape[0], len(res)))
-
-        # if data_name is None:
-        #     data_name = "atir_data_" + datetime.now().strftime("data_%Y_%m_%d")
-        # if not data_name.endswith(".csv"):
-        #     data_name += ".csv"
-        #
-        # np.savetxt(self._data_path / data_name, res, delimiter=",")
-        # logger.info(config.log_formatter(self, self.name, "Data saved"))
+        return self._runner.get_results(rf)
 
     def write_background(self, scans: int = 8):
         self._runner.run_background_scans(self._method_path, self._method_name, scans)

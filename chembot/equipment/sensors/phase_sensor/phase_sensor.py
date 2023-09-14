@@ -9,10 +9,9 @@ from unitpy import Unit, Quantity
 
 from chembot.configuration import config, create_folder
 from chembot.equipment.sensors.sensor import Sensor
-from chembot.equipment.sensors.controllers.controller import Controller
-from chembot.utils.buffers.buffers import Buffer
-from chembot.utils.buffers.buffer_ring import BufferRingTime
 from chembot.utils.algorithms.change_detection import CUSUM
+from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
+from chembot.equipment.pumps.syringe_pump import SyringePump
 
 logger = logging.getLogger(config.root_logger_name + ".phase_sensor")
 
@@ -103,24 +102,6 @@ class Slug:
         return (self.length * np.pi * (self.tube_diameter / 2) ** 2).to("uL")
 
 
-def main2(path):
-    velocity = 0.3 * Unit("ml/min") / (np.pi * (Slug.tube_diameter / 2) ** 2)
-    data = np.genfromtxt(path, delimiter=",")
-    data[:, 0] = data[:, 0] - data[0, 0]
-
-    algorithm = CUSUM()
-    slugs = []
-    up = np.zeros(data.shape[0])
-    down = np.zeros(data.shape[0])
-    for i in range(data.shape[0]):
-        new_data_point = data[i, 1]
-        event = algorithm.add_data(new_data_point)
-        if event is CUSUM.States.up:
-            slugs.append(Slug(time_start_1=data[i, 0], velocity=velocity))
-        if event is CUSUM.States.down and slugs:
-            slugs[-1].time_end_1 = data[i, 0]
-
-
 class PhaseSensor(Sensor):
     """
     signal increase when gas -> liquid
@@ -145,21 +126,18 @@ class PhaseSensor(Sensor):
     def __init__(self,
                  name: str,
                  port: str = "COM6",
+                 tube_diameter: Quantity = Quantity("0.03 inch"),
                  # number_sensors: int = 2,
-                 controllers: list[Controller] | Controller = None,
-                 buffer: Buffer = None
                  ):
-        number_sensors = 2
-        if buffer is None:
-            buffer = BufferRingTime(self._data_path / name, np.zeros((10_000, number_sensors), dtype=self.dtype))
-
-        super().__init__(name, buffer, controllers)
+        super().__init__(name)
         self.serial = Serial(port=port)
 
-        self.number_sensors = number_sensors
+        self.tube_diameter = tube_diameter
+        self.number_sensors = 2
         self.gain = 1
         self.offset_voltage = 0
         self._led_on = False
+        self._slug_finder = None
 
     def __repr__(self):
         return f"Phase Sensor\n\tclass_name: {self.name}\n\tstate: {self.state}"
@@ -219,12 +197,22 @@ class PhaseSensor(Sensor):
 
     def _stop(self):
         super()._stop()
-        time.sleep(2)  # allow for last reads to finish before writing to leds
         self.write_leds_power(False)
         self.serial.flushOutput()
         self.serial.flushInput()
 
     def write_measure(self, pins: tuple[int, int] = (0, 1), modes: tuple[int, int] = (1, 1)) -> np.ndarray:
+        """
+
+        Parameters
+        ----------
+        pins
+        modes
+
+        Returns
+        -------
+
+        """
         if self.serial.in_waiting != 0:
             self.serial.flushInput()
         if not self.led_on:
@@ -283,22 +271,115 @@ class PhaseSensor(Sensor):
 
         n = 10
         self.write_leds_power(on=True)
-        data = np.zeros((n, 2), dtype=np.int16)
+        adc_value = np.zeros((n, 2), dtype=self.dtype)
         for i in range(n):
-            data[i, :] = self.write_measure((0, 1), (0, 0))
+            adc_value[i, :] = self.write_measure((0, 1), (0, 0))
 
         # 16 bit resolution adc = 2**16 -1   (minus 1 is it starts at zero)
         # divide by 2 as the 16 bit is center at zero with both positive and negative
         # 5 volts is used
-        voltage = np.mean(np.mean(data, axis=0)) / ((2 ** 16 - 1) / 2) * 4.096
-        print(voltage)
+        voltage = np.mean(np.mean(adc_value, axis=0)) / ((2 ** 16 - 1) / 2) * 4.096
         voltage += self.gains[gain] / 2
 
         self.write_offset_voltage(voltage)
         self.write_gain(gain)
         self.write_leds_power(on=False)
 
-    def write_next_slug(self, slug_volume: Quantity = None, slug_length: Quantity = None):
+    def write_next_slug(self,
+                        target_volume: Quantity,
+                        pump_names: list[str],
+                        timeout: float | int = None
+                        ) -> None | Slug:
+        if self._slug_finder is None:
+            self._slug_finder = SlugFinder(self, target_volume, pump_names, timeout)
+
+        result = self._slug_finder.measure()
+        if result is not None:  # to stop slug finder and profile
+            self._slug_finder = None
+            self.profile = None
+
+        return result
 
 
-        flow_rate = self.rabbit.send(read_pump_state)
+class SlugFinder:
+    check_flow_rate_rate = 2  # check every second
+
+    def __init__(self,
+                 parent: PhaseSensor,
+                 target_volume: Quantity,
+                 pump_names: list[str],
+                 timeout: float | int = None
+                 ):
+        self.parent = parent
+        self.target_volume = target_volume
+        self.pump_names = pump_names
+        self.timeout = timeout
+
+        self._flow_rate_sum: Quantity = 0 * Unit("ml/min")
+        self._flow_rate_count = 0
+        self._flow_rate_buffer = {k: None for k in self.pump_names}
+        self._next_time = time.time() + self.check_flow_rate_rate
+        self._message_ids: list[int] = []
+
+        self.algorithm = CUSUM()
+        self.slugs: list[Slug] = []
+
+    @property
+    def flow_rate(self) -> Quantity:
+        if self._flow_rate_count is None:
+            return 0 * Unit("ml/min")
+
+        return self._flow_rate_sum / self._flow_rate_count
+
+    @property
+    def velocity(self) -> Quantity:
+        return self.flow_rate / (np.pi * (self.parent.tube_diameter / 2) ** 2)
+
+    def _update_flow_rate(self):
+        """ sends messages to pumps asking for flow rate values. """
+        if time.time() < self._next_time:
+            return
+
+        for pump_name in self.pump_names:
+            message = RabbitMessageAction(
+                destination=pump_name,
+                source=self.parent.name,
+                action=SyringePump.read_pump_state.__name__
+            )
+            self.parent.rabbit.send(message)
+            self.parent.watchdog.set_watchdog(message, self.check_flow_rate_rate)
+            self._message_ids.append(message.id_)
+
+    def _check_for_flow_rate_messages(self):
+        if self.parent._message_queue.qsize() < 1:
+            return
+
+        for i in range(1, self.parent._message_queue.qsize() + 1):
+            message: RabbitMessageReply = self.parent._message_queue.get()
+            if message.id_ not in self._message_ids:
+                self.parent._message_queue.put(message)
+                continue
+            if message.source not in self._flow_rate_buffer:
+                raise ValueError("Coding error.")
+            self._flow_rate_buffer[message.source] = message.value
+
+        if all([v is not None for v in self._flow_rate_buffer.values()]):
+            self._flow_rate_count += 1
+            self._flow_rate_sum += sum([v for v in self._flow_rate_buffer.values()])
+
+            # reset buffer to None
+            for k in self._flow_rate_buffer:
+                self._flow_rate_buffer[k] = None
+
+    def measure(self) -> Slug | None:
+        self._check_for_flow_rate_messages()
+        self._update_flow_rate()
+
+        new_data_point = self.parent.write_measure(pins=(0,), modes=(1,))
+        event = self.algorithm.add_data(new_data_point)
+        if event is CUSUM.States.up:
+            self.slugs.append(Slug(time_start_1=time.time(), velocity=self.velocity))
+        if event is CUSUM.States.down and self.slugs:
+            self.slugs[-1].time_end_1 = time.time()
+            if self.slugs[-1].volume > self.target_volume:
+                return self.slugs[-1]  # slug found!

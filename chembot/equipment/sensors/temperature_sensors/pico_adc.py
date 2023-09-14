@@ -9,7 +9,7 @@ from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.communication.serial_pico import PicoSerial
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.temperature_sensors.calibration import ThermalCalibration
-from chembot.equipment.sensors.controllers.controller import Controller
+from equipment.controllers import Controller
 from utils.buffers.buffers import Buffer
 from utils.buffers.buffer_ring import BufferRingTime
 
