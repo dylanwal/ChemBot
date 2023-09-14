@@ -382,7 +382,7 @@ class SyringePumpHarvard(SyringePump):
         #TODO: set look for end message
         # self.watchdog.set_watchdog()  # TODO: check completion
 
-    def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_stall: bool = False):
+    def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_syringe_error: bool = False):
         """
         infuse
 
@@ -392,14 +392,14 @@ class SyringePumpHarvard(SyringePump):
             volume to be infused
         flow_rate:
             flow rate
-        ignore_stall:
+        ignore_syringe_error:
             True: don't throw an error if the pump stops due to stall
             False: will throw an error
         """
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
-        if not ignore_stall and self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
+        if not ignore_syringe_error and self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
         # setup pump
@@ -455,7 +455,7 @@ class SyringePumpHarvard(SyringePump):
         """ empty syringe """
         if flow_rate is None:
             flow_rate = self.syringe.default_flow_rate
-        self.write_infuse(self.syringe.volume, flow_rate, ignore_stall=True)
+        self.write_infuse(self.syringe.volume, flow_rate, ignore_syringe_error=True)
         self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
 
     def write_refill(self, flow_rate: Quantity = None):

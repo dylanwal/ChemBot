@@ -9,9 +9,7 @@ from chembot.rabbitmq.messages import RabbitMessageAction
 from chembot.communication.serial_pico import PicoSerial
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.equipment.sensors.temperature_sensors.calibration import ThermalCalibration
-from equipment.controllers import Controller
-from utils.buffers.buffers import Buffer
-from utils.buffers.buffer_ring import BufferRingTime
+
 
 logger = logging.getLogger(config.root_logger_name + ".temperature")
 
@@ -55,8 +53,6 @@ class TemperatureProbePicoADC(Sensor):
                  resistor: Quantity,
                  resistor_order: bool,
                  reference_voltage: Quantity = PicoHardware.v_sys,
-                 controllers: list[Controller] | Controller = None,
-                 buffer: Buffer = None
                  ):
         """
 
@@ -72,12 +68,8 @@ class TemperatureProbePicoADC(Sensor):
             order = False -> solve for R2
         reference_voltage
         """
-
         dtype = "uint16"
-        if buffer is None:
-            buffer = BufferRingTime(self._data_path / self.name, dtype, (200, 1), 20)
-
-        super().__init__(name, buffer, controllers)
+        super().__init__(name)
         self.communication = communication
         self.calibration = calibration
         self.resistor = resistor

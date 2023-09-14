@@ -70,9 +70,9 @@ valve_back = chembot.equipment.valves.ValveServo(
 # valve_back.activate()
 
 config_analytical = chembot.equipment.valves.ValveConfiguration.get_configuration("4L")
-config_analytical.ports[0].name = "to_reactor"
-config_analytical.ports[1].name = "to_pump"
-config_analytical.ports[2].name = "to_fill"
+config_analytical.ports[0].name = "to_waste"
+config_analytical.ports[1].name = "to_reactor"
+config_analytical.ports[2].name = "to_IR"
 config_analytical.ports[3].name = "blocked"
 config_analytical.ports[3].blocked = True
 

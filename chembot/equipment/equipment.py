@@ -119,8 +119,7 @@ class Equipment(abc.ABC):
             self.watchdog.check_watchdogs()
 
             # read message
-            if self.rabbit.messages_in_queue > 0:
-                self._process_message(self.rabbit.consume())
+            self._process_message(self.rabbit.consume())
 
             # execute continuous commands
             if self.continuous_event_handler is not None:
@@ -132,7 +131,7 @@ class Equipment(abc.ABC):
         pass
 
     def _process_message(self, message: RabbitMessage):
-        if not message:
+        if message is None:
             return
 
         if isinstance(message, RabbitMessageCritical):

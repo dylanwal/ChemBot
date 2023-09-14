@@ -28,7 +28,7 @@ class ContinuousEventHandler(abc.ABC):
         self.event_counter: int = 0
 
     def __str__(self):
-        return f"{type(self).__name__}.{self.callable_.__name__}"
+        return f"{type(self).__name__}.{self.callable_}"
 
     def __repr__(self):
         return self.__str__()
@@ -118,7 +118,7 @@ class ContinuousEventHandlerRepeating(ContinuousEventHandlerRepeatingNoEnd):
 class ContinuousEventHandlerProfile(ContinuousEventHandler):
     def __init__(self,
                  callable_: str | Callable,
-                 kwargs_names: Sequence[str, ...],
+                 kwargs_names: Sequence[str],
                  kwargs_values: Sequence,
                  delay_between_measurements: Sequence[float | int],
                  ):
