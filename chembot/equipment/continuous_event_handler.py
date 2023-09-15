@@ -174,6 +174,6 @@ class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeating
         if self.buffer is None:
             # we delay creating the buffer till the continuous event handler is on the equipment to avoid pass
             # large numpy arrays over rabbitmq
-            self.buffer = self._buffer_type()
+            self.buffer = self._buffer_type(config.data_directory / (parent.name + ".csv"))
         self.buffer.add_data(result)
         return result

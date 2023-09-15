@@ -10,5 +10,5 @@ def validate_quantity(quantity: Quantity, dimensionality, error_label: str, posi
             f"Expected: {dimensionality}"
         )
     if positive:
-        if quantity.v <= 0:
+        if quantity.v < 0:
             raise ValueError(f"{error_label}: Can't be less than 0.\n")

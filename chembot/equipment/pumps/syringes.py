@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import numpy as np
 from unitpy import Quantity, Unit
 
 from chembot.utils.unit_validation import validate_quantity
@@ -49,6 +50,8 @@ class Syringe:
 
         self.vendor = vendor
         self.name = name if name is not None else f"syringe: {self.volume}"
+
+        self._compute_missing_parameter()
 
         if kwargs:
             for k, v in kwargs.items():
@@ -107,6 +110,14 @@ class Syringe:
 
         validate_quantity(default_flow_rate, self.flow_rate_dimensionality, f"Syringe.default_flow_rate", positive=True)
         self._default_flow_rate = default_flow_rate
+
+    def _compute_missing_parameter(self):
+        if self.diameter is not None and self.volume is not None and self.pull is None:
+            self.pull = self.volume / (np.pi * (self.diameter/2)**2)
+        if self.volume is not None and self.pull is not None and self.diameter is None:
+            self.diameter = (self.volume / self.pull / np.pi)**(1/2) * 2
+        if self.pull is not None and self.diameter is not None and self.volume is None:
+            self.volume = self.pull * np.pi * (self.diameter/2)**2
 
     @classmethod
     def get_syringe(cls, name: str) -> Syringe:

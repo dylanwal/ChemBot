@@ -148,10 +148,6 @@ class Equipment(abc.ABC):
                     logger.exception('Build of RabbitMessageReply in queue. '
                                      f'The following message dropped: \n{message.to_str()}')
         elif isinstance(message, RabbitMessageAction):
-            # we need the message to be added to continuous_event_handler but not sure where best to put it
-            if message.action == self.write_continuous_event_handler.__name__:
-                self.continuous_event_handler.message = message
-
             reply = self._execute_action(message, message.action, message.kwargs)
             logger.info(
                 config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
@@ -171,6 +167,12 @@ class Equipment(abc.ABC):
 
             if reply is not None:
                 self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+
+            # we need the message to be added to continuous_event_handler but not sure where best to put it
+            if isinstance(message, RabbitMessageAction) and \
+                    message.action == self.write_continuous_event_handler.__name__:
+                self.continuous_event_handler.message = message
+
             return reply
 
         except Exception as e:
