@@ -146,26 +146,20 @@ class PhaseSensor(Sensor):
     def led_on(self) -> bool:
         return self._led_on
 
-    def _write(self, message: str):
-        message = message + "\n"
+    def _write_and_read(self,
+                        message: str,
+                        expected_reply: str = None,
+                        reply_processing: callable = None,
+                        time_out: float | int = 0.2,
+                        retries: int = 3
+                        ):
         # logger.debug(f"send: {message}")
-        self.serial.write(message.encode(config.encoding))
+        self.serial.timeout = time_out
+        for i in range(retries):
+            self.serial.write((message + "\n").encode(config.encoding))
 
-    def _read(self, read_bytes: int) -> str:
-        message = self.serial.read(read_bytes).decode(config.encoding)
-        # logger.debug(f"receive: {message}")
-        return message.strip("\n")
-
-    def _read_until(self, symbol: str = "\n") -> str:
-        message = self.serial.readline().decode(config.encoding)
-        return message.strip(symbol)
-
-    def _write_and_read(self, message: str, expected_reply: str = None, reply_processing: callable = None):
-        n = 3  # give it 3 tries to work
-        for i in range(n):
-            self._write(message)
             try:
-                reply = self._read_until()
+                reply = self.serial.readline().decode(config.encoding).strip()
                 if expected_reply is not None and reply[0] != expected_reply:
                     raise ValueError(f"Unexpected reply from pico when sending message: {message}.\nReceived: {reply}")
                 if reply_processing is not None:
@@ -177,7 +171,7 @@ class PhaseSensor(Sensor):
                 return reply
 
             except ValueError as e:
-                if i > n-1:
+                if i > retries-1:
                     self.serial.flushInput()
                     continue
                 if "reply" in locals():

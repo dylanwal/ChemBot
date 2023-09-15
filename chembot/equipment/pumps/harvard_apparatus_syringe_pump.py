@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 import enum
 import logging
 from datetime import timedelta
@@ -9,7 +8,7 @@ import serial
 from unitpy import Quantity, Unit
 
 from chembot.configuration import config
-from chembot.equipment.pumps.syringe_pump import SyringePump, PumpControlMethod, SyringePumpStatus
+from chembot.equipment.pumps.syringe_pump import SyringePump, SyringePumpStatus
 from chembot.equipment.pumps.syringes import Syringe
 from chembot.communication.serial_ import Serial
 from chembot.utils.unit_validation import validate_quantity
@@ -288,9 +287,9 @@ class SyringePumpHarvard(SyringePump):
                  syringe: Syringe,
                  port: str,
                  max_pull: Quantity = None,
-                 control_method: PumpControlMethod = PumpControlMethod.flow_rate,
+                 # control_method: PumpControlMethod = PumpControlMethod.flow_rate,
                  ):
-        super().__init__(name, syringe, max_pull, control_method)
+        super().__init__(name, syringe, max_pull)
         self.poll = True
 
         # serial dropped directly here because USB is one-one and the pump sends messages without prompt.
@@ -301,58 +300,80 @@ class SyringePumpHarvard(SyringePump):
 
         self._next_poll_time = 0
 
-    def _send_and_receive_message(self, prompt: str, time_out: float = 0.2) -> str:
-        # '@' turns off GUI updates for faster communication rates
-        self.serial.write(("@" + prompt + "\r").encode(config.encoding))
+    def _send_and_receive_message(self,
+                                  prompt: str,
+                                  time_out: float = 0.2,
+                                  retries: int = 3
+                                  ) -> str:
+        # logger.debug(f"send: {message}")
+        for i in range(retries):
+            # '@' turns off GUI updates for faster communication rates
+            self.serial.write(("@" + prompt + "\r").encode(config.encoding))
 
-        break_time = time.time() + time_out
-        while time.time() < break_time:
-            if self.serial.in_waiting:
-                time.sleep(0.1)
-                reply = self.serial.read(self.serial.in_waiting).decode(config.encoding)
-                break
-            time.sleep(0.01)
-        else:
-            raise ValueError(f"No message received from pump.\nprompt: {prompt}")
+            try:
+                return self._read(time_out)
+            except Exception as e:
+                if i > retries-1:
+                    self.serial.flushInput()
+                    continue
+                raise e
 
-        # check for error
-        logger.debug(f"prompt: {prompt} || reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
-        check_for_error(reply)
-        self.pump_state.state = check_status(reply[-2:])
+    def _read(self, time_out: float | int = 0.2) -> str:
+        self.serial.timeout = time_out
+        try:
+            reply = self.serial.readline().decode(config.encoding).strip()
+            # logger.debug(f"prompt: {prompt} || reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
+            check_for_error(reply)
+            self.pump_state.state = check_status(reply[-2:])
 
-        return reply[:-2]  # remove status
+            return reply[:-2]  # remove status
+
+        except Exception as e:
+            if "reply" in locals():
+                print("reply:", reply)  # noqa
+            if self.serial.in_waiting > 0:
+                print("in buffer:", self.serial.read_all())
+            raise e
 
     def _activate(self):
         # set syringe settings
         self._send_and_receive_message("NVRAM off")  # turn off writes of rate to memory -> faster communication
         self._write_diameter(self.syringe.diameter)
-        self.write_empty()  #TODO: wait for finish
+        self.write_empty()
         super()._activate()
 
     def _deactivate(self):
         self.serial.close()
 
     def _poll_status(self):
-        if time.time() < self._next_poll_time:
-            return
-        self._next_poll_time = time.time() + self.poll_rate
+        if self.serial.in_waiting:
+            self._read()
+            if self.pump_state.state is SyringePumpStatus.STALLED:
+                if not self.pump_state.volume_in_syringe.is_close(0 * Unit.ml, abs_tol=0.01 * Unit.ml):
+                    # ignore stall if its close to zero volume in syringe
+                    logger.error(config.log_formatter(self, self.name, "Error stalled detected!!!"))
+                self._stop()
 
-        try:
-            self.read_pump_status()
-        except Exception as e:
-            logger.info(f"{self.name} had error during polling.")
-            logger.exception(e)
-            self._deactivate()
-            return
-
-        if self.pump_state.state is self.pump_states.STALLED or \
-                self.pump_state.state is self.pump_states.TARGET_REACHED:
-            # self.rabbit.send()  # TODO
-            logger.info(f"{self.name} finished with status: {self.pump_state.state}")
-
-            self.write_stop()
-            self.state = self.states.STANDBY
-            self.pump_state.state = self.pump_states.STANDBY
+        # if time.time() < self._next_poll_time:
+        #     return
+        # self._next_poll_time = time.time() + self.poll_rate
+        #
+        # try:
+        #     self.read_pump_status()
+        # except Exception as e:
+        #     logger.info(f"{self.name} had error during polling.")
+        #     logger.exception(e)
+        #     self._deactivate()
+        #     return
+        #
+        # if self.pump_state.state is self.pump_states.STALLED or \
+        #         self.pump_state.state is self.pump_states.TARGET_REACHED:
+        #     # self.rabbit.send()
+        #     logger.info(f"{self.name} finished with status: {self.pump_state.state}")
+        #
+        #     self.write_stop()
+        #     self.state = self.states.STANDBY
+        #     self.pump_state.state = self.pump_states.STANDBY
 
     ## actions ################################################################################################# noqa
     def _stop(self):
@@ -367,8 +388,6 @@ class SyringePumpHarvard(SyringePump):
         self.pump_state.state = self.pump_states.INFUSE
         self.pump_state.running_time = 0 * Unit.s
         self.pump_state.volume_displace = 0 * self.syringe.volume.unit
-        #TODO: set look for end message
-        # self.watchdog.set_watchdog()  # TODO: check completion
 
     def _write_run_withdraw(self):
         """
@@ -379,8 +398,6 @@ class SyringePumpHarvard(SyringePump):
         self.pump_state.state = self.pump_states.WITHDRAW
         self.pump_state.running_time = 0 * Unit.s
         self.pump_state.volume_displace = 0 * self.syringe.volume.unit
-        #TODO: set look for end message
-        # self.watchdog.set_watchdog()  # TODO: check completion
 
     def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_syringe_error: bool = False):
         """
@@ -399,7 +416,8 @@ class SyringePumpHarvard(SyringePump):
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
-        if not ignore_syringe_error and self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
+        if not ignore_syringe_error and \
+                self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
         # setup pump
@@ -456,6 +474,13 @@ class SyringePumpHarvard(SyringePump):
         if flow_rate is None:
             flow_rate = self.syringe.default_flow_rate
         self.write_infuse(self.syringe.volume, flow_rate, ignore_syringe_error=True)
+
+        # run till it stalls
+        time_out = (self.syringe.volume / self.syringe.default_flow_rate).to("s").value + 10  # seconds
+        self._read(time_out)
+        if self.pump_state.state is not SyringePumpStatus.STALLED:
+            raise ValueError("Pump not successful at emptying.")
+
         self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
 
     def write_refill(self, flow_rate: Quantity = None):
