@@ -153,7 +153,10 @@ class SavingMixin(abc.ABC):
         path = path.with_stem(path.stem + "_" + str(index))
         path = path.with_suffix(".csv")
 
-        # check for existing path and add
+        # check for issue accessing the file
+        if not os.access(path, os.W_OK):
+            path = path.with_stem(path.stem + "_new")
+
         return path
 
     def _thread_save(self):

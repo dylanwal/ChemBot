@@ -261,7 +261,7 @@ class SyringePumpHarvard(SyringePump):
 
     """
     ramp_object = RampFlowRate
-    poll_rate = 1  # sec
+    poll_gap = 5  # sec
 
     def __init__(self,
                  name: str,
@@ -271,7 +271,6 @@ class SyringePumpHarvard(SyringePump):
                  # control_method: PumpControlMethod = PumpControlMethod.flow_rate,
                  ):
         super().__init__(name, syringe, max_pull)
-        self.poll = True
 
         # serial dropped directly here because USB is one-one and the pump sends messages without prompt.
         Serial.available_port(port)
@@ -285,12 +284,14 @@ class SyringePumpHarvard(SyringePump):
         # check for target reached  'T:' or 'T*'
         if "T" in message[0]:
             self.pump_state.state = SyringePumpStatus.TARGET_REACHED
+            self.state = self.states.STANDBY
             if message[1] == HarvardPumpStatus.STALLED.value:
                 self._send_and_receive_message("stop")
             return message[2:]
 
         # check general status ':', '*', '>', '<'
         if message[0] == HarvardPumpStatus.STALLED.value:
+            self.state = self.states.STANDBY
             self._send_and_receive_message("stop")
         status = message[0]
         for option in HarvardPumpStatus:
@@ -337,7 +338,7 @@ class SyringePumpHarvard(SyringePump):
         for i in range(retries):
             try:
                 reply = self.serial.read_until().decode(config.encoding)
-                if reply == "\n":
+                if reply == "\n" or reply == "\r\n":
                     reply = self.serial.read_until().decode(config.encoding)
                 logger.debug(f"{self.name} | reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
                 if "Argument error" in reply:
@@ -369,11 +370,16 @@ class SyringePumpHarvard(SyringePump):
     def _poll_status(self):
         if self.serial.in_waiting:
             self._read()
+            logger.info(f"{self.name} | Pump finished addition or stalled.")
             if self.pump_state.state is SyringePumpStatus.STALLED and self.state is self.states.RUNNING:
                 if not self.pump_state.volume_in_syringe.is_close(0 * Unit.ml, abs_tol=0.01 * Unit.ml):
                     # ignore stall if its close to zero volume in syringe
                     logger.error(config.log_formatter(self, self.name, "Error stalled detected!!!"))
-                self._stop()
+                self.write_stop()
+
+        if self.state is self.states.RUNNING and time.time() > self._next_poll_time:
+            self.read_pump_status()
+            self._next_poll_time = time.time() + self.poll_gap
 
     ## actions ################################################################################################# noqa
     def _stop(self):
@@ -478,7 +484,7 @@ class SyringePumpHarvard(SyringePump):
             flow_rate = self.syringe.default_flow_rate
         self.write_infuse(self.syringe.volume, flow_rate, ignore_syringe_error=True)
 
-        # run till it stalls
+        # run till it stalls (with safe timeout)
         self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
         time_out = (self.syringe.volume / self.syringe.default_flow_rate).to("s").value + 10  # seconds
         time_stop = time.time() + time_out
@@ -547,7 +553,6 @@ class SyringePumpHarvard(SyringePump):
         self.pump_state.volume_displace = status.displaced_volume
         self.pump_state.flow_rate = status.flow_rate
         self.pump_state.running_time = status.time_
-        # state taken care off with self._send_and_receive_message
         return status
 
     def read_force(self) -> int:

@@ -145,7 +145,7 @@ def job_droplets() -> JobSequence:
     return JobSequence(
         [
             # job_fill_syringe_multiple(
-            #     volume=[1 * Unit.ml, 1/3 * Unit.ml],
+            #     volume=[1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml],
             #     flow_rate=[3 * Unit("ml/min"), 1.5 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
             #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
@@ -165,21 +165,21 @@ def job_droplets() -> JobSequence:
             #     kwargs={"position": "fill"}
             # ),
             # job_flow_syringe_multiple(
-            #     volume=[0.5 * Unit.ml, 0.5/3 * Unit.ml],
+            #     volume=[0.7 * Unit.ml, 0.7/3 * Unit.ml],
             #     flow_rate=[0.5 * Unit("ml/min"), 0.5/3 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
             #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
             # ),
 
             # main job
-            add_phase_sensor(
-                job_flow_syringe_multiple(
-                    volume=[.5 * Unit.ml, 0.5/3 * Unit.ml],
-                    flow_rate=[0.1 * Unit("ml/min"), 0.1/3 * Unit("ml/min")],
-                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-                )
-            ),
+            # add_phase_sensor(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.4 * Unit.ml, 0.4/3 * Unit.ml],
+            #         flow_rate=[0.1 * Unit("ml/min"), 0.1/3 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     )
+            # ),
 
 
             # job_flow_syringe_multiple(
@@ -190,6 +190,14 @@ def job_droplets() -> JobSequence:
             # ),
             # job_air_purge()
 
+            add_phase_sensor(
+                job_fill_syringe_multiple(
+                    volume=[0.5 * Unit.ml],
+                    flow_rate=[0.1 * Unit("ml/min")],
+                    valves=[NamesValves.VALVE_FRONT],
+                    pumps=[NamesPump.PUMP_FRONT]
+                )
+            )
         ]
     )
 
