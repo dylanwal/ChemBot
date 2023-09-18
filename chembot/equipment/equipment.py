@@ -2,7 +2,6 @@ import abc
 import logging
 import queue
 import time
-from datetime import datetime
 
 from unitpy import Quantity
 
@@ -149,6 +148,8 @@ class Equipment(abc.ABC):
                                      f'The following message dropped: \n{message.to_str()}')
         elif isinstance(message, RabbitMessageAction):
             reply = self._execute_action(message, message.action, message.kwargs)
+            if reply is not None:
+                self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
             logger.info(
                 config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
                                                       f"\n reply: {repr(reply)}"))
@@ -164,9 +165,6 @@ class Equipment(abc.ABC):
                 reply = func()
             else:
                 reply = func(**kwargs)
-
-            if reply is not None:
-                self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
 
             # we need the message to be added to continuous_event_handler but not sure where best to put it
             if isinstance(message, RabbitMessageAction) and \
@@ -238,7 +236,9 @@ class Equipment(abc.ABC):
         stop current action and reset to standby
         """
         self.state = EquipmentState.STANDBY
-        self.continuous_event_handler = None
+        if self.continuous_event_handler is not None:
+            self.continuous_event_handler.stop()
+            self.continuous_event_handler = None
         self._stop()
 
     def write_continuous_event_handler(self, event_handler: ContinuousEventHandler):
@@ -251,7 +251,7 @@ class Equipment(abc.ABC):
 
         """
         self.continuous_event_handler = event_handler
-        self.continuous_event_handler.start_time = datetime.now()
+        self.continuous_event_handler.start_time = time.time()
 
     def _deactivate_(self):
         self.state = self.states.SHUTTING_DOWN

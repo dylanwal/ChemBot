@@ -286,12 +286,12 @@ class SyringePumpHarvard(SyringePump):
         if "T" in message[0]:
             self.pump_state.state = SyringePumpStatus.TARGET_REACHED
             if message[1] == HarvardPumpStatus.STALLED.value:
-                self._stop()
+                self._send_and_receive_message("stop")
             return message[2:]
 
         # check general status ':', '*', '>', '<'
         if message[0] == HarvardPumpStatus.STALLED.value:
-            self._stop()
+            self._send_and_receive_message("stop")
         status = message[0]
         for option in HarvardPumpStatus:
             if status == option.value:
@@ -305,7 +305,7 @@ class SyringePumpHarvard(SyringePump):
                                   time_out: float = 0.2,
                                   retries: int = 3
                                   ) -> str:
-        logger.debug(f"send: {prompt}")
+        logger.debug(f"{self.name} | send: {prompt}")
         for i in range(retries):
             # '@' turns off GUI updates for faster communication rates
             self.serial.write(("@" + prompt + "\r").encode(config.encoding))
@@ -339,7 +339,7 @@ class SyringePumpHarvard(SyringePump):
                 reply = self.serial.read_until().decode(config.encoding)
                 if reply == "\n":
                     reply = self.serial.read_until().decode(config.encoding)
-                logger.debug(f"reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
+                logger.debug(f"{self.name} | reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
                 if "Argument error" in reply:
                     raise ArgumentError(reply)
                 if "Command error" in reply:
@@ -369,32 +369,11 @@ class SyringePumpHarvard(SyringePump):
     def _poll_status(self):
         if self.serial.in_waiting:
             self._read()
-            if self.pump_state.state is SyringePumpStatus.STALLED:
+            if self.pump_state.state is SyringePumpStatus.STALLED and self.state is self.states.RUNNING:
                 if not self.pump_state.volume_in_syringe.is_close(0 * Unit.ml, abs_tol=0.01 * Unit.ml):
                     # ignore stall if its close to zero volume in syringe
                     logger.error(config.log_formatter(self, self.name, "Error stalled detected!!!"))
                 self._stop()
-
-        # if time.time() < self._next_poll_time:
-        #     return
-        # self._next_poll_time = time.time() + self.poll_rate
-        #
-        # try:
-        #     self.read_pump_status()
-        # except Exception as e:
-        #     logger.info(f"{self.name} had error during polling.")
-        #     logger.exception(e)
-        #     self._deactivate()
-        #     return
-        #
-        # if self.pump_state.state is self.pump_states.STALLED or \
-        #         self.pump_state.state is self.pump_states.TARGET_REACHED:
-        #     # self.rabbit.send()
-        #     logger.info(f"{self.name} finished with status: {self.pump_state.state}")
-        #
-        #     self.write_stop()
-        #     self.state = self.states.STANDBY
-        #     self.pump_state.state = self.pump_states.STANDBY
 
     ## actions ################################################################################################# noqa
     def _stop(self):
@@ -559,10 +538,11 @@ class SyringePumpHarvard(SyringePump):
         self._check_pump_reply(reply2)
         status = HarvardPumpStatusMessage.parse_message(reply)
 
-        if status.motor_direction.infuse:
-            self.pump_state.volume_in_syringe += status.displaced_volume
-        else:
-            self.pump_state.volume_in_syringe -= status.displaced_volume
+        if self.state is self.states.RUNNING:
+            if status.motor_direction.infuse:
+                self.pump_state.volume_in_syringe += status.displaced_volume
+            else:
+                self.pump_state.volume_in_syringe -= status.displaced_volume
 
         self.pump_state.volume_displace = status.displaced_volume
         self.pump_state.flow_rate = status.flow_rate

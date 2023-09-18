@@ -29,15 +29,21 @@ class BufferRing:
         return self.__str__()
 
     @property
-    def shape(self) -> tuple[int, int]:
+    def shape(self) -> tuple[int, int] | None:
+        if self.buffer is None:
+            return None
         return self.buffer.shape
 
     @property
     def dtype(self):
+        if self.buffer is None:
+            return None
         return self.buffer.dtype
 
     @property
-    def last_measurement(self) -> np.ndarray:
+    def last_measurement(self) -> np.ndarray | None:
+        if self.buffer is None:
+            return None
         return self.buffer[self.position, :]
 
     def add_data(self, data: int | float | np.ndarray):
@@ -64,6 +70,7 @@ class BufferRing:
             length = self.length
         else:
             length = self.DEFAULT_LENGTH
+
         if isinstance(data, int):
             self.buffer = np.zeros((length, 1), dtype=np.int64)
         elif isinstance(data, float):
@@ -71,7 +78,7 @@ class BufferRing:
         elif isinstance(data, np.ndarray):
             self.buffer = np.zeros((length, data.shape[0]), dtype=data.dtype)
         else:
-            raise TypeError("Invalid type")
+            raise TypeError(f"Invalid type.\t\nGive: {data}\t\nExpected: int | float | np.ndarray\n")
 
     def get_data(self, start: int, end: int) -> np.ndarray:
         if start > end:
@@ -134,7 +141,7 @@ class SavingMixin(abc.ABC):
         self._thread = threading.Thread(target=self._thread_save)
         self._file_counter = 0
         self._resets = 0
-        self._pause_saving = False
+        self._reset_saving = False
 
         if self.saving:
             self._thread.start()
@@ -165,17 +172,16 @@ class SavingMixin(abc.ABC):
                     try:
                         data: np.ndarray = self.data_queue.get(timeout=0.2)  # blocking
                     except queue.Empty:
-                        if self._pause_saving:
-                            self._pause_saving = False
-                            break
-                        elif not main_thread.is_alive() and not close_thread:
+                        if not main_thread.is_alive() and not close_thread:
                             self.save_all()
-                            self.close_thread = True
+                            close_thread = True
                             continue
-
-                        # exit once everything is saved close thread
-                        break
-
+                        if close_thread:
+                            break
+                        if self._reset_saving:
+                            self._reset_saving = False
+                            break
+                        continue
                     # write row
                     logger.info("saving")
                     for row in data:
@@ -229,7 +235,7 @@ class BufferRingSavable(BufferRing, SavingMixin):
         self.number_of_rows_per_save = number_of_rows_per_save
         self.total_rows = 0
         self.last_save = 0
-        self.next_save = self._compute_next_save()
+        self.next_save = None
 
     def __str__(self):
         return f"buffer: {self.shape}, position: {self.position}, total_rows: {self.total_rows}"
@@ -238,7 +244,7 @@ class BufferRingSavable(BufferRing, SavingMixin):
         return self.__str__()
 
     def add_data(self, data: int | float | np.ndarray):
-        BufferRing.__init__(self, data)
+        BufferRing.add_data(self, data)
 
         if self.saving and self.position == self.next_save:
             self.save(self.last_save, self.next_save)
@@ -246,11 +252,12 @@ class BufferRingSavable(BufferRing, SavingMixin):
         self.total_rows += 1
 
     def save_all(self):
+        logger.warning(f"save_all: {self.last_save}: {self.position}")
         self.save(self.last_save, self.position)
-        self._pause_saving = True
+        self.reset()
 
     def save(self, last_save: int, position: int):
-        if last_save == position:
+        if last_save == position or position == -1:
             return
         if not self._thread.is_alive():
             self._thread.start()
@@ -262,12 +269,17 @@ class BufferRingSavable(BufferRing, SavingMixin):
         self.last_save = position
         self.next_save = self._compute_next_save()
 
+    def _create_buffer(self, data: int | float | np.ndarray):
+        BufferRing._create_buffer(self, data)
+        self.next_save = self._compute_next_save()
+
     def reset(self):
         self._resets += 1
         self.position = -1
         self.total_rows = 0
         self.last_save = 0
         self.next_save = self._compute_next_save()
+        self._reset_saving = True
 
     def save_and_reset(self):
         self.save_all()
@@ -311,7 +323,7 @@ class BufferRingTimeSavable(BufferRingSavable):
         return self.buffer_time[self.position]
 
     def add_data(self, data: int | float | np.ndarray):
-        BufferRing.__init__(self, data)
+        BufferRing.add_data(self, data)
         self.buffer_time[self.position] = time.time()
 
         if self.saving and self.position == self.next_save:
@@ -320,8 +332,8 @@ class BufferRingTimeSavable(BufferRingSavable):
         self.total_rows += 1
 
     def _create_buffer(self, data: int | float | np.ndarray):
-        BufferRing.add_data(self, data)
-        self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.f64)
+        BufferRingSavable._create_buffer(self, data)
+        self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.float64)
 
     def get_data(self, start: int, end: int, merge: bool = True) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
         if start > end:
@@ -335,6 +347,6 @@ class BufferRingTimeSavable(BufferRingSavable):
                 self.buffer[start:end, :]
             )
         if merge:
-            data = np.concatenate(data, axis=1)
+            data = np.column_stack(data)
 
         return data

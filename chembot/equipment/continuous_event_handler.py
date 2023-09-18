@@ -6,6 +6,7 @@ import logging
 
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction
+from chembot.utils.buffers.buffers import BufferSavable
 from chembot.utils.buffers.buffer_ring import BufferRingTimeSavable
 
 logger = logging.getLogger(config.root_logger_name + ".continuous_event_handler")
@@ -47,18 +48,12 @@ class ContinuousEventHandler(abc.ABC):
             raise ValueError("Start time can't be earlier than current time.")
 
         self._start_time = start_time
+        self._set_next_time()
 
     def poll(self, parent: ParentInterfaceContinuousEventHandler):
         """ function called each cycle of the equipment to run the profile. """
-        try:
-            if self._next_time > time.time():
-                return
-        except TypeError:  # self._next_time = None
-            if self.start_time is None:
-                logger.warning(f"Start time not set on '{parent.name} profile'.")
-            parent.profile = None
+        if self._next_time > time.time():
             return
-
         self._set_next_time()
 
         # execute call
@@ -72,6 +67,9 @@ class ContinuousEventHandler(abc.ABC):
     @abc.abstractmethod
     def _set_next_time(self):
         ...
+
+    def stop(self):
+        pass
 
 
 class ContinuousEventHandlerRepeatingNoEnd(ContinuousEventHandler):
@@ -96,7 +94,7 @@ class ContinuousEventHandlerRepeatingNoEnd(ContinuousEventHandler):
         return self.kwargs
 
     def _set_next_time(self):
-        return time.time() + self.delay_between_measurements
+        self._next_time = time.time() + self.delay_between_measurements
 
 
 class ContinuousEventHandlerRepeating(ContinuousEventHandlerRepeatingNoEnd):
@@ -138,24 +136,24 @@ class ContinuousEventHandlerProfile(ContinuousEventHandler):
         return {k: v for k, v in zip(self.kwargs_names, self.kwargs_values[self.event_counter])}
 
     def _set_next_time(self):
-        return self._times[self.event_counter]
+        self._next_time = self._times[self.event_counter]
 
 
-class ContinuousEventHandlerRepeatingConditional(ContinuousEventHandlerRepeating):
-    def __init__(self,
-                 callable_: str | Callable,
-                 kwargs: dict[str, ...],
-                 max_repeats: int,
-                 condition: Callable,
-                 delay_between_measurements: float | int = 0,  # in seconds
-                 ):
-        super().__init__(callable_, kwargs, delay_between_measurements)
-        self.max_repeats = max_repeats
-
-    def poll(self, parent: ParentInterfaceContinuousEventHandler):
-        super().poll(parent)
-        if self.max_repeats is not None and self.max_repeats == self.event_counter:
-            parent.profile = None
+# class ContinuousEventHandlerRepeatingConditional(ContinuousEventHandlerRepeating):
+#     def __init__(self,
+#                  callable_: str | Callable,
+#                  kwargs: dict[str, ...],
+#                  max_repeats: int,
+#                  condition: Callable,
+#                  delay_between_measurements: float | int = 0,  # in seconds
+#                  ):
+#         super().__init__(callable_, kwargs, delay_between_measurements)
+#         self.max_repeats = max_repeats
+#
+#     def poll(self, parent: ParentInterfaceContinuousEventHandler):
+#         super().poll(parent)
+#         if self.max_repeats is not None and self.max_repeats == self.event_counter:
+#             parent.profile = None
 
 
 class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeatingNoEnd):
@@ -167,13 +165,20 @@ class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeating
                  ):
         super().__init__(callable_, kwargs, delay_between_measurements)
         self._buffer_type = buffer_type
-        self.buffer = None
+        self.buffer: BufferSavable | None = None
 
     def poll(self, parent: ParentInterfaceContinuousEventHandler):
         result = super().poll(parent)
+        if result is None:
+            return
+
         if self.buffer is None:
             # we delay creating the buffer till the continuous event handler is on the equipment to avoid pass
             # large numpy arrays over rabbitmq
             self.buffer = self._buffer_type(config.data_directory / (parent.name + ".csv"))
+
         self.buffer.add_data(result)
         return result
+
+    def stop(self):
+        self.buffer.save_all()

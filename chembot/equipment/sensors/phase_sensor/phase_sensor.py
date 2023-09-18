@@ -160,6 +160,7 @@ class PhaseSensor(Sensor):
 
             try:
                 reply = self.serial.readline().decode(config.encoding).strip()
+                # logger.debug(f"reply: {reply}")
                 if expected_reply is not None and reply[0] != expected_reply:
                     raise ValueError(f"Unexpected reply from pico when sending message: {message}.\nReceived: {reply}")
                 if reply_processing is not None:
@@ -214,7 +215,7 @@ class PhaseSensor(Sensor):
 
         return self._write_and_read(  # noqa
             message="s" + "".join(format_pin(pin, mode) for pin, mode in zip(pins, modes)),
-            reply_processing=functools.partial(parse_measurement, {"dtype": self.dtype})
+            reply_processing=functools.partial(parse_measurement, dtype=self.dtype)
         )
 
     def write_gain(self, gain: int = 1):
