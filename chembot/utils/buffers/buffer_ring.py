@@ -21,6 +21,7 @@ class BufferRing:
         self.buffer = buffer
         self.position = -1
         self.length = length
+        self.total_rows = 0
 
     def __str__(self):
         return f"buffer: {self.shape}, position: {self.position}"
@@ -55,9 +56,12 @@ class BufferRing:
             if self.buffer is None:
                 # create buffer if they didn't exist
                 self._create_buffer(data)
+                self._update_position()
                 self.buffer[self.position, :] = data
             else:
                 raise e
+
+        self.total_rows += 1
 
     def _update_position(self):
         if self.position == self.buffer.shape[0] - 1:
@@ -80,10 +84,30 @@ class BufferRing:
         else:
             raise TypeError(f"Invalid type.\t\nGive: {data}\t\nExpected: int | float | np.ndarray\n")
 
-    def get_data(self, start: int, end: int) -> np.ndarray:
+    def get_data(self, start: int = None, end: int = None) -> np.ndarray | None:
+        logger.warning(f"get_data: {start} | {end}")
+        if self.buffer is None or self.total_rows == 0:
+            return None
+
+        if start is None and end is None:
+            if self.total_rows < self.buffer.shape[0]:
+                start = 0
+                end = self.position
+            else:
+                start = self.position - 1
+                end = self.position
+        if start == end:
+            return self.buffer[start, :]
+
+
         if start > end:
             return np.concatenate((self.buffer[start:, :], self.buffer[0:end, :]))
+
         return self.buffer[start:end, :]
+
+    def reset(self):
+        self.position = -1
+        self.total_rows = 0
 
 
 class BufferRingTime(BufferRing):
@@ -102,14 +126,27 @@ class BufferRingTime(BufferRing):
         return self.buffer_time[self.position]
 
     def add_data(self, data: int | float | np.ndarray):
-        super(BufferRingTime, self).add_data(data)
+        super().add_data(data)
         self.buffer_time[self.position] = time.time()
 
     def _create_buffer(self, data: int | float | np.ndarray):
-        super(BufferRingTime, self).add_data(data)
-        self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.f64)
+        super()._create_buffer(data)
+        self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.float64)
 
-    def get_data(self, start: int, end: int, merge: bool = True) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+    def get_data(self, start: int = None, end: int = None, merge: bool = True) \
+            -> tuple[np.ndarray, np.ndarray] | np.ndarray | None:
+        if self.buffer is None or self.position < 0:
+            return None
+        if start is None and end is None:
+            if self.total_rows < self.buffer.shape[0]:
+                start = 0
+                end = self.position
+            else:
+                start = self.position - 1
+                end = self.position
+        if start == end:
+            return None
+
         if start > end:
             data = (
                 np.concatenate((self.buffer_time[start:], self.buffer_time[:end])),
@@ -121,7 +158,7 @@ class BufferRingTime(BufferRing):
                 self.buffer[start:end, :]
             )
         if merge:
-            data = np.concatenate(data, axis=1)
+            data = np.column_stack(data)
 
         return data
 
@@ -130,31 +167,42 @@ class SavingMixin(abc.ABC):
     file_size_limit = 30_000
 
     def __init__(self, path: str | pathlib.Path, queue_size: int, saving: bool = True):
-        if not isinstance(path, pathlib.Path):
-            path = pathlib.Path(path)
+        self._path = None
         self.path = path
 
         # stuff for saving via thread
         self.saving = saving
         self.data_queue = queue.Queue(maxsize=queue_size)
 
-        self._thread = threading.Thread(target=self._thread_save)
         self._file_counter = 0
         self._resets = 0
         self._reset_saving = False
+        self._thread = threading.Thread(target=self._thread_save)
+        self._thread.start()
 
-        if self.saving:
-            self._thread.start()
+    @property
+    def path(self) -> pathlib.Path | None:
+        return self._path
+
+    @path.setter
+    def path(self, path: str | pathlib.Path):
+        if not isinstance(path, pathlib.Path):
+            path = pathlib.Path(path)
+        if not path.suffix == ".csv":
+            path = path.with_suffix(".csv")
+        self._path = path
 
     def get_file_path(self, index: int) -> pathlib.Path:
         path = self.path
         if self._resets > 0:
             path = path.with_stem(path.stem + "_reset" + str(self._resets))
-        path = path.with_stem(path.stem + "_" + str(index))
-        path = path.with_suffix(".csv")
+        if index > 0:
+            path = path.with_stem(path.stem + "_" + str(index))
 
         # check for issue accessing the file
-        if not os.access(path, os.W_OK):
+        if os.path.isfile(path) and not os.access(path, os.W_OK):
+            logger.warning(path)
+            logger.warning(os.access(path, os.W_OK))
             path = path.with_stem(path.stem + "_new")
 
         return path
@@ -170,23 +218,33 @@ class SavingMixin(abc.ABC):
         while not close_thread:
             index += 1  # counter for index path name for each new file
             counter = 0  # counter when to start a new file
-            with open(self.get_file_path(index), mode="w", encoding="utf-8") as f:
+            file_path = self.get_file_path(index)
+            with open(file_path, mode="w", encoding="utf-8") as f:
                 while True:
                     try:
-                        data: np.ndarray = self.data_queue.get(timeout=0.2)  # blocking
+                        range_ = self.data_queue.get(timeout=0.2)  # blocking
                     except queue.Empty:
-                        if not main_thread.is_alive() and not close_thread:
+                        if not main_thread.is_alive():
+                            if close_thread:
+                                break
                             self.save_all()
                             close_thread = True
                             continue
-                        if close_thread:
-                            break
                         if self._reset_saving:
+                            # move onto next file
                             self._reset_saving = False
                             break
+
+                        # continue waiting for data to come into queue
                         continue
-                    # write row
-                    logger.info("saving")
+
+                    ########################################################
+                    # data has come in for saving
+                    logger.warning(f"save_thread: {range_}")
+                    data: np.ndarray | None = self.get_data(*range_)
+                    logger.warning(f"data: {data}")
+                    if data is None:
+                        continue
                     for row in data:
                         f.write(','.join(str(i) for i in row))
                         f.write('\n')
@@ -197,10 +255,14 @@ class SavingMixin(abc.ABC):
                         break
 
             if counter == 0:
-                os.remove(self.get_file_path(index))
+                os.remove(file_path)
 
     @abc.abstractmethod
     def save_all(self):
+        ...
+
+    @abc.abstractmethod
+    def get_data(self, start: int = None, end: int = None) -> np.ndarray | None:
         ...
 
 
@@ -215,11 +277,13 @@ class BufferRingSavable(BufferRing, SavingMixin):
     time. A check is added to stop if buffer is overfilled.
 
     """
+    NUMBER_OF_ROWS_PER_SAVE_DEFAULT = 1000
+    SAVING_TIMEOUT = 3  # seconds
 
     def __init__(self,
                  path: pathlib.Path,
                  buffer: np.ndarray = None,
-                 number_of_rows_per_save: int = 1000,
+                 number_of_rows_per_save: int = None,
                  length: int = None
                  ):
         """
@@ -234,65 +298,63 @@ class BufferRingSavable(BufferRing, SavingMixin):
             number of rows saved at a time
         """
         BufferRing.__init__(self, buffer, length)
-        SavingMixin.__init__(self, path, number_of_rows_per_save*2)
+        SavingMixin.__init__(self, path, 2)
         self.number_of_rows_per_save = number_of_rows_per_save
-        self.total_rows = 0
         self.last_save = 0
         self.next_save = None
-
-    def __str__(self):
-        return f"buffer: {self.shape}, position: {self.position}, total_rows: {self.total_rows}"
-
-    def __repr__(self):
-        return self.__str__()
 
     def add_data(self, data: int | float | np.ndarray):
         BufferRing.add_data(self, data)
 
         if self.saving and self.position == self.next_save:
-            self.save(self.last_save, self.next_save)
+            self.save(self.last_save, self.position + 1)  # +1 is for non-exclusive
 
         self.total_rows += 1
 
     def save_all(self):
-        logger.warning(f"save_all: {self.last_save}: {self.position}")
-        self.save(self.last_save, self.position)
+        self.save(self.last_save, self.position + 1)  # +1 is for non-exclusive
         self.reset()
 
     def save(self, last_save: int, position: int):
         if last_save == position or position == -1:
             return
-        if not self._thread.is_alive():
-            self._thread.start()
         if self.data_queue.full():
             raise OverflowError("Queue is not being saved fast enough. Make buffer bigger or slow down data "
                                 "collection.")
-
-        self.data_queue.put(self.get_data(last_save, position))
+        self.data_queue.put((last_save, position))
         self.last_save = position
         self.next_save = self._compute_next_save()
 
+    def _get_number_of_rows_per_save(self):
+        if self.number_of_rows_per_save is None:
+            self.number_of_rows_per_save = min(self.NUMBER_OF_ROWS_PER_SAVE_DEFAULT, int(self.buffer.shape[0]/2) - 1)
+
     def _create_buffer(self, data: int | float | np.ndarray):
         BufferRing._create_buffer(self, data)
+        self._get_number_of_rows_per_save()
         self.next_save = self._compute_next_save()
 
     def reset(self):
-        self._resets += 1
-        self.position = -1
-        self.total_rows = 0
-        self.last_save = 0
-        self.next_save = self._compute_next_save()
-        self._reset_saving = True
+        time_out = time.time() + self.SAVING_TIMEOUT
+        while time.time() < time_out:
+            if self.data_queue.empty():
+                time.sleep(0.1)
+                self._reset_saving = True
+                BufferRing.reset(self)
+                self._resets += 1
+                self.last_save = 0
+                self.next_save = self._compute_next_save()
+                return
+            else:
+                time.sleep(0.1)
 
-    def save_and_reset(self):
-        self.save_all()
-        self.reset()
+        raise TimeoutError("Queue never emptied out, so reset can't happened.")
 
     def _compute_next_save(self):
         rows_left_in_ring = self.shape[0] - self.last_save
         if rows_left_in_ring < self.number_of_rows_per_save:  # loop around
-            return self.number_of_rows_per_save - rows_left_in_ring
-        return self.last_save + self.number_of_rows_per_save
+            return self.number_of_rows_per_save - 1 - rows_left_in_ring
+        return self.last_save - 1 + self.number_of_rows_per_save
 
 
 class BufferRingTimeSavable(BufferRingSavable):
@@ -338,7 +400,8 @@ class BufferRingTimeSavable(BufferRingSavable):
         BufferRingSavable._create_buffer(self, data)
         self.buffer_time = np.zeros(self.buffer.shape[0], dtype=np.float64)
 
-    def get_data(self, start: int, end: int, merge: bool = True) -> tuple[np.ndarray, np.ndarray] | np.ndarray:
+    def get_data(self, start: int = None, end: int = None, merge: bool = True) \
+            -> tuple[np.ndarray, np.ndarray] | np.ndarray | None:
         if start > end:
             data = (
                 np.concatenate((self.buffer_time[start:], self.buffer_time[:end])),

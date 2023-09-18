@@ -36,7 +36,7 @@ map_status = {
 
 class CommandError(Exception):
     """
-    Command errors are displayed when the command is unrecognized, entered in the wrong mode,
+    Command errors are displayed when the command is unrecognized, or entered in while the pump is in the wrong mode,
     or the state of the pump keeps the command from executing
     """
 
