@@ -8,6 +8,7 @@ import numpy as np
 from unitpy import Unit, Quantity
 
 from chembot.configuration import config, create_folder
+from chembot.utils.threading_utils import timeout_wrapper
 from chembot.equipment.sensors.sensor import Sensor
 from chembot.utils.algorithms.change_detection import CUSUM
 from chembot.rabbitmq.messages import RabbitMessageAction, RabbitMessageReply
@@ -130,7 +131,9 @@ class PhaseSensor(Sensor):
                  # number_sensors: int = 2,
                  ):
         super().__init__(name)
-        self.serial = Serial(port=port)
+        self.serial = timeout_wrapper(functools.partial(Serial, port=port), 1)
+        if self.serial is None:
+            raise ValueError(f"{self.name}.serial not initializing. Try unplugging in cable and retry.")
 
         self.tube_diameter = tube_diameter
         self.number_sensors = 2
@@ -172,7 +175,7 @@ class PhaseSensor(Sensor):
                 return reply
 
             except ValueError as e:
-                if i > retries-1:
+                if i < retries-1:
                     self.serial.flushInput()
                     continue
                 if "reply" in locals():
@@ -189,9 +192,9 @@ class PhaseSensor(Sensor):
 
     def _deactivate(self):
         self._write_and_read("r", "r")
+        self.serial.close()
 
     def _stop(self):
-        super()._stop()
         self.write_leds_power(False)
         self.serial.flushOutput()
         self.serial.flushInput()
@@ -275,6 +278,7 @@ class PhaseSensor(Sensor):
         # 5 volts is used
         voltage = np.mean(np.mean(adc_value, axis=0)) / ((2 ** 16 - 1) / 2) * 4.096
         voltage += self.gains[gain] / 2
+        logger.info(config.log_formatter(self, self.name, f"voltage_offset: {voltage}"))
 
         self.write_offset_voltage(voltage)
         self.write_gain(gain)
@@ -291,7 +295,7 @@ class PhaseSensor(Sensor):
         result = self._slug_finder.measure()
         if result is not None:  # to stop slug finder and profile
             self._slug_finder = None
-            self.profile = None
+            self.continuous_event_handler = None
 
         return result
 

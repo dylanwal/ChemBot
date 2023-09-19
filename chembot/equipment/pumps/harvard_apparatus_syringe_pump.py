@@ -543,16 +543,9 @@ class SyringePumpHarvard(SyringePump):
         reply2 = self._read()
         self._check_pump_reply(reply2)
         status = HarvardPumpStatusMessage.parse_message(reply)
-
-        if self.state is self.states.RUNNING:
-            if status.motor_direction.infuse:
-                self.pump_state.volume_in_syringe += status.displaced_volume
-            else:
-                self.pump_state.volume_in_syringe -= status.displaced_volume
-
-        self.pump_state.volume_displace = status.displaced_volume
-        self.pump_state.flow_rate = status.flow_rate
-        self.pump_state.running_time = status.time_
+        # self.pump_state.volume_displace = status.displaced_volume
+        # self.pump_state.flow_rate = status.flow_rate
+        # self.pump_state.running_time = status.time_
         return status
 
     def read_force(self) -> int:

@@ -190,12 +190,6 @@ class SavingMixin(abc.ABC):
         if index > 0:
             path = path.with_stem(path.stem + "_" + str(index))
 
-        # check for issue accessing the file
-        if os.path.isfile(path) and not os.access(path, os.W_OK):
-            logger.warning(path)
-            logger.warning(os.access(path, os.W_OK))
-            path = path.with_stem(path.stem + "_new")
-
         return path
 
     def _thread_save(self):
@@ -210,40 +204,18 @@ class SavingMixin(abc.ABC):
             index += 1  # counter for index path name for each new file
             counter = 0  # counter when to start a new file
             file_path = self.get_file_path(index)
-            with open(file_path, mode="w", encoding="utf-8") as f:
-                while True:
-                    try:
-                        range_ = self._data_queue.get(timeout=0.2)  # blocking
-                    except queue.Empty:
-                        if not main_thread.is_alive():
-                            if close_thread:
-                                break
-                            self.save_all()
-                            close_thread = True
-                            continue
-                        if self._reset_saving:
-                            # move onto next file
-                            self._reset_saving = False
-                            break
-
-                        # continue waiting for data to come into queue
-                        continue
-
-                    ########################################################
-                    # data has come in for saving
-                    data: np.ndarray | None = self.get_data(*range_)
-                    if data is None:
-                        continue
-                    for row in data:
-                        f.write(','.join(str(i) for i in row))
-                        f.write('\n')
-
-                    # check if we have hit row limit for current file
-                    counter += data.shape[0]
-                    if counter > self._FILE_SIZE_LIMIT:
-                        break
+            try:
+                logger.warning(f"opening: {file_path}")
+                counter = self._write_data_to_file(file_path, counter, main_thread)
+                logger.warning(f"closing: {file_path}")
+            except PermissionError:
+                new_path = file_path.with_stem(file_path.stem + f"_{int(time.time())}")
+                logger.warning(f"{file_path} could not open. Renaming file to: {new_path}")
+                file_path = new_path
+                counter = self._write_data_to_file(file_path, counter, main_thread)
 
             if counter == 0:
+                logger.warning(f"removing: {file_path}")
                 try:
                     os.remove(file_path)
                 except PermissionError:
@@ -251,6 +223,42 @@ class SavingMixin(abc.ABC):
                                    f"deleted by another thread; which means there could be two threads saving to the "
                                    f"same path. Double check that buffers are saving to different paths.")
                     # blank file doesn't get deleted
+
+    def _write_data_to_file(self, file_path, counter, main_thread):
+        with open(file_path, mode="w", encoding="utf-8") as f:
+            while True:
+                try:
+                    range_ = self._data_queue.get(timeout=0.2)  # blocking
+                except queue.Empty:
+                    if not main_thread.is_alive():
+                        if close_thread:
+                            break
+                        self.save_all()
+                        close_thread = True
+                        continue
+                    if self._reset_saving:
+                        # move onto next file
+                        self._reset_saving = False
+                        break
+
+                    # continue waiting for data to come into queue
+                    continue
+
+                ########################################################
+                # data has come in for saving
+                logger.warning(f"saving data: {range_}")
+                data: np.ndarray | None = self.get_data(*range_)
+                if data is None:
+                    continue
+                for row in data:
+                    f.write(','.join(str(i) for i in row))
+                    f.write('\n')
+
+                # check if we have hit row limit for current file
+                counter += data.shape[0]
+                if counter > self._FILE_SIZE_LIMIT:
+                    break
+        return counter
 
     @abc.abstractmethod
     def save_all(self):

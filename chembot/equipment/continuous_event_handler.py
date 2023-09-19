@@ -181,4 +181,6 @@ class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeating
         return result
 
     def stop(self):
+        logger.debug(f"{type(self).__name__}.stop() called.  Buffer: {type(self.buffer).__name__}")
         self.buffer.save_all()
+        logger.debug(f"{type(self).__name__}.stop() called.  after")
