@@ -162,7 +162,7 @@ class JobConcurrent(Job):
             else:
                 event_duration = event_.duration
 
-            if max_ > event_duration:
+            if max_ < event_duration:
                 max_ = event_duration
         return max_
 
