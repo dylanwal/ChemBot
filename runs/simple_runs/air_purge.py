@@ -81,7 +81,7 @@ def job_flow_syringe_multiple(
     )
 
 
-def job_air_purge_(volume: Quantity = 1 * Unit.ml, flow_rate: Quantity = 10 * Unit("ml/min")) -> JobSequence:
+def job_air_purge_(volume: Quantity = 2 * Unit.ml, flow_rate: Quantity = 10 * Unit("ml/min")) -> JobSequence:
     return JobSequence(
         [
             job_fill_syringe(volume, flow_rate, NamesValves.VALVE_BACK, NamesPump.PUMP_BACK),

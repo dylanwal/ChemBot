@@ -143,7 +143,7 @@ class ATIR(Sensor):
 
     def write_measure(self, data_name: str = None, scans: int = 8) -> np.ndarray:
         rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
-        return self._runner.get_results(rf)
+        return self._runner.get_results(rf)[:, 1]  # TODO: figure out what to do with the wavelength shape (1754,2)
 
     def write_background(self, scans: int = 8):
         self._runner.run_background_scans(self._method_path, self._method_name, scans)
