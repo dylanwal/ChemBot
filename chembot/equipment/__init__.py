@@ -3,4 +3,5 @@ import chembot.equipment.pumps as pumps
 import chembot.equipment.valves as valves
 import chembot.equipment.sensors as sensors
 
-from chembot.equipment.continuous_event_handler import ContinuousEventHandler
+from chembot.equipment.continuous_event_handler import ContinuousEventHandler, ContinuousEventHandlerProfile, \
+    ContinuousEventHandlerRepeating, ContinuousEventHandlerRepeatingNoEnd, ContinuousEventHandlerRepeatingNoEndSaving

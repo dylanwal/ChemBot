@@ -186,7 +186,7 @@ def pwm(message: str):
     if prior_pin[0] == message[:3]:
         p = prior_pin[1]
     else:
-        p = machine.PWM(machine.Pin(pin))
+        p = machine.PWM(machine.Pin(pin), duty_u16=0)
         pins[pin] = [message, p]  # save pin
 
     # do something

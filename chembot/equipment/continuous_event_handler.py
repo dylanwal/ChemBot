@@ -4,6 +4,8 @@ from typing import Callable, Sequence
 import time
 import logging
 
+import numpy as np
+
 from chembot.configuration import config
 from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageAction
 from chembot.utils.buffers.buffers import BufferSavable
@@ -25,7 +27,7 @@ class ContinuousEventHandler(abc.ABC):
         self.message: RabbitMessageAction | None = None
 
         self._start_time = None
-        self._next_time = None
+        self._next_time = 0
         self.event_counter: int = 0
 
     def __str__(self):
@@ -118,24 +120,43 @@ class ContinuousEventHandlerProfile(ContinuousEventHandler):
                  callable_: str | Callable,
                  kwargs_names: Sequence[str],
                  kwargs_values: Sequence,
-                 delay_between_measurements: Sequence[float | int],
+                 time_of_measurements: np.ndarray[float | int],
                  ):
         super().__init__(callable_)
         self.kwargs_names = kwargs_names
 
-        if len(kwargs_values) != len(delay_between_measurements):
+        if len(kwargs_values) != len(time_of_measurements):
             raise ValueError("len(kwargs_values) must equal len(time_delta_values).\n"
                              f"\tlen(kwargs_values): {len(kwargs_values)}"
-                             f"\tlen(kwargs_values): {len(delay_between_measurements)}"
+                             f"\tlen(kwargs_values): {len(time_of_measurements)}"
                              )
         self.kwargs_values = kwargs_values
-        self.delay_between_measurements = delay_between_measurements
+        self.time_of_measurements = time_of_measurements
         self._times = None
+        self._done = False
+
+    @property
+    def done(self) -> bool:
+        return self._done
+
+    def poll(self, parent: ParentInterfaceContinuousEventHandler):
+        if not self._done:
+            return ContinuousEventHandler.poll(self, parent)
 
     def _get_kwargs(self) -> dict:
-        return {k: v for k, v in zip(self.kwargs_names, self.kwargs_values[self.event_counter])}
+        if len(self.kwargs_names) == 1:
+            return {self.kwargs_names[0]: self.kwargs_values[self.event_counter]}
+        return {k: v for k, v in zip(self.kwargs_names, self.kwargs_values[self.event_counter, :])}
 
     def _set_next_time(self):
+        if self.event_counter == 0:
+            logger.debug(f"start time: {time.time()}")
+            self._times = self.time_of_measurements + time.time()
+
+        if self.event_counter == len(self.time_of_measurements) - 2:
+            self._done = True
+            self._next_time = None
+
         self._next_time = self._times[self.event_counter]
 
 

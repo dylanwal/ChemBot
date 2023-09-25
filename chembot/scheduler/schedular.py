@@ -42,7 +42,7 @@ class Schedular:
         return self._jobs_in_queue
 
     @property
-    def end_time(self) -> datetime | None:
+    def time_end(self) -> datetime | None:
         if self._jobs_in_queue:
             return self._jobs_in_queue[-1].time_end
         if self._job_running:
@@ -56,7 +56,7 @@ class Schedular:
             if resource.next_event is None:
                 continue
 
-            if now > resource.next_event.time_start:
+            if now > resource.next_event.time_start_with_delay:
                 next_event = resource.next_event
                 self._update_job_lists(next_event.root)
                 resource.next_event_index += 1
@@ -79,7 +79,7 @@ class Schedular:
         self.schedule.add_job(job)
 
     def get_possible_start_time_for_schedule(self) -> datetime:
-        end_time = self.end_time
+        end_time = self.time_end
         if end_time is None or end_time < datetime.now():
             end_time = datetime.now()
 

@@ -1,9 +1,9 @@
 
 import chembot
-from runs.launch_equipment.equipment_names import NamesSerial
+from runs.launch_equipment.names import NamesSerial
 
 on_board_LED = chembot.equipment.lights.LightPico(
-    name="on_board_LED",
+    name=NamesSerial.PICO1,
     pin=0,
     communication=NamesSerial.PICO1
 )
