@@ -129,7 +129,7 @@ def job_air_purge() -> JobSequence:
             #     valves=[NamesValves.VALVE_FRONT],
             #     pumps=[NamesPump.PUMP_FRONT]
             # ),
-            # job_air_purge_(),
+            job_air_purge_(),
         ]
     )
 
