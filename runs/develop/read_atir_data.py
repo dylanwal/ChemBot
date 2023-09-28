@@ -1,16 +1,8 @@
-import pathlib
-import logging
-import queue
-import threading
+from datetime import datetime
 
 import win32ui  # needed to find 'dde' package  /  from pywin32 package
 import dde  # from pywin32 package
 import numpy as np
-
-from chembot.configuration import config, create_folder
-from chembot.equipment.sensors.sensor import Sensor
-
-logger = logging.getLogger(config.root_logger_name + ".atir")
 
 
 class ATIRRunner:
@@ -20,10 +12,8 @@ class ATIRRunner:
         self.conversation = dde.CreateConversation(self.server)
         self.conversation.ConnectTo("OPUS", "System")
         self.conversation.Request("REQUEST_MODE")
-        logger.debug(config.log_formatter(ATIRRunner, "atirrunner", "DDE server activated"))
 
     def request(self, command: str) -> list:
-        logger.debug(f"commands: {command}")
         result = self.conversation.Request(command).encode("utf_16_le").decode("utf_8").splitlines()
         if result[0] != "OK":
             raise Exception("\n".join(result))
@@ -94,16 +84,15 @@ class ATIRRunner:
         if resolution is not None:
             parameters += f",RES={resolution}"
         result = self.request("COMMAND_LINE MeasureSample (0,{" + parameters + "});")
-        logger.debug("result: " + str(result))
         try:
             return result[3]
         except Exception as e:
             raise Exception("Unexpected data format. OPUS returned: " + "\n".join(result))
 
     def get_results(self, result_file: str) -> np.array:
-        _ = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
-        _ = self.request("READ_FROM_BLOCK AB")
-        _ = self.request("DATA_VALUES")
+        a = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
+        b = self.request("READ_FROM_BLOCK AB")
+        c = self.request("DATA_VALUES")
         result_data = self.request("READ_DATA")
         status = result_data[0]
         if status != "OK":
@@ -117,34 +106,39 @@ class ATIRRunner:
         y = np.array(result_data[6:-1], dtype="float64") * scaling_factor
         return np.column_stack((x, y))
 
+    def get_date(self, result_file: str):
+        a = self.request("READ_FROM_FILE %s" % result_file)  # here to make sure it reads the right file
+        b = self.request("FILE_PARAMETERS")
+        date_ = self.request("READ_PARAMETER DAT")[2]
+        date_ = date_.split(r"/")
+        time_ = self.request("READ_PARAMETER TIM")[2]
+        out = datetime(
+            day=int(date_[0]),
+            month=int(date_[1]),
+            year=int(date_[2]),
+            hour=int(time_.split(":")[0]),
+            minute=int(time_.split(":")[1]),
+            second=int(time_.split(":")[2].split(".")[0]),
+        )
+        return out.timestamp()
 
-class ATIR(Sensor):
-    _method_name = "ATR_DI"
-    _method_path = str(pathlib.Path(__file__).parent)
 
-    @property
-    def _data_path(self):
-        path = config.data_directory / pathlib.Path("atir")
-        create_folder(path)
-        return path
+def main():
+    runner = ATIRRunner()
+    n = 432  # 433
+    data = np.zeros((n+1, 1755))
+    for i in range(1, n+1):
+        rf = fr'"C:\Users\Robot2\Documents\Bruker\OPUS_8.7.10\DATA\MEAS\Sample description.{i}" 1'
+        d = runner.get_results(rf)
+        time_ = runner.get_date(rf)
+        if i == 1:
+            data[0, 1:] = d[:, 0]
+        data[i, 0] = time_
+        data[i, 1:] = d[:, 1]
 
-    def __init__(self, name: str):
-        super().__init__(name)
-        self._runner = ATIRRunner()
+    np.savetxt("DW2-1-ATIR.csv", data, delimiter=",")
+    print("hi")
 
-    def _activate(self):
-        pass
 
-    def _deactivate(self):
-        pass
-
-    def _stop(self):
-        pass
-
-    def write_measure(self, data_name: str = None, scans: int = 8) -> np.ndarray:
-        rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
-        logger.warning(rf)
-        return self._runner.get_results(rf)[:, 1]  # TODO: figure out what to do with the wavelength shape (1754,2)
-
-    def write_background(self, scans: int = 8):
-        self._runner.run_background_scans(self._method_path, self._method_name, scans)
+if __name__ == "__main__":
+    main()

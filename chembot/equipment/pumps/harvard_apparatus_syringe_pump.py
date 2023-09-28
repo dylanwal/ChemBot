@@ -1,15 +1,15 @@
 from __future__ import annotations
 
-import time
 import enum
 import logging
+import time
 from datetime import timedelta
 
 import serial
 from unitpy import Quantity, Unit
 
 from chembot.configuration import config
-from chembot.equipment.pumps.syringe_pump import SyringePump, PumpControlMethod, SyringePumpStatus
+from chembot.equipment.pumps.syringe_pump import SyringePump, SyringePumpStatus
 from chembot.equipment.pumps.syringes import Syringe
 from chembot.communication.serial_ import Serial
 from chembot.utils.unit_validation import validate_quantity
@@ -34,29 +34,9 @@ map_status = {
 }
 
 
-def check_status(message: str) -> SyringePumpStatus:
-    if "T" in message:
-        return SyringePumpStatus.TARGET_REACHED
-
-    status = message[-1]
-    for option in HarvardPumpStatus:
-        if status == option.value:
-            return map_status[option]
-
-    raise ValueError("Unrecognized status from Harvard Pump reply.")
-
-
-def check_for_error(message: str):
-    """ '\nArgument error: [on]\r\n   Unknown argument\r\n:' """
-    if "Argument error" in message:
-        raise ArgumentError(message)
-    if "Command error" in message:
-        raise CommandError(message)
-
-
 class CommandError(Exception):
     """
-    Command errors are displayed when the command is unrecognized, entered in the wrong mode,
+    Command errors are displayed when the command is unrecognized, or entered in while the pump is in the wrong mode,
     or the state of the pump keeps the command from executing
     """
 
@@ -281,17 +261,16 @@ class SyringePumpHarvard(SyringePump):
 
     """
     ramp_object = RampFlowRate
-    poll_rate = 1  # sec
+    poll_gap = 5  # sec
 
     def __init__(self,
                  name: str,
                  syringe: Syringe,
                  port: str,
                  max_pull: Quantity = None,
-                 control_method: PumpControlMethod = PumpControlMethod.flow_rate,
+                 # control_method: PumpControlMethod = PumpControlMethod.flow_rate,
                  ):
-        super().__init__(name, syringe, max_pull, control_method)
-        self.poll = True
+        super().__init__(name, syringe, max_pull)
 
         # serial dropped directly here because USB is one-one and the pump sends messages without prompt.
         Serial.available_port(port)
@@ -301,88 +280,135 @@ class SyringePumpHarvard(SyringePump):
 
         self._next_poll_time = 0
 
-    def _send_and_receive_message(self, prompt: str, time_out: float = 0.2) -> str:
-        # '@' turns off GUI updates for faster communication rates
-        self.serial.write(("@" + prompt + "\r").encode(config.encoding))
+    def _check_pump_reply(self, message: str) -> str:
+        # check for target reached  'T:' or 'T*'
+        if "T" in message[0]:
+            self.pump_state.state = SyringePumpStatus.TARGET_REACHED
+            self.state = self.states.STANDBY
+            if message[1] == HarvardPumpStatus.STALLED.value:
+                self._send_and_receive_message("stop")
+            return message[2:]
 
-        break_time = time.time() + time_out
-        while time.time() < break_time:
-            if self.serial.in_waiting:
-                time.sleep(0.1)
-                reply = self.serial.read(self.serial.in_waiting).decode(config.encoding)
+        # check general status ':', '*', '>', '<'
+        if message[0] == HarvardPumpStatus.STALLED.value:
+            self.state = self.states.STANDBY
+            self._send_and_receive_message("stop")
+        status = message[0]
+        for option in HarvardPumpStatus:
+            if status == option.value:
+                self.pump_state.state = map_status[option]
                 break
-            time.sleep(0.01)
         else:
-            raise ValueError(f"No message received from pump.\nprompt: {prompt}")
+            raise ValueError("Unrecognized status from Harvard Pump reply.")
 
-        # check for error
-        logger.debug(f"prompt: {prompt} || reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
-        check_for_error(reply)
-        self.pump_state.state = check_status(reply[-2:])
+    def _send_and_receive_message(self,
+                                  prompt: str,
+                                  time_out: float = 0.2,
+                                  retries: int = 3
+                                  ) -> str:
+        logger.debug(f"{self.name} | send: {prompt}")
+        for i in range(retries):
+            # '@' turns off GUI updates for faster communication rates
+            self.serial.write(("@" + prompt + "\r").encode(config.encoding))
 
-        return reply[:-2]  # remove status
+            try:
+                return self._read(time_out)
+            except Exception as e:
+                if i < retries-1:
+                    self.serial.flushInput()
+                    continue
+                raise e
+
+    def _read(self, time_out: float | int = 0.2, retries: int = 3) -> str:
+        """
+
+        Parameters
+        ----------
+        time_out
+        retries
+
+        Notes
+        -----
+        message format: <lf><prompt>
+            - first read_until always returns "\n"
+            - the second read has data
+
+        """
+        self.serial.timeout = time_out
+        for i in range(retries):
+            try:
+                reply = self.serial.read_until().decode(config.encoding)
+                if reply == "\n" or reply == "\r\n":
+                    reply = self.serial.read_until().decode(config.encoding)
+                logger.debug(f"{self.name} | reply: " + reply.replace("\n", r"\n").replace("\r", r"\r"))
+                if "Argument error" in reply:
+                    raise ArgumentError(reply)
+                if "Command error" in reply:
+                    raise CommandError(reply)
+                return reply
+
+            except Exception as e:
+                if i < retries-1 and (e is not ArgumentError or e is not CommandError):
+                    continue
+                if "reply" in locals():
+                    print("reply:", reply)  # noqa
+                if self.serial.in_waiting > 0:
+                    print("in buffer:", self.serial.read_all())
+                raise e
 
     def _activate(self):
         # set syringe settings
         self._send_and_receive_message("NVRAM off")  # turn off writes of rate to memory -> faster communication
         self._write_diameter(self.syringe.diameter)
-        self.write_empty()  #TODO: wait for finish
+        self.write_empty()
         super()._activate()
 
     def _deactivate(self):
+        self._stop()
         self.serial.close()
 
     def _poll_status(self):
-        if time.time() < self._next_poll_time:
-            return
-        self._next_poll_time = time.time() + self.poll_rate
+        if self.serial.in_waiting:
+            self._read()
+            logger.info(f"{self.name} | Pump finished addition or stalled.")
+            if self.pump_state.state is SyringePumpStatus.STALLED and self.state is self.states.RUNNING:
+                if not self.pump_state.volume_in_syringe.is_close(0 * Unit.ml, abs_tol=0.01 * Unit.ml):
+                    # ignore stall if its close to zero volume in syringe
+                    logger.error(config.log_formatter(self, self.name, "Error stalled detected!!!"))
+                self.write_stop()
 
-        try:
+        if self.state is self.states.RUNNING and time.time() > self._next_poll_time:
             self.read_pump_status()
-        except Exception as e:
-            logger.info(f"{self.name} had error during polling.")
-            logger.exception(e)
-            self._deactivate()
-            return
-
-        if self.pump_state.state is self.pump_states.STALLED or \
-                self.pump_state.state is self.pump_states.TARGET_REACHED:
-            # self.rabbit.send()  # TODO
-            logger.info(f"{self.name} finished with status: {self.pump_state.state}")
-
-            self.write_stop()
-            self.state = self.states.STANDBY
-            self.pump_state.state = self.pump_states.STANDBY
+            self._next_poll_time = time.time() + self.poll_gap
 
     ## actions ################################################################################################# noqa
     def _stop(self):
-        _ = self._send_and_receive_message("stop")
+        reply = self._send_and_receive_message("stop")
+        self._check_pump_reply(reply)
 
     def _write_run_infuse(self):
         """
         run infuse
         """
-        _ = self._send_and_receive_message('irun')
+        reply = self._send_and_receive_message('irun')
+        self._check_pump_reply(reply)
         self.state = self.states.RUNNING
         self.pump_state.state = self.pump_states.INFUSE
         self.pump_state.running_time = 0 * Unit.s
         self.pump_state.volume_displace = 0 * self.syringe.volume.unit
-        #TODO: set look for end message
-        # self.watchdog.set_watchdog()  # TODO: check completion
 
     def _write_run_withdraw(self):
         """
         run withdraw
         """
-        _ = self._send_and_receive_message(f'wrun')
+        reply = self._send_and_receive_message(f'wrun')
+        self._check_pump_reply(reply)
         self.state = self.states.RUNNING
         self.pump_state.state = self.pump_states.WITHDRAW
         self.pump_state.running_time = 0 * Unit.s
         self.pump_state.volume_displace = 0 * self.syringe.volume.unit
-        #TODO: set look for end message
-        # self.watchdog.set_watchdog()  # TODO: check completion
 
-    def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_stall: bool = False):
+    def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_syringe_error: bool = False):
         """
         infuse
 
@@ -392,14 +418,15 @@ class SyringePumpHarvard(SyringePump):
             volume to be infused
         flow_rate:
             flow rate
-        ignore_stall:
+        ignore_syringe_error:
             True: don't throw an error if the pump stops due to stall
             False: will throw an error
         """
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
-        if not ignore_stall and self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
+        if not ignore_syringe_error and \
+                self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
             raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
         # setup pump
@@ -455,8 +482,23 @@ class SyringePumpHarvard(SyringePump):
         """ empty syringe """
         if flow_rate is None:
             flow_rate = self.syringe.default_flow_rate
-        self.write_infuse(self.syringe.volume, flow_rate, ignore_stall=True)
+        self.write_infuse(self.syringe.volume, flow_rate, ignore_syringe_error=True)
+
+        # run till it stalls (with safe timeout)
         self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
+        time_out = (self.syringe.volume / self.syringe.default_flow_rate).to("s").value + 10  # seconds
+        time_stop = time.time() + time_out
+        while time.time() < time_stop:
+            self.read_pump_status()
+            if self.pump_state.state is SyringePumpStatus.STALLED:
+                break
+            time.sleep(0.1)
+
+        if self.pump_state.state is not SyringePumpStatus.STALLED:
+            raise ValueError("Pump not successful at emptying.")
+
+        self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
+        self._stop()  # to stop tone
 
     def write_refill(self, flow_rate: Quantity = None):
         """ refill syringe to max volume """
@@ -498,17 +540,12 @@ class SyringePumpHarvard(SyringePump):
         Displays the raw status for use with a controlling computer.
         """
         reply = self._send_and_receive_message('status')
+        reply2 = self._read()
+        self._check_pump_reply(reply2)
         status = HarvardPumpStatusMessage.parse_message(reply)
-
-        if status.motor_direction.infuse:
-            self.pump_state.volume_in_syringe += status.displaced_volume
-        else:
-            self.pump_state.volume_in_syringe -= status.displaced_volume
-
-        self.pump_state.volume_displace = status.displaced_volume
-        self.pump_state.flow_rate = status.flow_rate
-        self.pump_state.running_time = status.time_
-        # state taken care off with self._send_and_receive_message
+        # self.pump_state.volume_displace = status.displaced_volume
+        # self.pump_state.flow_rate = status.flow_rate
+        # self.pump_state.running_time = status.time_
         return status
 
     def read_force(self) -> int:
@@ -568,7 +605,8 @@ class SyringePumpHarvard(SyringePump):
         if diameter.value > 45:
             raise ValueError("diameter outside range [0, 45 mm]")
 
-        _ = self._send_and_receive_message(f'diameter {diameter.v:2.4f}')
+        reply = self._send_and_receive_message(f'diameter {diameter.v:2.4f}')
+        self._check_pump_reply(reply)
 
     # def _read_gang(self) -> int:
     #     """ Displays the syringe count """
@@ -607,9 +645,9 @@ class SyringePumpHarvard(SyringePump):
         index = reply.index("t")
         return Quantity(reply[:index])
 
-    def read_infusion_rate(self) -> Quantity:
+    def read_infusion_rate_command(self) -> Quantity:
         """
-        display the infusion rate
+        pings pump for infusion rate
         """
         reply = self._send_and_receive_message(f'irate')
 
@@ -621,10 +659,11 @@ class SyringePumpHarvard(SyringePump):
     def write_infusion_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'irate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
+        self.pump_state.flow_rate = flow_rate
 
     def read_withdraw_rate(self) -> Quantity:
         """
-        display the withdrawal rate
+        pings pump for infusion rate
         """
         reply = self._send_and_receive_message(f'wrate')
 
@@ -636,6 +675,7 @@ class SyringePumpHarvard(SyringePump):
     def write_withdraw_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'wrate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
+        self.pump_state.flow_rate = flow_rate
 
     ## volume ################################################################################################### noqa
     def _read_infuse_volume(self) -> Quantity:

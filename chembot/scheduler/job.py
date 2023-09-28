@@ -56,8 +56,8 @@ class Job(abc.ABC):
         return self.id_
 
     @property
-    def time_start_actual(self) -> datetime:
-        """ does not included delay"""
+    def time_start_with_delay(self) -> datetime:
+        """ start time + job delay"""
         time_ = self.time_start
         if self.delay is not None:
             time_ += self.delay
@@ -65,13 +65,12 @@ class Job(abc.ABC):
         return time_
 
     @property
-    def time_start(self) -> datetime:
-        """ includes delay """
+    def time_start(self) -> datetime | None:
+        """ no job delay include in time """
         if self.parent is not None:
             return self.parent._get_time_start(self)
         if self._time_start is not None:
             return self._time_start
-        raise ValueError("Set 'time_start' of parent.")
 
     @time_start.setter
     def time_start(self, time_start: datetime):
@@ -81,21 +80,15 @@ class Job(abc.ABC):
         self._time_start = time_start
 
     @property
-    def duration(self) -> timedelta:
-        return self.time_end - self.time_start
-
-    @property
-    def duration_actual(self) -> timedelta:
-        """ includes delay"""
-        return self.time_end - self.time_start_actual
-
-    @property
-    def time_end(self) -> datetime:
-        return self._time_end()
-
     @abc.abstractmethod
-    def _time_end(self) -> datetime:
+    def duration(self) -> timedelta:
         ...
+
+    @property
+    def time_end(self) -> datetime | None:
+        if self.time_start is None:
+            return None
+        return self.time_start + self.duration
 
     @property
     def events(self) -> list[Event | Job, ...]:
@@ -139,25 +132,39 @@ class Job(abc.ABC):
 
 
 class JobSequence(Job):
-    def _time_end(self) -> datetime:
-        return self._events[-1].time_end
+    @property
+    def duration(self) -> timedelta:
+        sum_ = timedelta(0)
+        for event_ in self.events:
+            if event_.delay:
+                event_duration = event_.duration + event_.delay
+            else:
+                event_duration = event_.duration
+            sum_ += event_duration
+
+        return sum_
 
     def _get_time_start(self, obj) -> datetime:
         index = self.events.index(obj)
         if index == 0:
-            return self.time_start_actual
+            return self.time_start_with_delay
 
         return self.events[index-1].time_end
 
 
 class JobConcurrent(Job):
-    def _time_end(self) -> datetime:
-        time_end = self.events[0].time_end
-        for event in self.events:
-            if event.time_end > time_end:
-                time_end = event.time_end
+    @property
+    def duration(self) -> timedelta:
+        max_ = timedelta(0)
+        for event_ in self.events:
+            if event_.delay:
+                event_duration = event_.duration + event_.delay
+            else:
+                event_duration = event_.duration
 
-        return time_end
+            if max_ < event_duration:
+                max_ = event_duration
+        return max_
 
     def _get_time_start(self, obj) -> datetime:
-        return self.time_start_actual
+        return self.time_start_with_delay

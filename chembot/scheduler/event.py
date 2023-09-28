@@ -64,7 +64,7 @@ class Event:
         return self.parent._get_time_start(self)
 
     @property
-    def time_start_actual(self) -> datetime:
+    def time_start_with_delay(self) -> datetime:
         """ does not include delay """
         time_ = self.time_start
         if self.delay is not None:
@@ -82,12 +82,7 @@ class Event:
     @property
     def duration(self) -> timedelta:
         """ includes delay """
-        return self.time_end - self.time_start
-
-    @property
-    def duration_actual(self) -> timedelta:
-        """ does not include delay """
-        return self.time_end - self.time_start_actual
+        return self._duration
 
     def hover_text(self) -> str:
         return f"duration: {self.duration}<br>" \

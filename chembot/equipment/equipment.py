@@ -1,6 +1,7 @@
 import abc
 import logging
-from datetime import datetime
+import queue
+import time
 
 from unitpy import Quantity
 
@@ -11,7 +12,7 @@ from chembot.rabbitmq.messages import RabbitMessage, RabbitMessageReply, RabbitM
     RabbitMessageError, RabbitMessageCritical, RabbitMessageUnRegister
 from chembot.rabbitmq.rabbit_core import RabbitMQConnection
 from chembot.rabbitmq.watchdog import RabbitWatchdog
-from chembot.equipment.profile import Profile
+from chembot.equipment.continuous_event_handler import ContinuousEventHandler
 
 logger = logging.getLogger(config.root_logger_name + ".equipment")
 
@@ -42,19 +43,25 @@ class Equipment(abc.ABC):
         name:
             class_name is a **unique** identifier in the system
         """
+        # self._reply_callback = None
+        # self.action_in_progress = None
+
         self.name = name
         self.state: EquipmentState = EquipmentState.OFFLINE
-        self.rabbit = RabbitMQConnection(name)
         self.actions = get_actions_list(self)
+        self.equipment_interface = get_equipment_interface(type(self))
         self.attrs = []
         self.update = ["state"]
-        self._deactivate_event = True  # set to False to deactivate
-        self._reply_callback = None
-        self.equipment_interface = get_equipment_interface(type(self))
+
+        # managers
+        self.rabbit = RabbitMQConnection(name)
         self.watchdog = RabbitWatchdog(self)
-        self.action_in_progress = None
-        self.profile: Profile | None = None
-        self.poll = False
+        self.continuous_event_handler: ContinuousEventHandler | None = None
+        self._message_queue = queue.Queue(maxsize=6)  # short term storage for later processing (typically used in
+        # continuous mode)
+
+        # flags
+        self._deactivation_event = False  # set to True to deactivate
 
         if kwargs:
             for k, v in kwargs:
@@ -81,6 +88,7 @@ class Equipment(abc.ABC):
         self.watchdog.set_watchdog(message, 5)
 
     def activate(self):
+        """ Called to start equipment infinite loop. """
         try:
             logger.debug(config.log_formatter(self, self.name, "Activating"))
             self._activate()
@@ -104,82 +112,66 @@ class Equipment(abc.ABC):
             logger.info(config.log_formatter(self, self.name, "Deactivated"))
 
     def _run(self):
-        # infinite loop
-        while self._deactivate_event:
-            self._poll()
+        """ Main / infinite event loop """
+        while not self._deactivation_event:
+            self._poll_status()
             self.watchdog.check_watchdogs()
-            self._read_message()  # blocking with timeout
 
-    def _poll(self):
-        """ checks to see if additional writes or reads needed to be preformed. """
-        if not self.poll:
-            return
+            # read message
+            self._process_message(self.rabbit.consume())
 
-        self._poll_profile()
-        self._poll_status()
+            # execute continuous commands
+            if self.continuous_event_handler is not None:
+                self.continuous_event_handler.poll(self)
+            else:
+                time.sleep(self.pulse)
 
     def _poll_status(self):
         pass
 
-    def _poll_profile(self):
-        if self.profile is None:
-            return
-
-        try:
-            time_, kwargs = next(self.profile)
-            if time_ > datetime.now():
-                self.profile._next_counter -= 1
-                return
-
-        except StopIteration:
-            self.profile = None
-            return
-
-        func = getattr(self, self.profile.callable_)
-        if func.__code__.co_argcount == 1:  # the '1' is 'self'
-            reply = func()
-        else:
-            reply = func(**kwargs)
-
-        if reply is not None:
-            self.rabbit.send(RabbitMessageReply.create_reply(self.profile.message, reply))
-
-    def _read_message(self):
-        message = self.rabbit.consume(self.pulse)
-        if message:
-            self._process_message(message)
-
     def _process_message(self, message: RabbitMessage):
+        if message is None:
+            return
+
         if isinstance(message, RabbitMessageCritical):
-            self._deactivate_event = False
+            self._deactivation_event = True
         elif isinstance(message, RabbitMessageError):
-            self._deactivate_event = False
+            self._deactivation_event = True
         elif isinstance(message, RabbitMessageReply):
-            self.watchdog.deactivate_watchdog(message)
+            if message.id_reply in self.watchdog:
+                self.watchdog.deactivate_watchdog(message)
+            if message.queue_it:
+                try:
+                    self._message_queue.put(message, timeout=1)
+                except queue.Full:
+                    logger.exception('Build of RabbitMessageReply in queue. '
+                                     f'The following message dropped: \n{message.to_str()}')
         elif isinstance(message, RabbitMessageAction):
-            self._execute_action(message)
+            reply = self._execute_action(message, message.action, message.kwargs)
+            if reply is not None:
+                self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
+            logger.info(
+                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
+                                                      f"\n reply: {repr(reply)}"))
         else:
             logger.warning("Invalid message!!" + message.to_str())
             self.rabbit.send(RabbitMessageError(self.name, f"InvalidMessage: {message.to_str()}"))
 
-    def _execute_action(self, message: RabbitMessageAction):
+    def _execute_action(self, message: RabbitMessage, func_name: str, kwargs: dict | None):
+        # TODO: wrap this into a thread and use a queue
         try:
-            func = getattr(self, message.action)
-            if func.__code__.co_argcount == 1 or message.kwargs is None:  # the '1' is 'self'
+            func = getattr(self, func_name)
+            if func.__code__.co_argcount == 1 or kwargs is None:  # the '1' is 'self'
                 reply = func()
             else:
-                reply = func(**message.kwargs)
+                reply = func(**kwargs)
 
-            # we need the message to be added to profile but not sure where best to put it
-            if message.action == self.write_profile.__name__:
-                self.profile.message = message
+            # we need the message to be added to continuous_event_handler but not sure where best to put it
+            if isinstance(message, RabbitMessageAction) and \
+                    message.action == self.write_continuous_event_handler.__name__:
+                self.continuous_event_handler.message = message
 
-            if reply is not None:
-                self.rabbit.send(RabbitMessageReply.create_reply(message, reply))
-
-            logger.info(
-                config.log_formatter(self, self.name, f"Action | {message.action}: {message.kwargs}"
-                                                      f"\n reply: {repr(reply)}"))
+            return reply
 
         except Exception as e:
             logger.exception(config.log_formatter(self, self.name, "ActionError" + message.to_str()))
@@ -236,7 +228,7 @@ class Equipment(abc.ABC):
         deactivate equipment (shut down)
         """
         self._stop()
-        self._deactivate_event = False
+        self._deactivation_event = True
         # self._deactivate is called by self._run
 
     def write_stop(self):
@@ -244,22 +236,22 @@ class Equipment(abc.ABC):
         stop current action and reset to standby
         """
         self.state = EquipmentState.STANDBY
-        self.profile = None
-        self.poll = False
+        if self.continuous_event_handler is not None:
+            self.continuous_event_handler.stop()
+            self.continuous_event_handler = None
         self._stop()
 
-    def write_profile(self, profile: Profile):
+    def write_continuous_event_handler(self, event_handler: ContinuousEventHandler):
         """
-        Set profile
+        Set continuous_event_handler
 
         Parameters
         ----------
-        profile
+        event_handler
 
         """
-        self.profile = profile
-        self.profile.start_time = datetime.now()
-        self.poll = True
+        self.continuous_event_handler = event_handler
+        self.continuous_event_handler.start_time = time.time()
 
     def _deactivate_(self):
         self.state = self.states.SHUTTING_DOWN

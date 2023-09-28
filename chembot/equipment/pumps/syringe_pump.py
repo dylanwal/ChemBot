@@ -87,11 +87,11 @@ class SyringePump(Equipment, abc.ABC):
                  name: str,
                  syringe: Syringe,
                  max_pull: Quantity = None,
-                 control_method: PumpControlMethod = PumpControlMethod.flow_rate,
+                 # control_method: PumpControlMethod = PumpControlMethod.flow_rate,
                  ):
         super().__init__(name)
         self.syringe = syringe
-        self.control_method = control_method
+        # self.control_method = control_method
         self.pump_state = SyringeState(self.syringe, max_pull)
         # TODO: check max and min flow rates
 
@@ -108,6 +108,12 @@ class SyringePump(Equipment, abc.ABC):
     def write_syringe(self, syringe: Syringe):
         """ set syringe """
         self.syringe = syringe
+
+    def read_pump_state(self) -> SyringeState:
+        """
+        returns pump_state
+        """
+        return self.pump_state
 
     @staticmethod
     def compute_run_time(volume: Quantity, flow_rate: Quantity) -> Quantity:

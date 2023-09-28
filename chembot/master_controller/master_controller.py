@@ -85,6 +85,7 @@ class MasterController:
                 id_job=event.id_job
             )
         )
+        # TODO: if ValueError: Queue does not exist; stop schedule and reset everything
 
     def _read_message(self):
         message = self.rabbit.consume(self.pulse)

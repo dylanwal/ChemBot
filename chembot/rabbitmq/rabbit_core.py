@@ -49,15 +49,17 @@ class RabbitMQConnection:
         self.queue = self.channel.queue_declare(queue=topic, passive=True)
         logger.debug(config.log_formatter(self, self.topic, "Rabbit connection established."))
 
-    @property
-    def messages_in_queue(self) -> int:
-        return self.queue.method.message_count
+    # don't think it works
+    # @property
+    # def messages_in_queue(self) -> int:
+    #     return self.queue.method.message_count
+    #     # return self.channel.get_waiting_message_count()
 
     @staticmethod
     def queue_exists(queue_name: str) -> bool:
         return queue_exists(queue_name)
 
-    def consume(self, timeout: int | float = 0.1, error_out: bool = False) -> RabbitMessage | None:
+    def consume(self, timeout: int | float = 0.000_001, error_out: bool = False) -> RabbitMessage | None:
         for method, properties, body in self.channel.consume(
                 queue=self.topic, auto_ack=True, inactivity_timeout=timeout):
             if body is None:
