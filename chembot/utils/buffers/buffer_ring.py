@@ -187,8 +187,8 @@ class SavingMixin(abc.ABC):
         path = self.path
         if self._resets > 0:
             path = path.with_stem(path.stem + "_reset" + str(self._resets))
-        if index > 0:
-            path = path.with_stem(path.stem + "_" + str(index))
+        # if index > 0:
+        path = path.with_stem(path.stem + "_" + str(index) + "_" + str(time.time()))  # TODO: fix
 
         return path
 

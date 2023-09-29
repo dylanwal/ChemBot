@@ -29,4 +29,6 @@ pywin32>=306
 * dash-bootstrap-components==1.4.1
 * jsonpickle>=3.0.1
 * pywin32>=306
-* 
+
+
+add support for serial issue; unplug a equipment
