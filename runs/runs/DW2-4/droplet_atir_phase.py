@@ -2,15 +2,18 @@ from datetime import timedelta
 from typing import Iterable
 
 from unitpy import Unit, Quantity
+import numpy as np
 
 from chembot.scheduler import JobSequence, JobConcurrent, Event
 from chembot.scheduler.job_submitter import JobSubmitter
 from chembot.equipment.valves import ValveServo
 from chembot.equipment.pumps import SyringePumpHarvard
 from chembot.equipment.sensors import PhaseSensor, ATIR
-from chembot.equipment.continuous_event_handler import ContinuousEventHandlerRepeatingNoEndSaving
+from chembot.equipment.lights import LightPico
+from chembot.equipment.continuous_event_handler import ContinuousEventHandlerRepeatingNoEndSaving, \
+    ContinuousEventHandlerProfile
 
-from runs.launch_equipment.names import NamesPump, NamesValves, NamesSensors
+from runs.launch_equipment.names import NamesPump, NamesValves, NamesSensors, NamesLEDColors
 
 
 def job_flow(volume: Quantity, flow_rate: Quantity, valve: str, pump: str) -> JobSequence:
@@ -100,7 +103,7 @@ def add_phase_sensor_calibration() -> JobSequence:
                 duration=timedelta(seconds=0.2),
                 kwargs={"gain": 16}
             ),
-            ]
+        ]
     )
 
 
@@ -172,6 +175,34 @@ def add_atir(job: JobSequence | JobConcurrent) -> JobSequence:
     )
 
 
+def add_linear_light(
+        job,
+        n: int = 100,
+        duration: timedelta = timedelta(seconds=10),
+        led_name: str = NamesLEDColors.GREEN,
+        power_min: int = 0,
+        power_max: int = 65535
+):
+    # power is [0, 65535]
+    lin_space = np.linspace(power_min, power_max, n, dtype=np.uint32)
+    time_delta_array = np.linspace(0, duration.total_seconds(), n)
+    profile = ContinuousEventHandlerProfile(LightPico.write_power, ["power"], lin_space, time_delta_array)
+    return JobSequence(
+        [
+            Event(
+                resource=led_name,
+                callable_=LightPico.write_continuous_event_handler,
+                duration=timedelta(milliseconds=100),
+                kwargs={"event_handler": profile},
+            ),
+            job,
+            Event(led_name, LightPico.write_stop, timedelta(microseconds=100))
+
+        ],
+        name="linear_sweep"
+    )
+
+
 def job_air_purge(volume: Quantity = 1 * Unit.ml, flow_rate: Quantity = 5 * Unit("ml/min")) -> JobSequence:
     return JobSequence(
         [
@@ -206,8 +237,7 @@ def fill_and_push(volume: list[Quantity], flow_rate: list[Quantity], valves: lis
             volume=volume,
             flow_rate=flow_rate,
             valves=valves,
-            pumps=pumps,
-            delay=timedelta(seconds=0.5)
+            pumps=pumps
         ),
     ])
 
@@ -215,70 +245,154 @@ def fill_and_push(volume: list[Quantity], flow_rate: list[Quantity], valves: lis
 def job_droplets() -> JobSequence:
     return JobSequence(
         [
-            fill_and_push(
-                volume=[3 * Unit.ml],
-                flow_rate=[1 * Unit("ml/min")],
-                valves=[NamesValves.VALVE_FRONT],
-                pumps=[NamesPump.PUMP_FRONT]
-            ),
-
-
-            # add_phase_sensor_calibration(),
-            # write_atir_background(),
-            # Event(
-            #     resource=NamesSensors.PHASE_SENSOR1,
-            #     callable_=PhaseSensor.write_auto_offset_gain,
-            #     duration=timedelta(seconds=1),
-            #     kwargs={"gain": 16}
-            # ),
 
             # job_fill_syringe_multiple(
-            #     volume=[0.02 * Unit.ml, 1.5 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
+            #     volume=[1 * Unit.ml, 1 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
             #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
             #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
             # ),
-            # priming
-            # Event(
-            #     resource=NamesValves.VALVE_ANALYTICAL,
-            #     callable_=ValveServo.write_move,
-            #     duration=timedelta(seconds=1.5),
-            #     kwargs={"position": "fill"}
-            # ),
             # job_flow_syringe_multiple(
-            #     volume=[2 * Unit.ml, 2 * Unit.ml],
-            #     flow_rate=[2 * Unit("ml/min"), 2 * Unit("ml/min")],
+            #     volume=[0.8 * Unit.ml, 0.8 * Unit.ml],
+            #     flow_rate=[0.131 * Unit("ml/min"), 0.131 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE],
-            #     delay=timedelta(seconds=1)
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            # ),
+
+            # job_fill_syringe_multiple(
+            #     volume=[3 * Unit.ml, 3 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
+            #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
             # ),
 
             # main job
-            # write_atir_measure(),
+            Event(
+                resource=NamesLEDColors.GREEN,
+                callable_=LightPico.write_power,
+                duration=timedelta(milliseconds=100),
+                kwargs={"power": int(65535 * 0.3)},
+            ),
+
+            # 2 min residence time
             # add_atir(
             #     job_flow_syringe_multiple(
-            #         volume=[0.03 * Unit.ml, 2 * Unit.ml],
-            #         flow_rate=[0.1 * Unit("ml/min"), 0.2 * Unit("ml/min")],
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.131 * Unit("ml/min"), 0.131 * Unit("ml/min")],
             #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
             #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     )
+            #     ),
+            # ),
+            # # 4 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 8 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 16 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0164 * Unit("ml/min"), 0.0164 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 8 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 4 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 2 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.131 * Unit("ml/min"), 0.131 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
             # ),
 
-            # fill_and_push(
-            #     volume=[0.3 * Unit.ml],
-            #     flow_rate=[1.5 * Unit("ml/min")],
-            #     valves=[NamesValves.VALVE_FRONT],
-            #     pumps=[NamesPump.PUMP_FRONT]
+            # Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
+            # job_fill_syringe_multiple(
+            #     volume=[1 * Unit.ml, 1 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
+            #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
             # ),
             # job_air_purge(),
-            # job_air_purge(0.3 * Unit.mL),
+
+            # 4 min residence time
+            add_atir(
+                job_flow_syringe_multiple(
+                    volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+                    flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
+                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                ),
+            ),
+            # 8 min residence time
+            add_atir(
+                job_flow_syringe_multiple(
+                    volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+                    flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                ),
+            ),
+            # 4 min residence time
+            add_atir(
+                job_flow_syringe_multiple(
+                    volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+                    flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
+                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                ),
+            ),
+
+            Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
+
         ]
     )
 
 
 def main():
     job_submitter = JobSubmitter()
-    result = job_submitter.submit(job_droplets())
+    job = job_droplets()
+    result = job_submitter.submit(job)
     print(result)
 
     # full_schedule = job_submitter.get_schedule()

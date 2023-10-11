@@ -61,7 +61,7 @@ syringe_configs = {
     "min_pressure": 0 * Unit.bar,
     "max_temperature": 30 * Unit.degC,
     "min_temperature": 20 * Unit.degC,
-    "diameter": 12.45 * Unit.mm,
+    "diameter": 12 * Unit.mm,  # 12.45
     "vendor": "norm_ject"
   },
   "norm_ject_22767": {  # https://www.restek.com/p/22768

@@ -12,14 +12,14 @@ from chembot.equipment import ContinuousEventHandlerProfile
 from runs.launch_equipment.names import NamesLEDColors
 
 
-def blink(on_time: timedelta, delay: timedelta = None, led_name: str = NamesLEDColors.GREEN):
+def blink(on_time: timedelta, off_time: timedelta = None, led_name: str = NamesLEDColors.GREEN):
     kwargs = {"power": 10_000}
     return JobSequence(
         [
             Event(led_name, LightPico.write_power, timedelta(milliseconds=10), kwargs=kwargs),
             Event(led_name, LightPico.write_off, timedelta(milliseconds=10), delay=on_time),
         ],
-        delay=delay,
+        delay=off_time,
         name="blink"
     )
 
@@ -125,7 +125,8 @@ def linear_job(n: int = 100, duration: timedelta = timedelta(seconds=10), led_na
 def main():
     job_submitter = JobSubmitter()
 
-    job = triple_blink(on_time=timedelta(seconds=1), off_time=timedelta(seconds=2), led=NamesLEDColors.DEEP_RED)  #TODO: issue with schedualr
+    job = blink(on_time=timedelta(seconds=3), led_name=NamesLEDColors.DEEP_RED)
+    # job = triple_blink(on_time=timedelta(seconds=1), off_time=timedelta(seconds=2), led=NamesLEDColors.DEEP_RED)  #TODO: issue with schedualr
     # job = rainbow_job(n=100, duration=timedelta(seconds=10), power=656)
     # job = linear_job(n=20, duration=timedelta(seconds=10), power_max=6553)  # [0:1:65535]
     result = job_submitter.submit(job)

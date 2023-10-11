@@ -93,6 +93,7 @@ class ATIRRunner:
             parameters += f",NSR={scans}"
         if resolution is not None:
             parameters += f",RES={resolution}"
+        parameters += f",SNM=RAFT2_3"
         result = self.request("COMMAND_LINE MeasureSample (0,{" + parameters + "});")
         logger.debug("result: " + str(result))
         try:

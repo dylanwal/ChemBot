@@ -122,14 +122,14 @@ def fill_and_push(volume: list[Quantity], flow_rate: list[Quantity], valves: lis
 def job_air_purge() -> JobSequence:
     return JobSequence(
         [
-            job_air_purge_(),
+            job_air_purge_(0.3 * Unit.ml),
             # fill_and_push(
             #     volume=[0.4 * Unit.ml],
             #     flow_rate=[3 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT],
             #     pumps=[NamesPump.PUMP_FRONT]
             # ),
-            job_air_purge_(),
+            job_air_purge_(0.3 * Unit.ml),
         ]
     )
 
