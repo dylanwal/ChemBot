@@ -259,131 +259,213 @@ def job_droplets() -> JobSequence:
             #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
             # ),
 
-            # job_fill_syringe_multiple(
-            #     volume=[3 * Unit.ml, 3 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
-            #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
-            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            job_fill_syringe_multiple(
+                volume=[4.2 * Unit.ml, 4.2 * Unit.ml],
+                flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
+                valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+                pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            ),
+            ## part 1: with phase segrator
+            # No light; 8 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 10 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.1)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 20 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.2)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 30 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.3)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # No light; 8 min residence time
+            # Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.8 * Unit.ml, 0.8 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
             # ),
 
-            # main job
+
+            ## part 2: without phase seperator
+            # 10 % power, 8 min residence time
+            Event(
+                resource=NamesLEDColors.GREEN,
+                callable_=LightPico.write_power,
+                duration=timedelta(milliseconds=100),
+                kwargs={"power": int(65535 * 0.1)},
+            ),
+            add_atir(
+                job_flow_syringe_multiple(
+                    volume=[1 * Unit.ml, 1 * Unit.ml],
+                    flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                ),
+            ),
+            # 20 % power, 8 min residence time
+            Event(
+                resource=NamesLEDColors.GREEN,
+                callable_=LightPico.write_power,
+                duration=timedelta(milliseconds=100),
+                kwargs={"power": int(65535 * 0.2)},
+            ),
+            add_atir(
+                job_flow_syringe_multiple(
+                    volume=[1 * Unit.ml, 1 * Unit.ml],
+                    flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                ),
+            ),
+            # 30 % power, 8 min residence time
             Event(
                 resource=NamesLEDColors.GREEN,
                 callable_=LightPico.write_power,
                 duration=timedelta(milliseconds=100),
                 kwargs={"power": int(65535 * 0.3)},
             ),
-
-            # 2 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.131 * Unit("ml/min"), 0.131 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # # 4 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # # 8 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # # 16 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.0164 * Unit("ml/min"), 0.0164 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # # 8 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # # 4 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # # 2 min residence time
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-            #         flow_rate=[0.131 * Unit("ml/min"), 0.131 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-
-            # Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
-            # job_fill_syringe_multiple(
-            #     volume=[1 * Unit.ml, 1 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
-            #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
-            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            # ),
-            # add_atir(
-            #     job_flow_syringe_multiple(
-            #         volume=[1 * Unit.ml, 1 * Unit.ml],
-            #         flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
-            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-            #     ),
-            # ),
-            # job_air_purge(),
-
-            # 4 min residence time
             add_atir(
                 job_flow_syringe_multiple(
-                    volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-                    flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
-                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
-                ),
-            ),
-            # 8 min residence time
-            add_atir(
-                job_flow_syringe_multiple(
-                    volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+                    volume=[1 * Unit.ml, 1 * Unit.ml],
                     flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
                     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
                     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
                 ),
             ),
-            # 4 min residence time
+            # No light; 8 min residence time
+            Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
             add_atir(
                 job_flow_syringe_multiple(
-                    volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
-                    flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
+                    volume=[0.8 * Unit.ml, 0.8 * Unit.ml],
+                    flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
                     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
                     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
                 ),
             ),
 
-            Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
+            # # part 3
+            # # ATIR background air
+            # # 10 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.1)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 20 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.2)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            #
+            # Event(NamesLEDColors.GREEN, LightPico.write_stop, timedelta(microseconds=100)),
+            # # No light; 8 min residence time
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+
+
+            # # part 4
+            # # ATIR background sample
+            # # 10 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.1)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
+            # # 20 % power, 8 min residence time
+            # Event(
+            #     resource=NamesLEDColors.GREEN,
+            #     callable_=LightPico.write_power,
+            #     duration=timedelta(milliseconds=100),
+            #     kwargs={"power": int(65535 * 0.2)},
+            # ),
+            # add_atir(
+            #     job_flow_syringe_multiple(
+            #         volume=[1 * Unit.ml, 1 * Unit.ml],
+            #         flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
+            #         valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #         pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+            #     ),
+            # ),
 
         ]
     )

@@ -235,7 +235,7 @@ class SpinsolveController:
 
 
 if __name__ == '__main__':
-    nmr_computer_ip = '169.254.157.62'
+    nmr_computer_ip = '192.168.0.100' #'169.254.157.62'
     port = 7125
 
     c = SpinsolveController(nmr_computer_ip, port)

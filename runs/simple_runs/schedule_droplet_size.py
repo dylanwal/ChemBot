@@ -215,13 +215,30 @@ def fill_and_push(volume: list[Quantity], flow_rate: list[Quantity], valves: lis
 def job_droplets() -> JobSequence:
     return JobSequence(
         [
-            fill_and_push(
-                volume=[3 * Unit.ml],
-                flow_rate=[1 * Unit("ml/min")],
-                valves=[NamesValves.VALVE_FRONT],
-                pumps=[NamesPump.PUMP_FRONT]
-            ),
-
+            # fill_and_push(
+            #     volume=[2 * Unit.ml],
+            #     flow_rate=[1 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT],
+            #     pumps=[NamesPump.PUMP_FRONT]
+            # ),
+            # job_fill_syringe_multiple(
+            #     volume=[0.4 * Unit.ml],
+            #     flow_rate=[1.5 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT],
+            #     pumps=[NamesPump.PUMP_FRONT]
+            # ),
+            # Event(
+            #     resource=NamesPump.PUMP_FRONT,
+            #     callable_=SyringePumpHarvard.write_infuse,
+            #     duration=SyringePumpHarvard.compute_run_time(0.4 * Unit.ml, 1.5 * Unit("ml/min")).to_timedelta(),
+            #     kwargs={"volume": 0.4 * Unit.ml, "flow_rate": 1.5 * Unit("ml/min")}
+            # ),
+            # job_flow_syringe_multiple(
+            #     volume=[0.4 * Unit.ml],
+            #     flow_rate=[1.5 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT],
+            #     pumps=[NamesPump.PUMP_FRONT]
+            # ),
 
             # add_phase_sensor_calibration(),
             # write_atir_background(),
@@ -233,11 +250,19 @@ def job_droplets() -> JobSequence:
             # ),
 
             # job_fill_syringe_multiple(
-            #     volume=[0.02 * Unit.ml, 1.5 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
+            #     volume=[0.5 * Unit.ml, 0.5 * Unit.ml],  # [1.2 * Unit.ml, (1.2/3 + 0.1) * Unit.ml]
             #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
             #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
             # ),
+            # job_flow_syringe_multiple(
+            #     volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
+            #     flow_rate=[0.1 * Unit("ml/min"), 0.1 * Unit("ml/min")],
+            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
+            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE],
+            #     delay=timedelta(seconds=1)
+            # ),
+
             # priming
             # Event(
             #     resource=NamesValves.VALVE_ANALYTICAL,
@@ -245,16 +270,10 @@ def job_droplets() -> JobSequence:
             #     duration=timedelta(seconds=1.5),
             #     kwargs={"position": "fill"}
             # ),
-            # job_flow_syringe_multiple(
-            #     volume=[2 * Unit.ml, 2 * Unit.ml],
-            #     flow_rate=[2 * Unit("ml/min"), 2 * Unit("ml/min")],
-            #     valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-            #     pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE],
-            #     delay=timedelta(seconds=1)
-            # ),
+
 
             # main job
-            # write_atir_measure(),
+            write_atir_measure(),
             # add_atir(
             #     job_flow_syringe_multiple(
             #         volume=[0.03 * Unit.ml, 2 * Unit.ml],
