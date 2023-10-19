@@ -18,6 +18,7 @@ class Syringe:
                  diameter: Quantity = None,
                  pull: Quantity = None,
                  default_flow_rate: Quantity = None,
+                 force: int =None,
                  name: str = None,
                  vendor: str = None,
                  **kwargs
@@ -47,6 +48,7 @@ class Syringe:
         self.diameter = diameter
         self.pull = pull
         self.default_flow_rate = default_flow_rate
+        self.force = force
 
         self.vendor = vendor
         self.name = name if name is not None else f"syringe: {self.volume}"

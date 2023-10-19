@@ -361,6 +361,7 @@ class SyringePumpHarvard(SyringePump):
         self._send_and_receive_message("NVRAM off")  # turn off writes of rate to memory -> faster communication
         self._write_diameter(self.syringe.diameter)
         self.write_empty()
+        self.write_force(self.syringe.force)
         super()._activate()
 
     def _deactivate(self):

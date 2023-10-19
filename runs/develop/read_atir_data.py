@@ -129,12 +129,14 @@ def main():
     n_end = 1487  # 433
     n=n_end-n_start
     data = np.zeros((n+1, 1755))
+    first = True
     for i in range(n_start, n_end+1):
         rf = fr'"C:\Users\Robot2\Documents\Bruker\OPUS_8.7.10\DATA\MEAS\RAFT2_3.{i}" 1'
         d = runner.get_results(rf)
         time_ = runner.get_date(rf)
-        if i == 1:
+        if first:
             data[0, 1:] = d[:, 0]
+            first = False
         data[i-n_start, 0] = time_
         data[i-n_start, 1:] = d[:, 1]
 
