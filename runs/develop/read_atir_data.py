@@ -125,22 +125,21 @@ class ATIRRunner:
 
 def main():
     runner = ATIRRunner()
-    n_start = 791
-    n_end = 1487  # 433
+    n_start = 2
+    n_end = 716
     n=n_end-n_start
     data = np.zeros((n+1, 1755))
-    first = True
+    counter = 0
     for i in range(n_start, n_end+1):
         rf = fr'"C:\Users\Robot2\Documents\Bruker\OPUS_8.7.10\DATA\MEAS\RAFT2_3.{i}" 1'
         d = runner.get_results(rf)
         time_ = runner.get_date(rf)
-        if first:
+        if counter == 0:
             data[0, 1:] = d[:, 0]
-            first = False
-        data[i-n_start, 0] = time_
-        data[i-n_start, 1:] = d[:, 1]
+        data[counter, 0] = time_
+        data[counter, 1:] = d[:, 1]
 
-    np.savetxt("DW2-5-2-ATIR.csv", data, delimiter=",")
+    np.savetxt("DW2-5-6-ATIR.csv", data, delimiter=",")
     print("done")
 
 

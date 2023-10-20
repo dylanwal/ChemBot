@@ -183,6 +183,12 @@ class NMRComm:
         except socket.error as e:
             logger.exception(f"Timeout during proton.")
 
+        except Exception as e:
+            logger.error("Issue on reply")
+            if reply:
+                logger.error(reply.decode("utf-8"))
+            logger.error(e)
+
     def check_shim(self):
         message = xml.Element("Message")
         xml.SubElement(message, "CheckShimRequest")
@@ -208,11 +214,11 @@ class NMRComm:
         logger.info(f"chunk: {chunk}\nold: {old}")
 
 
-def continous():
+def continous(sample_name: str):
     counter = 0
     times = []
     with NMRComm("192.168.0.100", 13000) as nmr:
-        nmr.set_sample("DW2-6")
+        nmr.set_sample(sample_name)
         while True:
             nmr.take_protron(
                 scans=NMRScans.THIRTYTWO,
@@ -235,5 +241,5 @@ def main():
 
 if __name__ == "__main__":
     # main()
-    continous()
+    continous("DW2_6_flow")
 
