@@ -41,29 +41,9 @@ def job_temperature_cycle() -> JobSequence:
                 resource=NamesEquipment.BATH,
                 callable_=PolyRecirculatingBath.write_set_point,
                 duration=timedelta(seconds=1),
-                kwargs={"temperature": 60 * Unit.degC}
+                kwargs={"temperature": 5 * Unit.degC}
             ),
             read_temperature(timedelta(minutes=60)),
-            Event(
-                resource=NamesEquipment.BATH,
-                callable_=PolyRecirculatingBath.write_set_point,
-                duration=timedelta(seconds=1),
-                kwargs={"temperature": 10 * Unit.degC}
-            ),
-            read_temperature(timedelta(minutes=60)),
-            Event(
-                resource=NamesEquipment.BATH,
-                callable_=PolyRecirculatingBath.write_set_point,
-                duration=timedelta(seconds=1),
-                kwargs={"temperature": 60 * Unit.degC}
-            ),
-            read_temperature(timedelta(minutes=60)),
-            Event(
-                resource=NamesEquipment.BATH,
-                callable_=PolyRecirculatingBath.write_stop,
-                duration=timedelta(seconds=1),
-                kwargs={"temperature": 25 * Unit.degC}
-            ),
         ]
     )
 

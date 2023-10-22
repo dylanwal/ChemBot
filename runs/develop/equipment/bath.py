@@ -1,13 +1,12 @@
 """PolyScience Circulating Bath"""
 import logging
+import time
 
 from serial import Serial
 from unitpy import Quantity, Unit
 
-from chembot.configuration import config
-from chembot.equipment.temperature_control.base import TempControl
 
-logger = logging.getLogger(config.root_logger_name + ".polysciencebath")
+logger = logging.getLogger("bath")
 
 
 class PolyScienceBath:
@@ -33,8 +32,6 @@ class PolyScienceBath:
         self.serial.flushInput()
         self.serial.flushOutput()
         self._write_echo(False)
-        self.write_on()
-        self.write_status(False)
 
     def deactivate(self):
         self.write_off()
@@ -100,17 +97,6 @@ class PolyScienceBath:
         speed = int(speed / 5) * 5
 
         self._write(f"SM{speed:03}")
-        self._read("!\r")
-
-    def write_status(self, value: bool):
-        """
-        Parameters
-        ----------
-        value:
-            True: running
-            False: standby
-        """
-        self._write(f"SW{int(value)}")
         self._read("!\r")
 
     def write_control(self, value: bool):
@@ -286,33 +272,27 @@ class PolyScienceBath:
             raise e
 
 
-class PolyRecirculatingBath(TempControl):
+def main():
+    import pathlib
+    from buffer_ping_pong import PingPongBuffer
 
-    def __init__(self,
-                 name: str,
-                 comport: str,
-                 temp_limits: tuple[Quantity, Quantity] = (5 * Unit.degC, 60 * Unit.degC),
-                 ):
-        self.bath = PolyScienceBath(comport, temp_limits)
-        super().__init__(name=name)
+    path = pathlib.Path(__file__).parent / "bath.csv"
+    with PingPongBuffer(path) as buffer:
+        with PolyScienceBath("COM17") as bath:
+            while True:
+                event = scheduler.get_event()
+                if event():
+                    event.run()
+                else:
+                    buffer.add_data((bath.read_set_point().v, bath.read_internal_temp().v))
 
-    def write_set_point(self, temperature: Quantity):
-        """ write set point temperature """
-        self.bath.write_set_point(temperature)
 
-    def read_set_point(self) -> Quantity:
-        """ read set point """
-        return self.bath.read_set_point()
+def main_simple():
+    with PolyScienceBath("COM16") as bath:
+        bath.write_on()
+        bath.write_set_point(25 * Unit.degC)
+        print("waiting")
+        time.sleep(60)
 
-    def read_temperature(self) -> float:
-        """ Turn off light """
-        return self.bath.read_internal_temp().value
-
-    def _activate(self):
-        pass  # done on init
-
-    def _deactivate(self):
-        self.bath.deactivate()
-
-    def _stop(self):
-        self.bath.write_status(False)
+if __name__ == "__main__":
+    main()

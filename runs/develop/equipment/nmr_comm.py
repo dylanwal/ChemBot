@@ -214,7 +214,7 @@ class NMRComm:
         logger.info(f"chunk: {chunk}\nold: {old}")
 
 
-def continous(sample_name: str):
+def continuous(sample_name: str):
     counter = 0
     times = []
     with NMRComm("192.168.0.100", 13000) as nmr:
@@ -241,5 +241,5 @@ def main():
 
 if __name__ == "__main__":
     # main()
-    continous("DW2_6_flow")
+    continous("DW2_7")
 

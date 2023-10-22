@@ -243,19 +243,19 @@ def job_droplets() -> JobSequence:
             # ),
 
 
-            # job_fill_syringe_multiple(
-            #     volume=[0.4 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min")],
-            #     valves=[NamesValves.VALVE_FRONT],
-            #     pumps=[NamesPump.PUMP_FRONT]
-            # ),
-            #
-            # job_flow_syringe_multiple(
-            #     volume=[1.2 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min")],
-            #     valves=[NamesValves.VALVE_FRONT],
-            #     pumps=[NamesPump.PUMP_FRONT]
-            # ),
+            job_fill_syringe_multiple(
+                volume=[1 * Unit.ml],
+                flow_rate=[1 * Unit("ml/min")],
+                valves=[NamesValves.FRONT],
+                pumps=[NamesPump.FRONT]
+            ),dding
+
+            job_flow_syringe_multiple(
+                volume=[1 * Unit.ml],
+                flow_rate=[1 * Unit("ml/min")],
+                valves=[NamesValves.FRONT],
+                pumps=[NamesPump.FRONT]
+            ),
 
             # add_phase_sensor_calibration(),
             # write_atir_background(),
@@ -272,19 +272,19 @@ def job_droplets() -> JobSequence:
             #     duration=timedelta(seconds=1.5),
             #     kwargs={"force": 100}
             # ),
-            job_fill_syringe_multiple(
-                volume=[1 * Unit.ml, 1 * Unit.ml],
-                flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
-                valves=[NamesValves.FRONT, NamesValves.MIDDLE],
-                pumps=[NamesPump.FRONT, NamesPump.MIDDLE]
-            ),
-            job_flow_syringe_multiple(
-                volume=[1 * Unit.ml, 1 * Unit.ml],
-                flow_rate=[0.1 * Unit("ml/min"), 0.1 * Unit("ml/min")],
-                valves=[NamesValves.FRONT, NamesValves.MIDDLE],
-                pumps=[NamesPump.FRONT, NamesPump.MIDDLE],
-                delay=timedelta(seconds=1)
-            ),
+            # job_fill_syringe_multiple(
+            #     volume=[1 * Unit.ml, 1 * Unit.ml],
+            #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
+            #     valves=[NamesValves.FRONT, NamesValves.MIDDLE],
+            #     pumps=[NamesPump.FRONT, NamesPump.MIDDLE]
+            # ),
+            # job_flow_syringe_multiple(
+            #     volume=[1 * Unit.ml, 1 * Unit.ml],
+            #     flow_rate=[0.1 * Unit("ml/min"), 0.1 * Unit("ml/min")],
+            #     valves=[NamesValves.FRONT, NamesValves.MIDDLE],
+            #     pumps=[NamesPump.FRONT, NamesPump.MIDDLE],
+            #     delay=timedelta(seconds=1)
+            # ),
 
             # priming
             # Event(
