@@ -18,7 +18,7 @@ config_front.positions[2].setting = 6225  # calibrated on 7/7/23 DW
 config_front.positions[3].setting = 8450  # calibrated on 7/7/23 DW
 
 valve_front = chembot.equipment.valves.ValveServo(
-    name=NamesValves.VALVE_FRONT,
+    name=NamesValves.FRONT,
     communication=NamesSerial.PICO2,
     configuration=config_front,
     pin=5,
@@ -41,7 +41,7 @@ config_middle.positions[3].setting = 8191  # calibrated on 7/7/23 DW
 config_middle.positions[3].name = "flow_air"
 
 valve_middle = chembot.equipment.valves.ValveServo(
-    name=NamesValves.VALVE_MIDDLE,
+    name=NamesValves.MIDDLE,
     communication=NamesSerial.PICO2,
     configuration=config_middle,
     pin=6,
@@ -62,7 +62,7 @@ config_back.positions[2].setting = 6450  # calibrated on 7/7/23 DW
 config_back.positions[2].name = "flow"
 
 valve_back = chembot.equipment.valves.ValveServo(
-    name=NamesValves.VALVE_BACK,
+    name=NamesValves.BACK,
     communication=NamesSerial.PICO2,
     configuration=config_back,
     pin=7,
@@ -84,7 +84,7 @@ config_analytical.positions[2].setting = 6225  # calibrated on 7/7/23 DW
 config_analytical.positions[3].setting = 8450  # calibrated on 7/7/23 DW
 
 valve_analytical = chembot.equipment.valves.ValveServo(
-    name=NamesValves.VALVE_ANALYTICAL,
+    name=NamesValves.ANALYTICAL,
     communication=NamesSerial.PICO2,
     configuration=config_analytical,
     pin=8,

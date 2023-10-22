@@ -15,7 +15,7 @@ def job_flow(volume: Quantity, flow_rate: Quantity):
         [
             _valves(),
             Event(
-                resource=NamesPump.PUMP_FRONT,
+                resource=NamesPump.FRONT,
                 callable_=SyringePumpHarvard.write_infuse,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"volume": volume, "flow_rate": flow_rate}
@@ -28,13 +28,13 @@ def _valves() -> JobConcurrent:
     return JobConcurrent(
         [
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=NamesValves.BACK,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "flow"}
             ),
             Event(
-                resource=NamesValves.VALVE_FRONT,
+                resource=NamesValves.FRONT,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "flow"}
@@ -47,13 +47,13 @@ def job_fill_back(volume: Quantity, flow_rate: Quantity):
     return JobSequence(
         [
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=NamesValves.BACK,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "fill"}
             ),
             Event(
-                resource=NamesPump.PUMP_BACK,
+                resource=NamesPump.BACK,
                 callable_=SyringePumpHarvard.write_withdraw,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"volume": volume, "flow_rate": flow_rate}
@@ -66,13 +66,13 @@ def job_fill_front(volume: Quantity, flow_rate: Quantity):
     return JobSequence(
         [
             Event(
-                resource=NamesValves.VALVE_FRONT,
+                resource=NamesValves.FRONT,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "fill"}
             ),
             Event(
-                resource=NamesPump.PUMP_FRONT,
+                resource=NamesPump.FRONT,
                 callable_=SyringePumpHarvard.write_withdraw,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"volume": volume, "flow_rate": flow_rate}
@@ -88,25 +88,25 @@ def job_air_purge() -> JobSequence:
     return JobSequence(
         [
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=NamesValves.BACK,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "fill"}
             ),
             Event(
-                resource=NamesPump.PUMP_BACK,
+                resource=NamesPump.BACK,
                 callable_=SyringePumpHarvard.write_withdraw,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"volume": volume, "flow_rate": flow_rate},
             ),
             Event(
-                resource=NamesValves.VALVE_BACK,
+                resource=NamesValves.BACK,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "flow"}
             ),
             Event(
-                resource=NamesPump.PUMP_BACK,
+                resource=NamesPump.BACK,
                 callable_=SyringePumpHarvard.write_infuse,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"volume": volume, "flow_rate": flow_rate}

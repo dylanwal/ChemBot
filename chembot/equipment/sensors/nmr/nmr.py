@@ -1,242 +1,245 @@
-# Socket client to send commands to server on NMR computer
-# Federico Florit, 2/27/23, based on HPLC client code
-
+import enum
 import socket
-import errno
+import logging
+import sys
 import time
-import os
+from datetime import datetime
+import xml.etree.cElementTree as xml
 
-# For parsing Spinsolve output
-import xml.etree.ElementTree as ET
+logger = logging.getLogger("nmr")
+logger.addHandler(logging.StreamHandler(sys.stdout))
+logger.setLevel(logging.DEBUG)
 
 
-class SpinsolveController:
-    def __init__(self, ip, port):
-        self.ip = ip
+class NMRSolvents(enum.Enum):
+    UNKNOWN = 0
+    NONE = 1
+    ACETONE = 2
+    ACETONITRILE = 3
+    BENZENE = 4
+    CHLOROFORM = 5
+    CYCLOHEXANE = 6
+    DMSO = 7
+    ETHANOL = 8
+    METHANOL = 9
+    PYRIDINE = 10
+    TMS = 11
+    THF = 12
+    TOLUENE = 13
+    TFA = 14
+    WATER = 15
+    OTHER = 16
+
+
+class NMRScans(enum.Enum):
+    ONE = 1
+    FOUR = 4
+    SIXTEEN = 16
+    THIRTYTWO = 32
+    SIXTYFOUR = 64
+    ONETWENTYEIGHT = 128
+    TWOHOUNDREDFIFTYSIX = 256
+
+
+class NMRAqTime(enum.Enum):
+    POINTFOUR = 0.4
+    POINTEIGHT = 0.8
+    ONEPOINTSIX = 1.6
+    THREEPOINTTWO = 3.2
+    SIXPOINTFOUR = 6.4
+
+
+class NMRRepTime(enum.Enum):
+    ONE = 1
+    TWO = 2
+    FOUR = 4
+    SEVEN = 7
+    TEN = 10
+    FIFTEEN = 15
+    THIRTY = 30
+    SIXTY = 60
+    ONETWENTHY = 120
+
+
+class NMRPulseAngle(enum.Enum):
+    THIRTY = 30
+    FOURTYFIVE = 45
+    SIXTY = 60
+    NINTY = 90
+
+
+class NMRComm:
+    def __init__(self, ip_address: str, port: int = 13000):
+        self.ip_address = ip_address
         self.port = port
-        self.s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        self.s.settimeout(15)
-        self.connected = False
-        self.is_ready = False
-        self.serverConnect()
+        self._connected = False
+        self.socket: socket.socket = None
 
-    def parseMessage(self, xml):
-        root = ET.fromstring(xml)
+        self.open_connection()
 
-    def serverConnect(self):
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close_connection()
+
+    @property
+    def connected(self) -> bool:
+        return self._connected
+
+    def open_connection(self):
+        self.socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+        self.socket.connect((self.ip_address, self.port))
+        logger.info("Connection to NMR established.")
+        self._connected = True
+
+    def close_connection(self):
+        self.socket.close()
+        logger.info("Connection to NMR closed.")
+        self._connected = False
+
+    def _send(self, message: xml.Element):
+        message = xml.tostring(message, encoding="UTF-8")
+        self.socket.send(message)
+
+    def _look_for_reply(self):
+        # self.socket.settimeout(1.)
+        chunk = ""
+        old = ""
         try:
-            self.s.connect((self.ip, self.port))
-            print('Connected to NMR server successfully!')
-            self.connected = True
-            self.is_ready = True
-
-        # Handle anticipated errors within socket.error
+            while True:
+                if chunk:
+                    old = chunk
+                chunk = self.socket.recv(8192)
+                if chunk:
+                    logger.info(chunk.decode())
         except socket.error as e:
-            # Handle error when socket server on NMR computer has not yet been created
-            if e.errno == 10061:  # This is error code corresponding to this particular case
-                print(e)
-                print('Could not connect to NMR server because it has not been created yet')
-                print('Do you need to run "start_nmr_server.bat" on NMR computer?')
-            # Handle error when socket client is already connected to socket server
-            elif e.errno == 10056:  # This is error code corresponding to this particular case
-                print(e)
-                print('Already connected to NMR server, no need to connect again!')
-            # Handle any other error numbers within socket.error not handled above
-            else:
-                print(e)
+            self.socket.settimeout(None)
 
-        # Handle unanticipated errors
-        except Exception as e:
-            print(e)
+        return chunk, old
 
-    def send_msg(self, msg, wait_response=True):
-        msg = msg.encode("utf-8")
+    def stop(self):
+        self.close_connection()
+        self.open_connection()
+
+    def set_sample(self, name: str):
+        message = xml.Element("Message")
+        set_ = xml.SubElement(message, "Set")
+        xml.SubElement(set_, "Sample").text = name
+
+        self._send(message)
+        logger.info(f"sample name set to: {name}")
+
+    def set_solvent(self, solvent: NMRSolvents):
+        message = xml.Element("Message")
+        set_ = xml.SubElement(message, "Set")
+        xml.SubElement(set_, "Solvent").text = solvent.name
+
+        self._send(message)
+        logger.info(f"solvent set to: {solvent.name}")
+
+    def set_folder(self, folder: str):
+        message = xml.Element("Message")
+        set_ = xml.SubElement(message, "Set")
+        folder = xml.SubElement(set_, "DataFolder")
+        xml.SubElement(set_, "UserFolder").text = folder
+
+        self._send(message)
+        logger.info(f"folder set to: {folder}")
+
+    def take_protron(self,
+                     scans: NMRScans = NMRScans.THIRTYTWO,
+                     aqtime: NMRAqTime = NMRAqTime.POINTEIGHT,
+                     reptime: NMRRepTime = NMRRepTime.ONE,
+                     pulse_angle: NMRPulseAngle = NMRPulseAngle.SIXTY
+                     ):
+        message = xml.Element("Message")
+        start = xml.SubElement(message, "Start", protocol='1D EXTENDED+')
+        xml.SubElement(start, "Option", name="Number", value=str(scans.value))
+        xml.SubElement(start, "Option", name="AcquisitionTime", value=str(aqtime.value))
+        xml.SubElement(start, "Option", name="RepetitionTime", value=str(reptime.value))
+        xml.SubElement(start, "Option", name="PulseAngle", value=str(pulse_angle.value))
+
+        self.socket.settimeout(reptime.value + 5)
+        self._send(message)
+        start = datetime.now()
+        logger.info(f"proton started: {start}")
         try:
-            self.is_ready = False
-            self.s.sendall(msg)
-            response = ''
-            if wait_response:
-                response = self.s.recv(2048).decode("utf-8").strip()
+            while True:
+                reply = self.socket.recv(8192)
+                if reply:
+                    root = xml.fromstring(reply.decode("utf-8"))
+                    status = root.find("StatusNotification")
+                    complete_element = status.find("Completed")
+                    if complete_element is not None:
+                        if complete_element.attrib["successful"]:
+                            logger.info(
+                                f"proton completed at: {datetime.now()} ({(datetime.now() - start).total_seconds()} sec)")
+                        else:
+                            logger.exception("Error during proton.")
+                        # _ = self.socket.recv(8192)  # capture extra message sent
+                        break
 
-                self.is_ready = True
-                return response
+        except socket.error as e:
+            logger.exception(f"Timeout during proton.")
 
-        # # Handle anticipated errors within socket.error
-        # except socket.error as e:
-        # 	# Handle error when socket server on NMR computer has not yet been created
-        # 	if e.errno == 10061: # This is error code corresponding to this particular case
-        # 		print(e)
-        # 		print('Cannot send command because you are not connected to NMR socket server')
-        # 		print('Try re-connecting')
-        # 	# Handle error when socket server on NMR computer was closed mid-connection
-        # 	elif e.errno == 10054: # This is error code corresponding to this particular case
-        # 		print(e)
-        # 		print('NMR socket server on NMR computer was closed mid-connection')
-        # 		print('Run "start_nmr_server.bat" on NMR computer and try re-connecting')
-        # 	# Handle any other error numbers within socket.error not handled above
-        # 	else:
-        # 		print(e)
-        # 	return 1 # error
-
-        # Handle unanticipated errors
         except Exception as e:
-            print(e)
-            self.is_ready = True
-            return 1  # error
+            logger.error("Issue on reply")
+            if reply:
+                logger.error(reply.decode("utf-8"))
+            logger.error(e)
 
-    def setSampleName(self, SampleName):
-        self.s.settimeout(None)
-        self.send_msg('Sample,{}'.format(SampleName), wait_response=False)
-        time.sleep(.1)
+    def check_shim(self):
+        message = xml.Element("Message")
+        xml.SubElement(message, "CheckShimRequest")
 
-    def setSolvent(self, SolventName):
-        if not SolventName in ['Unknown', 'None', 'Acetone', 'Acetonitrile', 'Benzene', 'Chloroform', 'Cyclohexane',
-                               'DMSO', 'Ethanol', 'Methanol', 'Pyridine', 'TMS', 'THF', 'Toluene', 'TFA', 'Water',
-                               'Other']:
-            SolventName = 'Unknown'
+        self._send(message)
+        chunk, old = self._look_for_reply()
+        logger.info(f"chunk: {chunk}\nold: {old}")
 
-        self.send_msg('Solvent,{}'.format(SolventName), wait_response=False)
-        time.sleep(.1)
+    def quick_shim(self):
+        message = xml.Element("Message")
+        xml.SubElement(message, "QuickShimRequest")
 
-    def setCustomName(self, CustomName):
-        self.s.settimeout(None)
-        self.send_msg('Custom,{}'.format(CustomName), wait_response=False)
-        time.sleep(.1)
+        self._send(message)
+        chunk, old = self._look_for_reply()
+        logger.info(f"chunk: {chunk}\nold: {old}")
 
-    def setFolder(self, FolderPath):
-        # Look for a folder on the NMR laptop inside C:/PROJECTS/DATA/Magritek
-        head = ''
-        tail = FolderPath
-        EffPath = 'c:/PROJECTS/DATA/Magritek'
-        AccuPath = ''
-        while tail and not tail == '//SPA3513/NMRdata/Magritek':
-            [tail, head] = os.path.split(tail)
-            AccuPath = os.path.join(head, AccuPath)
-        if tail:
-            EffPath = os.path.join(EffPath, AccuPath).replace("\\", "/").strip("/")
-            self.send_msg('Folder,{}'.format(EffPath), wait_response=False)
-        else:
-            print('Folder error.')
+    def power_shim(self):
+        message = xml.Element("Message")
+        xml.SubElement(message, "PowerShimRequest")
 
-    def getFolder(self):
-        # Look for a folder on the NMR laptop inside C:/PROJECTS/DATA/Magritek
-        response = self.send_msg('QueryFolder')
-        head = ''
-        tail = response
-        EffPath = '//SPA3513/NMRdata/Magritek'
-        AccuPath = ''
-        while tail and not tail.casefold() == 'c:/PROJECTS/DATA/Magritek'.casefold():
-            [tail, head] = os.path.split(tail)
-            AccuPath = os.path.join(head, AccuPath)
-        if tail:
-            EffPath = os.path.join(EffPath, AccuPath).replace("\\", "/").strip("/")
-            return EffPath
-        else:
-            print('Folder error.')
-            return 'N/A'
-
-    def queryProtocols(self):
-        response = self.send_msg('QueryProtocols')
-        print(response)
-        root = ET.fromstring(response)
-        for protocol in root.iter('Protocol'):
-            print(protocol.text)
-
-    def doProton(self, nscans=16, aqtime=6.4, reptime=7, pulse=60):
-        if not nscans in [1, 4, 16, 32, 64, 128, 256]:
-            print('nscans value not valid, using default (16)')
-            nscans = 16
-        if not aqtime in [0.4, 0.8, 1.6, 3.2, 6.4]:
-            print('aqtime value not valid, using default (6.4)')
-            aqtime = 6.4
-        if (not reptime in [1, 2, 4, 7, 10, 15, 30, 60, 120]) or reptime < aqtime:
-            reptime = next((x for x in [1, 2, 4, 7, 10, 15, 30, 60, 120] if x > aqtime))
-            print('reptime value not valid, using first value available ({})'.format(reptime))
-        if not pulse in [30, 45, 60, 90]:
-            print('pulse value not valid, using default (60)')
-            pulse = 60
-
-        self.s.settimeout(nscans * reptime * 1.3 + 15)  # has to include the request time plus 15s of server timeout
-        response = self.send_msg('Proton+,{},{},{},{}'.format(int(nscans), float(aqtime), int(reptime), int(pulse)))
-        self.s.settimeout(15)
-
-        if response == 1:
-            # An error occurred in the message exchange
-            return 1
-
-        root = ET.fromstring(response)
-        if root[0][0].tag == 'Error':
-            print('Error in Proton+.')
-            return 1
-        else:
-            timestamp = root[0].get('timestamp')
-            protocol = root[0][0].get('protocol')
-            dataFolder = root[0][0].get('dataFolder')
-            print('Proton successful, stored in {}'.format(dataFolder))
-            return [timestamp, protocol, dataFolder]
-
-    def doShim(self, ShimType):
-        if ShimType == 'Check':
-            self.s.settimeout(15 * 2 + 15)  # has to include the request effective time plus 15s of server timeout
-        elif ShimType == 'Quick':
-            self.s.settimeout(15 * 60 * 2 + 15)
-        elif ShimType == 'Power':
-            self.s.settimeout(45 * 60 * 2 + 15)
-        response = self.send_msg('{}Shim'.format(ShimType))
-        self.s.settimeout(15)
-
-        root = ET.fromstring(response)
-        if root[0][5].text == 'true':
-            print('System is ready LW = ', root[0][3].text, ', BW = ', root[0][4].text)
-        else:
-            print('System is NOT ready LW = ', root[0][3].text, ', BW = ', root[0][4].text)
-
-        return [root[0][0].text == 'true', root[0][1].text == 'true', root[0][2].text == 'true', root[0][3].text,
-                root[0][4].text, root[0][5].text == 'true']
-
-    def serverDisconnect(self):
-        self.send_msg('Close', wait_response=False)
-        self.s.shutdown(1)
-        self.s.close()
-        print('Disconnected from Spinsolve, closed NMR socket client.')
-        self.connected = False
-
-    # Function to send commands using command line interface
-    def commandLine(self):
-        user_input = input("\n Type command (CheckShim, QueryProtocols, Proton, Proton+, connect, close, or other): ")
-        if user_input == "CheckShim":
-            [Tright, Tstable, lockstable, LineWidth, BaseWidth, IsReady] = self.doShim("Check")
-            self.commandLine()
-        elif user_input == "QueryProtocols":
-            self.queryProtocols()
-            self.commandLine()
-        elif user_input == "Solvent":
-            SolventName = input("\n   Solvent: ")
-            self.setSolvent(SolventName)
-        elif user_input == "Proton":
-            protonInfo = self.doProton()
-            self.commandLine()
-        elif user_input == "Proton+":
-            nscans = input("\n   nscans [1,4,16,32,64,128,256]: ")
-            aqtime = input("\n   aqtime [0.4,0.8,1.6,3.2,6.4]: ")
-            reptime = input("\n   reptime [1,2,4,7,10,15,30,60,120]: ")
-            pulse = input("\n   pulse [30,45,60,90]: ")
-            protonInfo = self.doProton(int(nscans), float(aqtime), int(reptime), int(pulse))
-            self.commandLine()
-        elif user_input == "connect":
-            self.serverConnect()
-            self.commandLine()
-        elif user_input == "close":
-            self.serverDisconnect()
-        else:
-            user_input = str(user_input)
-            self.send_msg(user_input)
-            self.commandLine()
+        self._send(message)
+        chunk, old = self._look_for_reply()
+        logger.info(f"chunk: {chunk}\nold: {old}")
 
 
-if __name__ == '__main__':
-    nmr_computer_ip = '192.168.0.100' #'169.254.157.62'
-    port = 7125
+def continous(sample_name: str):
+    counter = 0
+    times = []
+    with NMRComm("192.168.0.100", 13000) as nmr:
+        nmr.set_sample(sample_name)
+        while True:
+            nmr.take_protron(
+                scans=NMRScans.THIRTYTWO,
+                aqtime=NMRAqTime.POINTEIGHT,
+                reptime=NMRRepTime.ONE,
+                pulse_angle=NMRPulseAngle.SIXTY
+            )
+            logger.info(f"{counter},{time.time()},{datetime.now()}")
+            times.append(f"{counter},{time.time()},{datetime.now()}")
+            counter += 1
 
-    c = SpinsolveController(nmr_computer_ip, port)
-    c.commandLine()
+
+def main():
+    with NMRComm("192.168.0.100", 13000) as nmr:
+        # nmr.set_solvent(NMRSolvents.DMSO)
+        # nmr.set_sample("remote_test")
+        # nmr.check_shim()
+        nmr.take_protron(NMRScans.FOUR)
+
+
+if __name__ == "__main__":
+    # main()
+    continous("DW2_6_flow")
+

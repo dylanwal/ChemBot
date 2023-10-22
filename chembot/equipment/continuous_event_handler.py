@@ -181,7 +181,7 @@ class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeating
     def __init__(self,
                  callable_: str | Callable,
                  kwargs: dict[str, ...] = None,
-                 buffer_type: type = BufferRingTimeSavable,
+                 buffer_type: type | BufferRingTimeSavable = BufferRingTimeSavable,
                  delay_between_measurements: float | int = 0,  # in seconds
                  ):
         super().__init__(callable_, kwargs, delay_between_measurements)

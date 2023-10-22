@@ -14,21 +14,23 @@ class NamesSerial:
 
 
 class NamesPump:
-    PUMP_FRONT = "pump_front"
-    PUMP_MIDDLE = "pump_middle"
-    PUMP_BACK = "pump_back"
+    FRONT = "pump_front"
+    MIDDLE = "pump_middle"
+    BACK = "pump_back"
+    FRAC = "pump_fraction"
 
 
 class NamesValves:
-    VALVE_FRONT = "valve_front"
-    VALVE_MIDDLE = "valve_middle"
-    VALVE_BACK = "valve_back"
-    VALVE_ANALYTICAL = "valve_analytical"
+    FRONT = "valve_front"
+    MIDDLE = "valve_middle"
+    BACK = "valve_back"
+    ANALYTICAL = "valve_analytical"
 
 
 class NamesSensors:
     ATIR = "atir"
     SEC = "sec"
+    NMR = "nmr"
     PICO1_THERMISTOR = "pico1_thermistor"
     PICO2_THERMISTOR = "pico2_thermistor"
     REACTOR1_THERMISTOR = "reactor1_thermistor"
@@ -37,3 +39,8 @@ class NamesSensors:
     LED_THERMISTOR = "LED_thermistor"
     PHASE_SENSOR1 = "phase_sensor1"
     PHASE_SENSOR2 = "phase_sensor2"
+
+
+class NamesEquipment:
+    BATH = "bath"
+    FRACTION_COLLECTOR = "fraction_collector"

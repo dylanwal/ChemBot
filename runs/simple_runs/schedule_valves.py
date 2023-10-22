@@ -37,7 +37,7 @@ def job_rotate_through_all_positions(valve_name: str) -> JobSequence:
 def main():
     job_submitter = JobSubmitter()
 
-    job = job_rotate_through_all_positions(NamesValves.VALVE_MIDDLE)
+    job = job_rotate_through_all_positions(NamesValves.MIDDLE)
     result = job_submitter.submit(job)
     print(result)
 

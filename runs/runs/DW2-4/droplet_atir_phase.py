@@ -206,20 +206,20 @@ def add_linear_light(
 def job_air_purge(volume: Quantity = 1 * Unit.ml, flow_rate: Quantity = 5 * Unit("ml/min")) -> JobSequence:
     return JobSequence(
         [
-            job_fill_syringe(volume, flow_rate, NamesValves.VALVE_BACK, NamesPump.PUMP_BACK),
+            job_fill_syringe(volume, flow_rate, NamesValves.BACK, NamesPump.BACK),
             Event(
-                resource=NamesValves.VALVE_FRONT,
+                resource=NamesValves.FRONT,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "fill"}
             ),
             Event(
-                resource=NamesValves.VALVE_MIDDLE,
+                resource=NamesValves.MIDDLE,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1.5),
                 kwargs={"position": "flow_air"}
             ),
-            job_flow(volume, flow_rate, NamesValves.VALVE_BACK, NamesPump.PUMP_BACK)
+            job_flow(volume, flow_rate, NamesValves.BACK, NamesPump.BACK)
         ]
     )
 
@@ -360,8 +360,8 @@ def job_droplets() -> JobSequence:
                 job_flow_syringe_multiple(
                     volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
                     flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
-                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                    valves=[NamesValves.FRONT, NamesValves.MIDDLE],
+                    pumps=[NamesPump.FRONT, NamesPump.MIDDLE]
                 ),
             ),
             # 8 min residence time
@@ -369,8 +369,8 @@ def job_droplets() -> JobSequence:
                 job_flow_syringe_multiple(
                     volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
                     flow_rate=[0.0328 * Unit("ml/min"), 0.0328 * Unit("ml/min")],
-                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                    valves=[NamesValves.FRONT, NamesValves.MIDDLE],
+                    pumps=[NamesPump.FRONT, NamesPump.MIDDLE]
                 ),
             ),
             # 4 min residence time
@@ -378,8 +378,8 @@ def job_droplets() -> JobSequence:
                 job_flow_syringe_multiple(
                     volume=[0.5 * Unit.ml, 0.5 * Unit.ml],
                     flow_rate=[0.0656 * Unit("ml/min"), 0.0656 * Unit("ml/min")],
-                    valves=[NamesValves.VALVE_FRONT, NamesValves.VALVE_MIDDLE],
-                    pumps=[NamesPump.PUMP_FRONT, NamesPump.PUMP_MIDDLE]
+                    valves=[NamesValves.FRONT, NamesValves.MIDDLE],
+                    pumps=[NamesPump.FRONT, NamesPump.MIDDLE]
                 ),
             ),
 
