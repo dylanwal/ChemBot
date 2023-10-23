@@ -248,7 +248,7 @@ def job_droplets() -> JobSequence:
                 flow_rate=[1 * Unit("ml/min")],
                 valves=[NamesValves.FRONT],
                 pumps=[NamesPump.FRONT]
-            ),dding
+            ),
 
             job_flow_syringe_multiple(
                 volume=[1 * Unit.ml],
