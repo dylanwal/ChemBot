@@ -1,14 +1,18 @@
 import enum
 import socket
 import logging
-import sys
 import time
 from datetime import datetime
 import xml.etree.cElementTree as xml
+import pathlib
 
-logger = logging.getLogger("nmr")
-logger.addHandler(logging.StreamHandler(sys.stdout))
-logger.setLevel(logging.DEBUG)
+import numpy as np
+
+from chembot.configuration import config, create_folder
+from chembot.equipment.sensors.sensor import Sensor
+
+
+logger = logging.getLogger(config.root_logger_name + ".nmr")
 
 
 class NMRSolvents(enum.Enum):
@@ -214,32 +218,34 @@ class NMRComm:
         logger.info(f"chunk: {chunk}\nold: {old}")
 
 
-def continous(sample_name: str):
-    counter = 0
-    times = []
-    with NMRComm("192.168.0.100", 13000) as nmr:
-        nmr.set_sample(sample_name)
-        while True:
-            nmr.take_protron(
-                scans=NMRScans.THIRTYTWO,
-                aqtime=NMRAqTime.POINTEIGHT,
-                reptime=NMRRepTime.ONE,
-                pulse_angle=NMRPulseAngle.SIXTY
-            )
-            logger.info(f"{counter},{time.time()},{datetime.now()}")
-            times.append(f"{counter},{time.time()},{datetime.now()}")
-            counter += 1
+class NMR(Sensor):
+    _method_path = str(pathlib.Path(__file__).parent)
 
+    @property
+    def _data_path(self):
+        path = config.data_directory / pathlib.Path("nmr")
+        create_folder(path)
+        return path
 
-def main():
-    with NMRComm("192.168.0.100", 13000) as nmr:
-        # nmr.set_solvent(NMRSolvents.DMSO)
-        # nmr.set_sample("remote_test")
-        # nmr.check_shim()
-        nmr.take_protron(NMRScans.FOUR)
+    def __init__(self, name: str, ip_address: str, port: int):
+        super().__init__(name)
+        self._runner = NMRComm(ip_address, port)
 
+    def _activate(self):
+        pass
 
-if __name__ == "__main__":
-    # main()
-    continous("DW2_6_flow")
+    def _deactivate(self):
+        self._runner.close_connection()
 
+    def _stop(self):
+        self._runner.stop()
+
+    def write_measure(self,
+                      data_name: str = None,
+                      scans: NMRScans = NMRScans.THIRTYTWO,
+                      aqtime: NMRAqTime = NMRAqTime.POINTEIGHT,
+                      reptime: NMRRepTime = NMRRepTime.ONE,
+                      pulse_angle: NMRPulseAngle = NMRPulseAngle.SIXTY
+                      ) -> np.ndarray:
+        self._runner.take_protron()
+        return 0  #TODO

@@ -657,7 +657,10 @@ class SyringePumpHarvard(SyringePump):
         reply = reply.replace("\n", "").replace("\r", "")
         return Quantity(reply)
 
-    def write_infusion_rate(self, flow_rate: Quantity):
+    def write_infusion_rate(self, flow_rate: Quantity | float | int):
+        if isinstance(flow_rate, int) or isinstance(flow_rate, float):
+            flow_rate = flow_rate * Unit("ml/min")
+
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'irate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
         self.pump_state.flow_rate = flow_rate

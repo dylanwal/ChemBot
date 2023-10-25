@@ -274,7 +274,7 @@ class PolyScienceBath:
 
 def main():
     import pathlib
-    from buffer_ping_pong import PingPongBuffer
+    from utils.buffers.buffer_ping_pong import PingPongBuffer
 
     path = pathlib.Path(__file__).parent / "bath.csv"
     with PingPongBuffer(path) as buffer:

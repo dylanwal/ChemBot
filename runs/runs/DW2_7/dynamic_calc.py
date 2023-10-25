@@ -51,13 +51,13 @@ def main():
     # fig.add_trace(go.Scatter(x=t, y=temp))
     # fig.write_html("temp.html", auto_open=True)
 
-    # fig = make_subplots(rows=4, cols=1, shared_xaxes=True, subplot_titles=['res_time', 'light', 'cat_ratio', 'temp'])
-    # fig.add_trace(go.Scatter(x=t, y=res_time), row=1, col=1)
-    # fig.add_trace(go.Scatter(x=t, y=light), row=2, col=1)
-    # fig.add_trace(go.Scatter(x=t, y=cat_ratio), row=3, col=1)
-    # fig.add_trace(go.Scatter(x=t, y=temp), row=4, col=1)
-    # fig.layout.showlegend = False
-    # fig.write_html("temp.html", auto_open=True)
+    fig = make_subplots(rows=4, cols=1, shared_xaxes=True, subplot_titles=['res_time', 'light', 'cat_ratio', 'temp'])
+    fig.add_trace(go.Scatter(x=t, y=res_time), row=1, col=1)
+    fig.add_trace(go.Scatter(x=t, y=light), row=2, col=1)
+    fig.add_trace(go.Scatter(x=t, y=cat_ratio), row=3, col=1)
+    fig.add_trace(go.Scatter(x=t, y=temp), row=4, col=1)
+    fig.layout.showlegend = False
+    fig.write_html("temp.html", auto_open=True)
 
 
 
@@ -87,13 +87,29 @@ def main():
                                  line={"color": "black"}))
 
     valleys = find_valleys(flow_rate_mon.v)
-    index_ = tuple(valley[2] for valley in valleys)
-    index_ = np.array(index_, dtype=np.uint32)
-    fig.add_trace(go.Scatter(x=t[index_], y=flow_rate_mon.v[index_], mode="markers"))
+    index_ = [valley[2] for valley in valleys]
+    np_index = np.array(index_, dtype=np.uint32)
+    fig.add_trace(go.Scatter(x=t[np_index], y=flow_rate_mon.v[np_index], mode="markers"))
 
     fig.write_html("temp.html", auto_open=True)
 
-    print("last stretch", np.trapz(x=t[index_[-2]:], y=flow_rate_mon.v[index_[-2]:]))
+    i_index = index_
+    i_index.insert(0, 0)
+    i_index.append(-1)
+    print()
+    print(index_)
+    print(t[index_])
+    print("index", "mon", "cat", "dmso")
+    for i in range(1, len(i_index)):
+        print(i,
+              np.trapz(x=t[i_index[i-1]:i_index[i]], y=flow_rate_mon.v[i_index[i-1]:i_index[i]]),
+              np.trapz(x=t[i_index[i-1]:i_index[i]], y=flow_rate_cat.v[i_index[i-1]:i_index[i]]),
+              np.trapz(x=t[i_index[i - 1]:i_index[i]], y=flow_rate_dmso.v[i_index[i - 1]:i_index[i]])
+              )
+
+    data = np.column_stack((t, temp, light, flow_rate_mon.v, flow_rate_cat.v, flow_rate_dmso.v))
+    # np.savetxt("DW2_7_profiles.csv", data, delimiter=",")
+    # print("last stretch", np.trapz(x=t[index_[-2]:], y=flow_rate_mon.v[index_[-2]:]))
 
 
 def get_time_breaks(t: Quantity, flow_rate: Quantity, target: Quantity):

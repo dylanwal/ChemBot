@@ -1,11 +1,15 @@
 """PolyScience Circulating Bath"""
 import logging
+import pathlib
+import time
 
+import numpy as np
 from serial import Serial
 from unitpy import Quantity, Unit
 
 from chembot.configuration import config
 from chembot.equipment.temperature_control.base import TempControl
+from chembot.utils.buffers.buffer_ping_pong import PingPongBuffer
 
 logger = logging.getLogger(config.root_logger_name + ".polysciencebath")
 
@@ -294,11 +298,13 @@ class PolyRecirculatingBath(TempControl):
                  temp_limits: tuple[Quantity, Quantity] = (5 * Unit.degC, 60 * Unit.degC),
                  ):
         self.bath = PolyScienceBath(comport, temp_limits)
+        self.buffer = PingPongBuffer(pathlib.Path("bath_temp.csv"), capacity=1000)
+        self._next_time = time.time()
         super().__init__(name=name)
 
-    def write_set_point(self, temperature: Quantity):
+    def write_set_point(self, temperature: float):
         """ write set point temperature """
-        self.bath.write_set_point(temperature)
+        self.bath.write_set_point(temperature * Unit.degC)
 
     def read_set_point(self) -> Quantity:
         """ read set point """
@@ -316,3 +322,10 @@ class PolyRecirculatingBath(TempControl):
 
     def _stop(self):
         self.bath.write_status(False)
+
+    def _poll_status(self):
+        time_ = time.time()
+        if time_ > self._next_time:
+            self._next_time = time_ + 30
+            self.buffer.add_data(np.array((time_, self.read_temperature())))
+            #TODO figure out something better to get this data

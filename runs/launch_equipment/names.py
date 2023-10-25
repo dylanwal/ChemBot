@@ -14,17 +14,17 @@ class NamesSerial:
 
 
 class NamesPump:
-    FRONT = "pump_front"
-    MIDDLE = "pump_middle"
-    BACK = "pump_back"
-    FRAC = "pump_fraction"
+    ONE = "pump_one"  # "pump_front"
+    TWO = "pump_two"  # "pump_middle"
+    THREE = "pump_three"  # "pump_back"
+    FOUR = "pump_four"  # "pump_fraction"
 
 
 class NamesValves:
-    FRONT = "valve_front"
-    MIDDLE = "valve_middle"
-    BACK = "valve_back"
-    ANALYTICAL = "valve_analytical"
+    ONE = "valve_one"  # "valve_front"
+    TWO = "valve_two"  # "valve_middle"
+    THREE = "valve_three"  # "valve_back"
+    FOUR = "valve_four"  # "valve_analytical"
 
 
 class NamesSensors:
