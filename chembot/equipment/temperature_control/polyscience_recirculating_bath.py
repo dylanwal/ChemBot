@@ -36,8 +36,8 @@ class PolyScienceBath:
     def _activate(self):
         self.serial.flushInput()
         self.serial.flushOutput()
-        self._write_echo(False)
         self.write_on()
+        self._write_echo(False)
         self.write_status(False)
 
     def deactivate(self):
@@ -76,7 +76,10 @@ class PolyScienceBath:
 
     def write_on(self):
         self._write(f"SO1")
-        self._read("!\r")
+        try:
+            self._read("!\r")
+        except Exception:
+            pass
 
     def write_off(self):
         self._write(f"SO0")
@@ -318,9 +321,11 @@ class PolyRecirculatingBath(TempControl):
         pass  # done on init
 
     def _deactivate(self):
+        self.buffer.save_all()
         self.bath.deactivate()
 
     def _stop(self):
+        self.buffer.save_all()
         self.bath.write_status(False)
 
     def _poll_status(self):

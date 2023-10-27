@@ -122,24 +122,40 @@ class ATIRRunner:
         )
         return out.timestamp()
 
+import pyarrow as pa
+
+def numpy_to_feather(arr, name):
+    arrays = [pa.array(col) for col in arr]
+    names = [str(i) for i in range(len(arrays))]
+    batch = pa.RecordBatch.from_arrays(arrays, names=names)
+    with pa.OSFile(name, 'wb') as sink:
+        with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
+            writer.write_batch(batch)
 
 def main():
     runner = ATIRRunner()
-    n_start = 2
-    n_end = 716
+    n_start = 0
+    n_end = 647
     n=n_end-n_start
-    data = np.zeros((n+1, 1755))
+    data = np.zeros((n+2, 1755))
     counter = 0
+    print("working")
     for i in range(n_start, n_end+1):
         rf = fr'"C:\Users\Robot2\Documents\Bruker\OPUS_8.7.10\DATA\MEAS\RAFT2_3.{i}" 1'
         d = runner.get_results(rf)
         time_ = runner.get_date(rf)
         if counter == 0:
             data[0, 1:] = d[:, 0]
+            counter += 1
+
         data[counter, 0] = time_
         data[counter, 1:] = d[:, 1]
+        counter += 1
+
+    print("saving")
 
     np.savetxt("DW2-5-6-ATIR.csv", data, delimiter=",")
+    numpy_to_feather(data, "DW2_6_flow_ATIR.feather")
     print("done")
 
 

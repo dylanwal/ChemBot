@@ -57,8 +57,7 @@ def main():
     fig.add_trace(go.Scatter(x=t, y=cat_ratio), row=3, col=1)
     fig.add_trace(go.Scatter(x=t, y=temp), row=4, col=1)
     fig.layout.showlegend = False
-    fig.write_html("temp.html", auto_open=True)
-
+    fig.write_html("temp0.html", auto_open=True)
 
 
     reactor_length = 115 * U.cm
@@ -66,24 +65,29 @@ def main():
     reactor_volume = (reactor_length * np.pi * (reactor_diameter / 2) ** 2).to("ml")
     C_cat = (0.5 * (U.mg / U.ml) / (678.11 * (U.g / U.mol))).to("M")  # M
     C_mon = ((6 * U.g / (5.93 * U.ml + 26 * U.ml)) / (86.09 * (U.g / U.mol))).to("M")
+    print("C_mon:", C_mon, "M | C_cat:", C_cat, "M")
 
     flow_rate_total = reactor_volume / (res_time * U.min)  # ml/min
-    flow_rate_mon = ((1.5 * U.M) * flow_rate_total / C_mon).to("ml/min")
+    flow_rate_fl = flow_rate_total/2
+    flow_rate_mon = ((1.5 * U.M) * flow_rate_fl / C_mon).to("ml/min")
     flow_rate_cat = (cat_ratio * flow_rate_mon * C_mon / C_cat).to("ml/min")
-    flow_rate_dmso = flow_rate_total - flow_rate_mon - flow_rate_cat
-
-    t_breaks = get_time_breaks(t*Unit.min, flow_rate_mon, 5 * Unit.ml)
+    flow_rate_dmso = flow_rate_fl - flow_rate_mon - flow_rate_cat
 
     fig = go.Figure()
     fig.add_trace(go.Scatter(x=t, y=flow_rate_dmso.to("ml/min").v, name="flow_rate_dmso"))
     fig.add_trace(go.Scatter(x=t, y=flow_rate_mon.to("ml/min").v, name="flow_rate_mon"))
     fig.add_trace(go.Scatter(x=t, y=flow_rate_cat.to("ml/min").v, name="flow_rate_cat"))
+    fig.add_trace(go.Scatter(x=t, y=flow_rate_fl.to("ml/min").v, name="flow_rate_fl"))
     fig.add_trace(go.Scatter(x=t, y=flow_rate_total.to("ml/min").v, name="flow_rate_total"))
     h = np.max(flow_rate_total)
 
     t_breaks = get_time_breaks(t * Unit.min, flow_rate_mon, 5 * Unit.ml)
+    t_breaks_fl = get_time_breaks(t * Unit.min, flow_rate_fl, 7 * Unit.ml)
     for t_break in t_breaks:
         fig.add_trace(go.Scatter(x=[t_break, t_break], y=[0, h.v], legendgroup="breaks", name="break",
+                                 line={"color": "black"}))
+    for t_break in t_breaks_fl:
+        fig.add_trace(go.Scatter(x=[t_break, t_breaks_fl], y=[0, h.v], legendgroup="breaks_fl", name="break_fl",
                                  line={"color": "black"}))
 
     valleys = find_valleys(flow_rate_mon.v)
@@ -91,7 +95,7 @@ def main():
     np_index = np.array(index_, dtype=np.uint32)
     fig.add_trace(go.Scatter(x=t[np_index], y=flow_rate_mon.v[np_index], mode="markers"))
 
-    fig.write_html("temp.html", auto_open=True)
+    fig.write_html("temp1.html", auto_open=True)
 
     i_index = index_
     i_index.insert(0, 0)
@@ -99,16 +103,18 @@ def main():
     print()
     print(index_)
     print(t[index_])
-    print("index", "mon", "cat", "dmso")
+    print("index", "mon", "cat", "dmso", "fl")
     for i in range(1, len(i_index)):
         print(i,
               np.trapz(x=t[i_index[i-1]:i_index[i]], y=flow_rate_mon.v[i_index[i-1]:i_index[i]]),
               np.trapz(x=t[i_index[i-1]:i_index[i]], y=flow_rate_cat.v[i_index[i-1]:i_index[i]]),
+              np.trapz(x=t[i_index[i - 1]:i_index[i]], y=flow_rate_dmso.v[i_index[i - 1]:i_index[i]]),
               np.trapz(x=t[i_index[i - 1]:i_index[i]], y=flow_rate_dmso.v[i_index[i - 1]:i_index[i]])
               )
 
-    data = np.column_stack((t, temp, light, flow_rate_mon.v, flow_rate_cat.v, flow_rate_dmso.v))
+    data = np.column_stack((t, temp, light, flow_rate_mon.v, flow_rate_cat.v, flow_rate_dmso.v, flow_rate_fl.v))
     # np.savetxt("DW2_7_profiles.csv", data, delimiter=",")
+
     # print("last stretch", np.trapz(x=t[index_[-2]:], y=flow_rate_mon.v[index_[-2]:]))
 
 

@@ -31,7 +31,7 @@ class PolyScienceBath:
     def _activate(self):
         self.serial.flushInput()
         self.serial.flushOutput()
-        self._write_echo(False)
+        self.write_on()
 
     def deactivate(self):
         self.write_off()
@@ -272,27 +272,27 @@ class PolyScienceBath:
             raise e
 
 
-def main():
-    import pathlib
-    from utils.buffers.buffer_ping_pong import PingPongBuffer
-
-    path = pathlib.Path(__file__).parent / "bath.csv"
-    with PingPongBuffer(path) as buffer:
-        with PolyScienceBath("COM17") as bath:
-            while True:
-                event = scheduler.get_event()
-                if event():
-                    event.run()
-                else:
-                    buffer.add_data((bath.read_set_point().v, bath.read_internal_temp().v))
+# def main():
+#     import pathlib
+#     from utils.buffers.buffer_ping_pong import PingPongBuffer
+#
+#     path = pathlib.Path(__file__).parent / "bath.csv"
+#     with PingPongBuffer(path) as buffer:
+#         with PolyScienceBath("COM17") as bath:
+#             while True:
+#                 event = scheduler.get_event()
+#                 if event():
+#                     event.run()
+#                 else:
+#                     buffer.add_data((bath.read_set_point().v, bath.read_internal_temp().v))
 
 
 def main_simple():
-    with PolyScienceBath("COM16") as bath:
-        bath.write_on()
-        bath.write_set_point(25 * Unit.degC)
+    with PolyScienceBath("COM20") as bath:
+        bath.write_set_point(30 * Unit.degC)
         print("waiting")
-        time.sleep(60)
+        time.sleep(10)
+
 
 if __name__ == "__main__":
-    main()
+    main_simple()

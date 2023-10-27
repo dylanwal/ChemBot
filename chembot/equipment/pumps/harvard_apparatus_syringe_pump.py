@@ -299,6 +299,7 @@ class SyringePumpHarvard(SyringePump):
                 self.pump_state.state = map_status[option]
                 break
         else:
+            logger.error(f"message:{message}")
             raise ValueError("Unrecognized status from Harvard Pump reply.")
 
     def _send_and_receive_message(self,
@@ -409,6 +410,23 @@ class SyringePumpHarvard(SyringePump):
         self.pump_state.running_time = 0 * Unit.s
         self.pump_state.volume_displace = 0 * self.syringe.volume.unit
 
+    def _write_run_withdraw2(self):
+        """
+        run withdraw
+        """
+        reply = self._send_and_receive_message(f'run')
+        self._check_pump_reply(reply)
+        if self.pump_state.state != HarvardPumpStatus.WITHDRAW:
+            self._flip_direction()
+
+        self.state = self.states.RUNNING
+        self.pump_state.state = self.pump_states.WITHDRAW
+        self.pump_state.running_time = 0 * Unit.s
+        self.pump_state.volume_displace = 0 * self.syringe.volume.unit
+
+    def _flip_direction(self):
+        reply = self._send_and_receive_message(f'rrun')
+
     def write_infuse(self, volume: Quantity, flow_rate: Quantity, ignore_syringe_error: bool = False):
         """
         infuse
@@ -436,6 +454,7 @@ class SyringePumpHarvard(SyringePump):
         self._write_target_time_clear()
         self._write_target_volume(volume)
         self.write_infusion_rate(flow_rate)
+        self.write_force(self.syringe.force)
         # self._write_target_time(self.compute_run_time(volume, flow_rate).to_timedelta())
 
         # run
@@ -469,10 +488,11 @@ class SyringePumpHarvard(SyringePump):
         self._write_target_time_clear()
         self._write_target_volume(volume)
         self.write_withdraw_rate(flow_rate)
+        self.write_force(100)
         # self._write_target_time(self.compute_run_time(volume, flow_rate).to_timedelta())
 
         # run
-        self._write_run_withdraw()
+        self._write_run_withdraw() #########################
 
         # update status
         self.pump_state.flow_rate = flow_rate
@@ -542,12 +562,18 @@ class SyringePumpHarvard(SyringePump):
         """
         reply = self._send_and_receive_message('status')
         reply2 = self._read()
+        if reply2[0].isdigit():  # old pumps flip order
+            reply, reply2 = reply2, reply
         self._check_pump_reply(reply2)
-        status = HarvardPumpStatusMessage.parse_message(reply)
+        try:
+            status = HarvardPumpStatusMessage.parse_message(reply)
+            return status
+        except Exception:
+            logger.warning("invalid status received.")
         # self.pump_state.volume_displace = status.displaced_volume
         # self.pump_state.flow_rate = status.flow_rate
         # self.pump_state.running_time = status.time_
-        return status
+
 
     def read_force(self) -> int:
         """
@@ -657,10 +683,7 @@ class SyringePumpHarvard(SyringePump):
         reply = reply.replace("\n", "").replace("\r", "")
         return Quantity(reply)
 
-    def write_infusion_rate(self, flow_rate: Quantity | float | int):
-        if isinstance(flow_rate, int) or isinstance(flow_rate, float):
-            flow_rate = flow_rate * Unit("ml/min")
-
+    def write_infusion_rate(self, flow_rate: Quantity):
         flow_rate = set_flow_rate_range(flow_rate)
         _ = self._send_and_receive_message(f'irate {flow_rate.v:2.4f} {flow_rate.unit.abbr}')
         self.pump_state.flow_rate = flow_rate
