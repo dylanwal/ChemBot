@@ -454,7 +454,7 @@ class SyringePumpHarvard(SyringePump):
         self._write_target_time_clear()
         self._write_target_volume(volume)
         self.write_infusion_rate(flow_rate)
-        self.write_force(self.syringe.force)
+        self.write_force(100)  # TODO: improve turn down after some time
         # self._write_target_time(self.compute_run_time(volume, flow_rate).to_timedelta())
 
         # run
@@ -573,7 +573,6 @@ class SyringePumpHarvard(SyringePump):
         # self.pump_state.volume_displace = status.displaced_volume
         # self.pump_state.flow_rate = status.flow_rate
         # self.pump_state.running_time = status.time_
-
 
     def read_force(self) -> int:
         """

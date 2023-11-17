@@ -25,6 +25,7 @@ class NamesValves:
     TWO = "valve_two"  # "valve_middle"
     THREE = "valve_three"  # "valve_back"
     FOUR = "valve_four"  # "valve_analytical"
+    FIVE = "valve_five"  # NMR
 
 
 class NamesSensors:

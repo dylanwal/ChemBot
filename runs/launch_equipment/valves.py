@@ -46,7 +46,6 @@ valve_middle = chembot.equipment.valves.ValveServo(
     configuration=config_middle,
     pin=6,
 )
-# valve_middle.activate()
 
 config_back = chembot.equipment.valves.ValveConfiguration.get_configuration("3S")
 config_back.ports[0].name = "to_pump"
@@ -67,7 +66,6 @@ valve_back = chembot.equipment.valves.ValveServo(
     configuration=config_back,
     pin=7,
 )
-# valve_back.activate()
 
 config_analytical = chembot.equipment.valves.ValveConfiguration.get_configuration("4L")
 config_analytical.ports[0].name = "to_waste"
@@ -91,6 +89,26 @@ valve_analytical = chembot.equipment.valves.ValveServo(
 )
 
 
+config_five = chembot.equipment.valves.ValveConfiguration.get_configuration("4L")
+config_five.ports[0].name = "to_waste"
+config_five.ports[1].name = "to_NMR"
+config_five.ports[2].name = "same as 0"
+config_five.ports[3].name = "same as 1"
+
+config_five.positions[0].setting = 1900  # calibrated on 7/7/23 DW
+config_five.positions[0].name = "flow"
+config_five.positions[1].setting = 4200  # calibrated on 7/7/23 DW
+config_five.positions[1].name = "fill"
+config_five.positions[2].setting = 6225  # calibrated on 7/7/23 DW
+config_five.positions[3].setting = 8450  # calibrated on 7/7/23 DW
+
+valve_five = chembot.equipment.valves.ValveServo(
+    name=NamesValves.FIVE,
+    communication=NamesSerial.PICO2,
+    configuration=config_five,
+    pin=9,
+)
+
 with chembot.utils.EquipmentManager() as manager:
-    manager.add([valve_front, valve_middle, valve_back, valve_analytical])
+    manager.add([valve_front, valve_middle, valve_back, valve_analytical, valve_five])
     manager.activate()

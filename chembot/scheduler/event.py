@@ -60,12 +60,12 @@ class Event:
 
     @property
     def time_start(self) -> datetime:
-        """ includes delay """
+        """ not includes delay """
         return self.parent._get_time_start(self)
 
     @property
     def time_start_with_delay(self) -> datetime:
-        """ does not include delay """
+        """ does include delay """
         time_ = self.time_start
         if self.delay is not None:
             time_ += self.delay
@@ -73,7 +73,7 @@ class Event:
 
     @property
     def time_end(self) -> datetime:
-        return self.time_start + self._duration
+        return self.time_start_with_delay + self._duration
 
     @property
     def root(self) -> Parent:

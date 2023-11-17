@@ -15,6 +15,9 @@ from runs.launch_equipment.names import NamesPump, NamesValves, NamesSensors, Na
 
 
 def job_flow(volume: Quantity, flow_rate: Quantity, valve: str, pump: str) -> JobSequence:
+    flow_time = SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta()
+    force_delay = timedelta(seconds=30)
+    flow_time = flow_time - force_delay
     return JobSequence(
         [
             Event(
@@ -26,13 +29,21 @@ def job_flow(volume: Quantity, flow_rate: Quantity, valve: str, pump: str) -> Jo
             Event(
                 resource=pump,
                 callable_=SyringePumpHarvard.write_infuse,
-                duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
+                duration=timedelta(seconds=0.1),
                 kwargs={"volume": volume, "flow_rate": flow_rate}
+            ),
+            Event(
+                resource=pump,
+                callable_=SyringePumpHarvard.write_force,
+                duration=timedelta(seconds=0.1),
+                kwargs={"force": 40},
+                delay=force_delay
             ),
             Event(  # here to stop alarm on pump if it is sounded
                 resource=pump,
                 callable_=SyringePumpHarvard.write_stop,
                 duration=timedelta(milliseconds=1),
+                delay=flow_time
             )
         ]
     )
@@ -62,6 +73,30 @@ def job_fill_syringe(volume: Quantity, flow_rate: Quantity, valve: str, pump: st
     )
 
 
+def job_undo_fill_syringe(volume: Quantity, flow_rate: Quantity, valve: str, pump: str) -> JobSequence:
+    return JobSequence(
+        [
+            Event(
+                resource=valve,
+                callable_=ValveServo.write_move,
+                duration=timedelta(seconds=1.5),
+                kwargs={"position": "fill"}
+            ),
+            Event(
+                resource=pump,
+                callable_=SyringePumpHarvard.write_infuse,
+                duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
+                kwargs={"volume": volume, "flow_rate": flow_rate}
+            ),
+            Event(  # here to stop alarm on pump if it is sounded
+                resource=pump,
+                callable_=SyringePumpHarvard.write_stop,
+                duration=timedelta(milliseconds=1),
+            )
+        ]
+    )
+
+
 def job_fill_syringe_multiple(
         volume: Iterable[Quantity],
         flow_rate: Iterable[Quantity],
@@ -70,6 +105,17 @@ def job_fill_syringe_multiple(
 ) -> JobConcurrent:
     return JobConcurrent(
         [job_fill_syringe(vol, flow, val, p) for vol, flow, val, p in zip(volume, flow_rate, valves, pumps)],
+    )
+
+
+def job_undo_fill_syringe_multiple(
+        volume: Iterable[Quantity],
+        flow_rate: Iterable[Quantity],
+        valves: Iterable[str],
+        pumps: Iterable[str],
+) -> JobConcurrent:
+    return JobConcurrent(
+        [job_undo_fill_syringe(vol, flow, val, p) for vol, flow, val, p in zip(volume, flow_rate, valves, pumps)],
     )
 
 
@@ -211,12 +257,12 @@ def flow_background():
 def job_droplets() -> JobSequence:
     return JobSequence(
         [
-            Event(
-                resource=NamesPump.ONE,
-                callable_=SyringePumpHarvard.write_force,
-                duration=timedelta(seconds=1.5),
-                kwargs={"force": 30}
-            ),
+            # Event(
+            #     resource=NamesPump.ONE,
+            #     callable_=SyringePumpHarvard.write_force,
+            #     duration=timedelta(seconds=1.5),
+            #     kwargs={"force": 30}
+            # ),
             # Event(
             #     resource=NamesEquipment.BATH,
             #     callable_=PolyRecirculatingBath.write_set_point,
@@ -252,6 +298,13 @@ def job_droplets() -> JobSequence:
             #     valves=[NamesValves.FOUR],
             #     pumps=[NamesPump.FOUR]
             # ),
+            # job_undo_fill_syringe_multiple(
+            #     volume=[4 * Unit.ml],
+            #     flow_rate=[2 * Unit("ml/min")],
+            #     valves=[NamesValves.FOUR],
+            #     pumps=[NamesPump.FOUR],
+            # ),
+
             # Event(
             #     resource=NamesSensors.ATIR,
             #     callable_=ATIR.write_continuous_event_handler,
@@ -323,19 +376,7 @@ def job_droplets() -> JobSequence:
             #     valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.THREE, NamesValves.FOUR],
             #     pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.THREE, NamesPump.FOUR]
             # ),
-            # job_fill_syringe_multiple(
-            #     volume=[0.3 * Unit.ml, 0.3 * Unit.ml, 0.3 * Unit.ml, 0.3 * Unit.ml],
-            #     flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE, NamesValves.TWO],
-            #     pumps=[NamesPump.ONE, NamesPump.TWO]
-            # ),
-            # job_flow_syringe_multiple(
-            #     volume=[1 * Unit.ml, 1 * Unit.ml, 1 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE, NamesValves.TWO],
-            #     pumps=[NamesPump.ONE, NamesPump.TWO],
-            #     delay=timedelta(seconds=1)
-            # ),
+
             # job_flow_syringe_multiple(
             #     volume=[0.5 * Unit.ml, 0.5 * Unit.ml, 0.05 * Unit.ml, 0.05 * Unit.ml],
             #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min"), 1 * Unit("ml/min"), 1 * Unit("ml/min")],
@@ -343,6 +384,27 @@ def job_droplets() -> JobSequence:
             #     pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.THREE, NamesPump.FOUR],
             #     delay=timedelta(seconds=1)
             # ),
+
+            # job_undo_fill_syringe_multiple(
+            #     volume=[5 * Unit.ml, 5 * Unit.ml, 5 * Unit.ml, 5 * Unit.ml],
+            #     flow_rate=[0.3 * Unit("ml/min"), 0.3 * Unit("ml/min"), 0.3 * Unit("ml/min"), 1 * Unit("ml/min")],
+            #     valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.THREE, NamesValves.FOUR],
+            #     pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.THREE, NamesPump.FOUR],
+            # ),
+
+            job_fill_syringe_multiple(
+                volume=[1 * Unit.ml, 1 * Unit.ml, 1 * Unit.ml],
+                flow_rate=[1.5 * Unit("ml/min"), 1.5 * Unit("ml/min"), 1.5 * Unit("ml/min")],
+                valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.FOUR],
+                pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.FOUR]
+            ),
+            job_flow_syringe_multiple(
+                volume=[1 * Unit.ml, 1 * Unit.ml, 1 * Unit.ml],
+                flow_rate=[0.75 * Unit("ml/min"), 0.75 * Unit("ml/min"), 0.75 * Unit("ml/min")],
+                valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.FOUR],
+                pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.FOUR],
+                delay=timedelta(seconds=2)
+            ),
 
             # priming
             # Event(
@@ -354,7 +416,7 @@ def job_droplets() -> JobSequence:
 
 
             # main job
-            write_atir_measure(),
+            # write_atir_measure(),
             # add_atir(
             #     job_flow_syringe_multiple(
             #         volume=[0.3 * Unit.ml],
