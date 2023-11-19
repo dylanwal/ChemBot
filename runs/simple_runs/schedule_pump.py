@@ -39,14 +39,14 @@ def job_flow_rate_function(time_: list[timedelta], flow_rate: list[Quantity],  d
 def job_withdraw_infuse(volume: Quantity, flow_rate: Quantity) -> JobSequence:
     return JobSequence(
         [
+            # Event(
+            #     resource=NamesPump.FIVE,
+            #     callable_=SyringePumpHarvard.write_withdraw,
+            #     duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
+            #     kwargs={"flow_rate": flow_rate, "volume": volume}
+            # ),
             Event(
-                resource=NamesPump.FRONT,
-                callable_=SyringePumpHarvard.write_withdraw,
-                duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
-                kwargs={"flow_rate": flow_rate, "volume": volume}
-            ),
-            Event(
-                resource=NamesPump.FRONT,
+                resource=NamesPump.FIVE,
                 callable_=SyringePumpHarvard.write_infuse,
                 duration=SyringePumpHarvard.compute_run_time(volume, flow_rate).to_timedelta(),
                 kwargs={"flow_rate": flow_rate, "volume": volume}
@@ -58,7 +58,7 @@ def job_withdraw_infuse(volume: Quantity, flow_rate: Quantity) -> JobSequence:
 def main():
     job_submitter = JobSubmitter()
 
-    job = job_withdraw_infuse(volume=0.1 * Unit.mL, flow_rate=0.5 * (Unit.mL / Unit.min))
+    job = job_withdraw_infuse(volume=0.5 * Unit.mL, flow_rate=0.5 * (Unit.mL / Unit.min))
     result = job_submitter.submit(job)
     print(result)
 

@@ -61,7 +61,7 @@ syringe_configs = {
     "vendor": "kd_scientific",
     "force": 100
   },
-  "norm_ject_22768": {  # https://www.restek.com/p/22768
+  "norm_ject_5ml": {  # https://www.restek.com/p/22768
     "volume": 5 * Unit.ml,
     "max_pressure": 10 * Unit.psi,
     "min_pressure": 0 * Unit.bar,
@@ -71,13 +71,33 @@ syringe_configs = {
     "vendor": "norm_ject",
     "force": 30
   },
-  "norm_ject_22767": {  # https://www.restek.com/p/22768
+  "norm_ject_2ml": {  # https://www.restek.com/p/22768
     "volume": 2 * Unit.ml,
     "max_pressure": 10 * Unit.psi,
     "min_pressure": 0 * Unit.bar,
     "max_temperature": 30 * Unit.degC,
     "min_temperature": 20 * Unit.degC,
     "diameter": 9.65 * Unit.mm,
+    "vendor": "norm_ject",
+    "force": 30
+  },
+  "norm_ject_20ml": {  # https://www.restek.com/p/22768
+    "volume": 20 * Unit.ml,
+    "max_pressure": 10 * Unit.psi,
+    "min_pressure": 0 * Unit.bar,
+    "max_temperature": 30 * Unit.degC,
+    "min_temperature": 20 * Unit.degC,
+    "diameter": 20.05 * Unit.mm,
+    "vendor": "norm_ject",
+    "force": 30
+  },
+  "norm_ject_10ml": {  # https://www.restek.com/p/22768
+    "volume": 10 * Unit.ml,
+    "max_pressure": 10 * Unit.psi,
+    "min_pressure": 0 * Unit.bar,
+    "max_temperature": 30 * Unit.degC,
+    "min_temperature": 20 * Unit.degC,
+    "diameter": 15.90 * Unit.mm,
     "vendor": "norm_ject",
     "force": 30
   }

@@ -361,7 +361,7 @@ class SyringePumpHarvard(SyringePump):
         # set syringe settings
         self._send_and_receive_message("NVRAM off")  # turn off writes of rate to memory -> faster communication
         self._write_diameter(self.syringe.diameter)
-        self.write_empty()
+        # self.write_empty()
         self.write_force(self.syringe.force)
         super()._activate()
 
@@ -387,6 +387,7 @@ class SyringePumpHarvard(SyringePump):
     def _stop(self):
         reply = self._send_and_receive_message("stop")
         self._check_pump_reply(reply)
+        self.pump_state.flow_rate = 0 * Unit("ml/min")
 
     def _write_run_infuse(self):
         """
@@ -444,9 +445,9 @@ class SyringePumpHarvard(SyringePump):
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
-        if not ignore_syringe_error and \
-                self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
-            raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
+        # if not ignore_syringe_error and \
+        #         self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
+        #     raise ValueError("Stall expected as pull too large pull. Lower volume infused or set ignore_stall=False")
 
         # setup pump
         self._write_infuse_volume_clear()
@@ -479,8 +480,8 @@ class SyringePumpHarvard(SyringePump):
         # validation of inputs
         validate_quantity(volume, Syringe.volume_dimensionality, "volume", True)
         validate_quantity(flow_rate, Syringe.flow_rate_dimensionality, "flow_rate", True)
-        if self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
-            raise ValueError("Too much withdraw volume requested. Lower volume withdraw")
+        # if self.pump_state.within_max_pull(self.compute_pull(self.syringe.diameter, volume)):
+        #     raise ValueError("Too much withdraw volume requested. Lower volume withdraw")
 
         # setup pump
         self._write_withdraw_volume_clear()
@@ -509,6 +510,7 @@ class SyringePumpHarvard(SyringePump):
         self.pump_state.volume_in_syringe = 0 * self.syringe.volume.unit
         time_out = (self.syringe.volume / self.syringe.default_flow_rate).to("s").value + 10  # seconds
         time_stop = time.time() + time_out
+        self.write_force(50)
         while time.time() < time_stop:
             self.read_pump_status()
             if self.pump_state.state is SyringePumpStatus.STALLED:
@@ -671,7 +673,7 @@ class SyringePumpHarvard(SyringePump):
         index = reply.index("t")
         return Quantity(reply[:index])
 
-    def read_infusion_rate_command(self) -> Quantity:
+    def read_infusion_rate(self) -> Quantity:
         """
         pings pump for infusion rate
         """

@@ -3,6 +3,140 @@ Add extra push to get rid of squish of syringe
 at 172.2 min in the pump1 disconnected
 restarted
 
+
+
+
+flowchart TD
+    pump_1 -- 11 cm --> valve_1
+    valve_1 -- 8 cm --> tee_1
+    Monomer:::in ---> valve_1
+    tee_1 -- 3 cm  --> tee_droplet
+    pump_2 -- 12 cm --> valve_2
+    Catalyst:::in --> valve_2
+    valve_2  -- 7 cm --> tee_2
+    tee_2 -- 3 cm --> tee_1
+    pump_3 -- 10 cm --> valve_3
+    perflourohexane:::in --> valve_3
+    valve_3 -- 30 cm --> tee_droplet
+    pump_4 -- 13 cm --> valve_4
+    DMSO:::in --> valve_4
+    valve_4 -- 13 cm --> tee_2
+
+    tee_droplet -- 8 cm --> reactor_start
+    subgraph reactor[ ]
+        reactor_start -- 115 cm --> reactor_end
+    end
+
+    reactor_end -- 54 cm --> NMR
+    NMR -- 45 cm --> IR
+    IR -- 4 cm --> exit:::out
+
+
+    classDef in fill:#F9BDC0 ,stroke:black;
+    classDef out fill:#FBE698, stroke:black;
+
+
+
+
+
+
+flowchart TD
+    pump_1 -- 11 cm --> valve_1
+    valve_1 -- 8 cm --> tee_1
+    Monomer:::in ---> valve_1
+    tee_1 -- 3 cm  --> tee_droplet
+    pump_2 -- 12 cm --> valve_2
+    Catalyst:::in --> valve_2
+    valve_2  -- 7 cm --> tee_2
+    tee_2 -- 3 cm --> tee_1
+    pump_3 -- 10 cm --> valve_3
+    perflourohexane:::in --> valve_3
+    valve_3 -- 30 cm --> tee_droplet
+    pump_4 -- 13 cm --> valve_4
+    DMSO:::in --> valve_4
+    valve_4 -- 13 cm --> tee_2
+
+    tee_droplet -- 8 cm --> reactor_start
+    subgraph reactor[ ]
+        reactor_start -- 115 cm --> reactor_end
+    end
+
+    reactor_end -- 54 cm --> NMR
+    NMR -- 45 cm --> IR
+    IR -- 4 cm --> tee_3
+    pump_5 -- 5 cm --> valve_5
+    valve_5 --> tee_3
+    THF:::in --> valve_5
+    tee_3 -- 120 cm --> fraction_collector
+    subgraph fraction_collector
+        waste:::out
+        SEC_vial:::out
+    end
+
+
+    classDef in fill:#F9BDC0 ,stroke:black;
+    classDef out fill:#FBE698, stroke:black;
+
+
+
+flowchart TD
+    pump_1 -- 11 cm --> valve_1
+    valve_1 -- 8 cm --> tee_1
+    Monomer:::in ---> valve_1
+    tee_1 -- 3 cm  --> tee_droplet
+    pump_2 -- 12 cm --> valve_2
+    Catalyst:::in --> valve_2
+    valve_2  -- 7 cm --> tee_2
+    tee_2 -- 3 cm --> tee_1
+    pump_3 -- 10 cm --> valve_3
+    perflourohexane:::in --> valve_3
+    valve_3 -- 30 cm --> tee_droplet
+    pump_4 -- 13 cm --> valve_4
+    DMSO:::in --> valve_4
+    valve_4 -- 13 cm --> tee_2
+
+    tee_droplet -- 8 cm --> reactor_start
+    subgraph reactor[ ]
+        reactor_start -- 115 cm --> reactor_end
+    end
+
+    reactor_end -- 54 cm --> NMR
+    NMR -- 45 cm --> IR
+    IR -- 4 cm --> tee_3
+    pump_5 -- 5 cm --> valve_5
+    valve_5 --> tee_3
+    THF:::in --> valve_5
+    tee_3 --> valve_6
+    valve_6  -- 120 cm --> fraction_collector
+    subgraph fraction_collector
+        waste:::out
+        SEC_vial:::out
+    end
+
+    valve_6 --> valve_SEC:::out
+
+
+
+    classDef in fill:#F9BDC0 ,stroke:black;
+    classDef out fill:#FBE698, stroke:black;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 NMR
 1,2023-10-26T09:59:15.802
 2,2023-10-26T10:12:16.112

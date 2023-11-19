@@ -18,6 +18,7 @@ class NamesPump:
     TWO = "pump_two"  # "pump_middle"
     THREE = "pump_three"  # "pump_back"
     FOUR = "pump_four"  # "pump_fraction"
+    FIVE = "pump_five"
 
 
 class NamesValves:

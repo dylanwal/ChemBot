@@ -96,9 +96,9 @@ config_five.ports[2].name = "same as 0"
 config_five.ports[3].name = "same as 1"
 
 config_five.positions[0].setting = 1900  # calibrated on 7/7/23 DW
-config_five.positions[0].name = "flow"
+config_five.positions[0].name = "waste"
 config_five.positions[1].setting = 4200  # calibrated on 7/7/23 DW
-config_five.positions[1].name = "fill"
+config_five.positions[1].name = "NMR"
 config_five.positions[2].setting = 6225  # calibrated on 7/7/23 DW
 config_five.positions[3].setting = 8450  # calibrated on 7/7/23 DW
 

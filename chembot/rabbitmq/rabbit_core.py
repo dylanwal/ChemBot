@@ -14,7 +14,7 @@ logger = logging.getLogger(config.root_logger_name + ".rabbitmq")
 
 def get_rabbit_channel():
     credentials = pika.PlainCredentials(config.rabbit_username, config.rabbit_password)
-    parameters = pika.ConnectionParameters(config.rabbit_host, config.rabbit_port, '/', credentials)
+    parameters = pika.ConnectionParameters(config.rabbit_host, config.rabbit_port, '/', credentials, heartbeat=600)
     connection = pika.BlockingConnection(parameters)
     channel = connection.channel()
     channel.exchange_declare(exchange=config.rabbit_exchange, exchange_type='topic')

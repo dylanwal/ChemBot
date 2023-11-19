@@ -181,7 +181,7 @@ class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeating
     def __init__(self,
                  callable_: str | Callable,
                  kwargs: dict[str, ...] = None,
-                 buffer_type: type | BufferRingTimeSavable = BufferRingTimeSavable,
+                 buffer_type: type | BufferRingTimeSavable = None,
                  delay_between_measurements: float | int = 0,  # in seconds
                  ):
         super().__init__(callable_, kwargs, delay_between_measurements)
@@ -193,15 +193,17 @@ class ContinuousEventHandlerRepeatingNoEndSaving(ContinuousEventHandlerRepeating
         if result is None:
             return
 
-        if self.buffer is None:
-            # we delay creating the buffer till the continuous event handler is on the equipment to avoid pass
-            # large numpy arrays over rabbitmq
-            self.buffer = self._buffer_type(config.data_directory / (parent.name + ".csv"))
+        if self._buffer_type is not None:
+            if self.buffer is None:
+                # we delay creating the buffer till the continuous event handler is on the equipment to avoid pass
+                # large numpy arrays over rabbitmq
+                self.buffer = self._buffer_type(config.data_directory / (parent.name + ".csv"))
+            self.buffer.add_data(result)
 
-        self.buffer.add_data(result)
         return result
 
     def stop(self):
         logger.debug(f"{type(self).__name__}.stop() called.  Buffer: {type(self.buffer).__name__}")
-        self.buffer.save_all()
+        if self.buffer is not None:
+            self.buffer.save_all()
         logger.debug(f"{type(self).__name__}.stop() called.  after")
