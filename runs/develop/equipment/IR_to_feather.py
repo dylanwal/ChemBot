@@ -132,11 +132,11 @@ def numpy_to_feather(arr, name):
         with pa.RecordBatchStreamWriter(sink, batch.schema) as writer:
             writer.write_batch(batch)
 
+
 def main():
     runner = ATIRRunner()
-    n_start = 50
-    n_end = 433
-    n=n_end-n_start
+    n_start = 0
+    n_end = 453
     data = np.zeros((n+2, 1755))
     counter = 0
     print("working")
@@ -155,7 +155,7 @@ def main():
     print("saving")
 
     # np.savetxt("DW2-5-7-ATIR.csv", data, delimiter=",")
-    numpy_to_feather(data, "DW2_8_mess.feather")
+    numpy_to_feather(data, "DW2_8_2.feather")
     print("done")
 
 
