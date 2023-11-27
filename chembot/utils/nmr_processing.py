@@ -50,7 +50,7 @@ def nmr_check(folder_path: str) -> bool:
 
     file_path = folder / "spectrum_processed.csv"
     data = np.loadtxt(file_path, delimiter=',', skiprows=1)
-    if np.max(data[:, 1]) > 10:
+    if np.max(data[:, 1]) > 40:
         return True
 
     return False

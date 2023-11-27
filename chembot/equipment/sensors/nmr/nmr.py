@@ -348,7 +348,7 @@ class NMR(Sensor):
     def write_measure(self,
                       scans: NMRScans = NMRScans.EIGHT,
                       aqtime: NMRAqTime = NMRAqTime.THREEPOINTTWO,
-                      reptime: NMRRepTime = NMRRepTime.TEN,
+                      reptime: NMRRepTime = NMRRepTime.FIFTEEN,
                       pulse_angle: NMRPulseAngle = NMRPulseAngle.SIXTY,
                       ) -> np.ndarray:
         # switch valve to reactor
@@ -364,7 +364,7 @@ class NMR(Sensor):
             flow_rate += self.rabbit.send_and_consume(
                 RabbitMessageAction(pump, self.name, "read_flow_rate"), timeout=3, error_out=True
             ).value
-        vol = 3.14 * (10 * Unit.cm) * (0.03 * Unit.inch / 2) ** 2
+        vol = 3.14 * (6 * Unit.cm) * (0.03 * Unit.inch / 2) ** 2
         if flow_rate.v == 0:
             flow_rate = 0.1 * Unit("ml/min")
         time_ = vol / flow_rate
@@ -404,9 +404,9 @@ class NMR(Sensor):
                 logger.info("No signal. Move and retry NMR")
                 self.rabbit.send(
                     RabbitMessageAction("pump_five", self.name, "write_infuse",
-                                        kwargs={"volume": 0.01 * Unit.ml, "flow_rate": 0.2 * Unit("ml/min")})
+                                        kwargs={"volume": 0.0075 * Unit.ml, "flow_rate": 0.2 * Unit("ml/min")})
                 )
-                time.sleep(8)
+                time.sleep(10)
         else:
             logger.warning("No NMR signal found after 5 tries")
 
