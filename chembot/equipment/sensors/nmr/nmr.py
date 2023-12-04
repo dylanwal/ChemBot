@@ -269,8 +269,8 @@ class NMRComm:
                             logger.error(reply.decode("utf-8"))
                         logger.error(e)
                         _error_counter -= 1
-                        if _error_counter == 0:
-                            raise e
+                        # if _error_counter == 0:
+                        #     raise e
 
         except socket.error as e:
             logger.exception(f"Timeout during proton.")
@@ -394,6 +394,7 @@ class NMR(Sensor):
                 reptime=NMRRepTime.ONE,
                 pulse_angle=NMRPulseAngle.SIXTY
             )
+            logger.info(f"NMR_start:{datetime.now().timestamp()}")
             if nmr_check(r"C:\Users\Robot2\Desktop\Dylan\NMR\Magritek\temp_"):
                 # take good nmr
                 self.write_name("DW2")

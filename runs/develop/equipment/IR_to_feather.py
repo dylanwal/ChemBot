@@ -103,7 +103,7 @@ class ATIRRunner:
         wavenumber_lower = float(result_data[4])
         scaling_factor = int(result_data[5])
         x = np.linspace(wavenumber_lower, wavenumber_upper, data_length)
-        y = np.array(result_data[6:-1], dtype="float64") * scaling_factor
+        y = np.flip(np.array(result_data[6:-1], dtype="float64")) * scaling_factor
         return np.column_stack((x, y))
 
     def get_date(self, result_file: str):

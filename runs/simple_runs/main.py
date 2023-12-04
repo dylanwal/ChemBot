@@ -50,7 +50,7 @@ def job_flow(volume: Quantity, flow_rate: Quantity, valve: str, pump: str) -> Jo
 
 
 def job_fill_syringe(volume: Quantity, flow_rate: Quantity, valve: str, pump: str) -> JobSequence:
-    extra_volume = 0.1 * Unit.ml
+    extra_volume = 0.3 * Unit.ml
     volume = volume + extra_volume
     return JobSequence(
         [
@@ -315,14 +315,20 @@ def job_main() -> JobSequence:
             #     pumps=[NamesPump.FOUR]
             # ),
             # Event(
-            #     resource=NamesPump.THREE,
+            #     resource=NamesPump.ONE,
             #     callable_=SyringePumpHarvard.write_infuse,
-            #     duration=SyringePumpHarvard.compute_run_time(6 * Unit.ml, 1 * Unit("ml/min")).to_timedelta(),
-            #     kwargs={"volume": 6 * Unit.ml, "flow_rate": 1 * Unit("ml/min")}
+            #     duration=SyringePumpHarvard.compute_run_time(.3 * Unit.ml, 1 * Unit("ml/min")).to_timedelta(),
+            #     kwargs={"volume": .2 * Unit.ml, "flow_rate": 1 * Unit("ml/min")}
             # ),
-            job_flow_syringe_multiple(
-                volume=[0.2 * Unit.ml],
-                flow_rate=[0.2 * Unit("ml/min")],
+            # job_fill_syringe_multiple(
+            #     volume=[0.5 * Unit.ml],
+            #     flow_rate=[1 * Unit("ml/min")],
+            #     valves=[NamesValves.FOUR],
+            #     pumps=[NamesPump.FOUR]
+            # ),
+            job_fill_syringe_multiple(
+                volume=[2 * Unit.ml],
+                flow_rate=[1 * Unit("ml/min")],
                 valves=[NamesValves.FOUR],
                 pumps=[NamesPump.FOUR]
             ),
@@ -373,17 +379,17 @@ def job_main() -> JobSequence:
             #     )
             # ),
 
-            # job_undo_fill_syringe_multiple(
-            #     volume=[2 * Unit.ml],
-            #     flow_rate=[2 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE],
-            #     pumps=[NamesPump.ONE],
-            # ),
-            # job_flow_syringe_multiple(
-            #     volume=[5 * Unit.ml],
+            # job_fill_syringe_multiple(
+            #     volume=[6.5 * Unit.ml],
             #     flow_rate=[1 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE],
-            #     pumps=[NamesPump.ONE]
+            #     valves=[NamesValves.THREE],
+            #     pumps=[NamesPump.THREE],
+            # ),
+            # job_undo_fill_syringe_multiple(
+            #     volume=[6 * Unit.ml],
+            #     flow_rate=[2 * Unit("ml/min")],
+            #     valves=[NamesValves.THREE],
+            #     pumps=[NamesPump.THREE]
             # ),
 
 
@@ -426,10 +432,10 @@ def job_main() -> JobSequence:
 
             # priming
             # Event(
-            #     resource=NamesValves.VALVE_ANALYTICAL,
+            #     resource=NamesValves.FOUR,
             #     callable_=ValveServo.write_move,
             #     duration=timedelta(seconds=1.5),
-            #     kwargs={"position": "fill"}
+            #     kwargs={"position": "flow"}
             # ),
 
 
