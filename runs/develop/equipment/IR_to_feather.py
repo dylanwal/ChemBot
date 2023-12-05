@@ -16,6 +16,7 @@ class ATIRRunner:
     def request(self, command: str) -> list:
         result = self.conversation.Request(command).encode("utf_16_le").decode("utf_8").splitlines()
         if result[0] != "OK":
+            print(command)
             raise Exception("\n".join(result))
         return result
 
@@ -135,8 +136,9 @@ def numpy_to_feather(arr, name):
 
 def main():
     runner = ATIRRunner()
-    n_start = 0
-    n_end = 453
+    n_start = 8
+    n_end = 554
+    n = n_end - n_start
     data = np.zeros((n+2, 1755))
     counter = 0
     print("working")
@@ -155,7 +157,7 @@ def main():
     print("saving")
 
     # np.savetxt("DW2-5-7-ATIR.csv", data, delimiter=",")
-    numpy_to_feather(data, "DW2_8_2.feather")
+    numpy_to_feather(data, "DW2_9_IR.feather")
     print("done")
 
 

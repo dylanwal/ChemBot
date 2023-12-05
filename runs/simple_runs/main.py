@@ -326,12 +326,12 @@ def job_main() -> JobSequence:
             #     valves=[NamesValves.FOUR],
             #     pumps=[NamesPump.FOUR]
             # ),
-            job_fill_syringe_multiple(
-                volume=[2 * Unit.ml],
-                flow_rate=[1 * Unit("ml/min")],
-                valves=[NamesValves.FOUR],
-                pumps=[NamesPump.FOUR]
-            ),
+            # job_flow_syringe_multiple(
+            #     volume=[5 * Unit.ml],
+            #     flow_rate=[1 * Unit("ml/min")],
+            #     valves=[NamesValves.ONE],
+            #     pumps=[NamesPump.ONE]
+            # ),
 
 
 
@@ -394,17 +394,17 @@ def job_main() -> JobSequence:
 
 
             # job_fill_syringe_multiple(
-            #     volume=[1 * Unit.ml, 1 * Unit.ml, 1 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min"),  1 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE, NamesValves.TWO,  NamesValves.FOUR],
-            #     pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.FOUR]
+            #     volume=[0.1 * Unit.ml, 4 * Unit.ml],
+            #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min")],
+            #     valves=[NamesValves.ONE, NamesValves.THREE],
+            #     pumps=[NamesPump.ONE, NamesPump.THREE]
             # ),
-            # job_undo_fill_syringe_multiple(
-            #     volume=[1 * Unit.ml, 1 * Unit.ml, 1 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min"), 1 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.FOUR],
-            #     pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.FOUR]
-            # ),
+            job_flow_syringe_multiple(
+                volume=[4 * Unit.ml, 4 * Unit.ml],
+                flow_rate=[0.03275 * Unit("ml/min"), 0.03275 * Unit("ml/min")],
+                valves=[NamesValves.ONE, NamesValves.THREE],
+                pumps=[NamesPump.ONE, NamesPump.THREE]
+            ),
 
             # job_flow_syringe_multiple(
             #     volume=[0.5 * Unit.ml, 0.5 * Unit.ml, 0.05 * Unit.ml, 0.05 * Unit.ml],

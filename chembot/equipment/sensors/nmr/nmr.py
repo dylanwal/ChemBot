@@ -251,7 +251,7 @@ class NMRComm:
                         if raw_message.count('<?xml version="1.0" encoding="utf-8"?>') > 1:
                             # if multiple message, take first
                             messages = raw_message.split('<?xml version="1.0" encoding="utf-8"?>')
-                            messages = [message for i, message in messages if i % 2 == 1]
+                            messages = [message for i, message in enumerate(messages) if i % 2 == 1]
                         else:
                             messages = [raw_message]
                         for text in messages:

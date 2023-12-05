@@ -142,7 +142,7 @@ def process_many(path: pathlib.Path):
             data = np.empty((len(files), len(ppm)), dtype=d.dtype)
         data[i, :] = d[ppm_slice_index, 1]
         times[i] = t
-        print(i, ":", len(files), "done")
+        print(i, ":", len(files)-1, "done")
 
     return times, ppm, data
 
@@ -181,13 +181,13 @@ def numpy_to_feather(array_: np.ndarray, file_path: str | pathlib.Path):
 
 
 def main():
-    path = pathlib.Path(r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-8\NMR2")
+    path = pathlib.Path(r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-9\NMR")
     times, ppm, data = process_many(path)
     data = pack_time_series(ppm, times, data)
 
     # save
     # np.savetxt("DW2_5_1_NMR.csv", data, delimiter=",")
-    numpy_to_feather(data, r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-8\DW2_8_NMR2.feather")
+    numpy_to_feather(data, r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-9\DW2_9_NMR.feather")
     print("done")
 
 
