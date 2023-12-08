@@ -405,7 +405,7 @@ class NMR(Sensor):
                 logger.info("No signal. Move and retry NMR")
                 self.rabbit.send(
                     RabbitMessageAction("pump_five", self.name, "write_infuse",
-                                        kwargs={"volume": 0.0075 * Unit.ml, "flow_rate": 0.2 * Unit("ml/min")})
+                                        kwargs={"volume": 0.005 * Unit.ml, "flow_rate": 0.15 * Unit("ml/min")})
                 )
                 time.sleep(10)
         else:

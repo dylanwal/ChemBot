@@ -11,6 +11,7 @@ start: 11:26:37.107
 short stop at 23
 
 
+## Error fixed; add enumerate to list comprehension
 
 12-02 11:21:28.850 INFO     || nmr.nmr                   proton started: 2023-12-02 11:21:28.850409
 
@@ -102,3 +103,44 @@ SEC
 13) 
 
 
+```mermaid
+flowchart TD
+    pump_1 -- 11 cm --> valve_1
+    valve_1 -- 8 cm --> tee_1
+    Monomer:::in ---> valve_1
+    tee_1 -- 3 cm  --> tee_droplet
+    pump_2 -- 12 cm --> valve_2
+    CTA1:::in --> valve_2
+    valve_2  -- 7 cm --> tee_2
+    tee_2 -- 3 cm --> tee_1
+    pump_3 -- 10 cm --> valve_3
+    perflourohexane:::in --> valve_3
+    valve_3 -- 30 cm --> tee_droplet
+    pump_4 -- 13 cm --> valve_4
+    CTA2:::in --> valve_4
+    valve_4 -- 13 cm --> tee_2
+
+    tee_droplet -- 8 cm --> reactor_start
+    subgraph reactor[ ]
+        reactor_start -- 115 cm --> reactor_end
+    end
+
+    reactor_end -- 23 cm --> IR
+    IR -- 4 cm --> tee_3
+    pump_5 --> valve_5
+    valve_5 --> tee_3
+    perflourohexane:::in --> valve_5
+    tee_3 --> NMR 
+    tee_3 --> fraction_collector
+    subgraph fraction_collector
+        waste:::out
+        SEC_vial:::out
+    end
+
+    valve_6 --> valve_SEC:::out
+
+    
+
+    classDef in fill:#F9BDC0 ,stroke:black;
+    classDef out fill:#FBE698, stroke:black;
+```
