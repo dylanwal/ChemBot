@@ -181,13 +181,13 @@ def numpy_to_feather(array_: np.ndarray, file_path: str | pathlib.Path):
 
 
 def main():
-    path = pathlib.Path(r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-9\NMR")
+    path = pathlib.Path(r"\\DESKTOP-OAAK5MF\Users\Robot2\Desktop\Dylan\NMR\Magritek\DW2")
     times, ppm, data = process_many(path)
     data = pack_time_series(ppm, times, data)
 
     # save
     # np.savetxt("DW2_5_1_NMR.csv", data, delimiter=",")
-    numpy_to_feather(data, r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-9\DW2_9_NMR.feather")
+    numpy_to_feather(data, r"C:\Users\Robot2\Desktop\Dylan\NMR\DW2-10\DW2_10_NMR.feather")
     print("done")
 
 

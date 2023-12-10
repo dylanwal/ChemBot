@@ -21,6 +21,8 @@ start SS: 18:38:05 -
 > 1407 + is DMSO +PEG+Benzene 
 
 # NMR
+
+typical requires 1.1 pushes to get nmr
 -> 2 min from sampling to full NMR start + 2 min NMR
 
 1) 10:53:10
