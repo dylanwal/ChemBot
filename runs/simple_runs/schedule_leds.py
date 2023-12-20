@@ -125,7 +125,7 @@ def linear_job(n: int = 100, duration: timedelta = timedelta(seconds=10), led_na
 def main():
     job_submitter = JobSubmitter()
 
-    job = blink(power=int(65535*0.4), on_time=timedelta(minutes=15), led_name=NamesLEDColors.GREEN)
+    job = blink(power=int(65535*0.4), on_time=timedelta(minutes=30), led_name=NamesLEDColors.GREEN)
     # job = triple_blink(on_time=timedelta(seconds=1), off_time=timedelta(seconds=2), led=NamesLEDColors.DEEP_RED)  #TODO: issue with schedualr
     # job = rainbow_job(n=100, duration=timedelta(seconds=10), power=656)
     # job = linear_job(n=20, duration=timedelta(seconds=10), power_max=6553)  # [0:1:65535]

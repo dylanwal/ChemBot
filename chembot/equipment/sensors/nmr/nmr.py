@@ -350,6 +350,7 @@ class NMR(Sensor):
                       aqtime: NMRAqTime = NMRAqTime.THREEPOINTTWO,
                       reptime: NMRRepTime = NMRRepTime.FIFTEEN,
                       pulse_angle: NMRPulseAngle = NMRPulseAngle.SIXTY,
+                      flow_rate: Quantity = None,
                       ) -> np.ndarray:
         # switch valve to reactor
         self.rabbit.send(
@@ -358,15 +359,17 @@ class NMR(Sensor):
         time.sleep(2)
 
         # wait for plug
-        flow_rate = 0 * Unit("ml/min")
-        pumps = ["pump_one", "pump_two", "pump_three", "pump_four"]
-        for pump in pumps:
-            flow_rate += self.rabbit.send_and_consume(
-                RabbitMessageAction(pump, self.name, "read_flow_rate"), timeout=3, error_out=True
-            ).value
         vol = 3.14 * (6 * Unit.cm) * (0.03 * Unit.inch / 2) ** 2
-        if flow_rate.v == 0:
-            flow_rate = 0.1 * Unit("ml/min")
+        if flow_rate is None:
+            flow_rate = 0 * Unit("ml/min")
+            pumps = ["pump_one", "pump_two", "pump_three", "pump_four"]
+            for pump in pumps:
+                flow_rate += self.rabbit.send_and_consume(
+                    RabbitMessageAction(pump, self.name, "read_flow_rate"), timeout=3, error_out=True
+                ).value
+
+            if flow_rate.v == 0:
+                flow_rate = 0.1 * Unit("ml/min")
         time_ = vol / flow_rate
         time.sleep(time_.to("s").v)
 
@@ -379,7 +382,7 @@ class NMR(Sensor):
         # # flow plug
         self.rabbit.send(
             RabbitMessageAction("pump_five", self.name, "write_infuse",
-                                kwargs={"volume": 0.263 * Unit("ml"), "flow_rate": 0.263 * Unit("ml/min")}
+                                kwargs={"volume": 0.256 * Unit("ml"), "flow_rate": 0.263 * Unit("ml/min")}
                                 )
         )
         time.sleep(60)

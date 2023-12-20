@@ -562,12 +562,13 @@ class SyringePumpHarvard(SyringePump):
         """
         Displays the raw status for use with a controlling computer.
         """
-        reply = self._send_and_receive_message('status')
-        reply2 = self._read()
-        if reply2[0].isdigit():  # old pumps flip order
-            reply, reply2 = reply2, reply
-        self._check_pump_reply(reply2)
         try:
+            reply = self._send_and_receive_message('status')
+            reply2 = self._read()
+            if reply2[0].isdigit():  # old pumps flip order
+                reply, reply2 = reply2, reply
+            self._check_pump_reply(reply2)
+
             status = HarvardPumpStatusMessage.parse_message(reply)
             return status
         except Exception:
