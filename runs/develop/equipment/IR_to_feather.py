@@ -137,7 +137,7 @@ def numpy_to_feather(arr, name):
 def main():
     runner = ATIRRunner()
     n_start = 0
-    n_end = 1685
+    n_end = 473
     n = n_end - n_start
     data = np.zeros((n+2, 1755))
     counter = 0
@@ -157,7 +157,7 @@ def main():
     print("saving")
 
     # np.savetxt("DW2-5-7-ATIR.csv", data, delimiter=",")
-    numpy_to_feather(data, "DW2_14_IR.feather")
+    numpy_to_feather(data, "DW2_15_IR.feather")
     print("done")
 
 

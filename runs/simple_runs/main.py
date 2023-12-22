@@ -321,15 +321,15 @@ def job_main() -> JobSequence:
             #     kwargs={"flow_rate": 0.13 * Unit("ml/min")},
             # ),
 
-            job_flow_syringe_multiple(
-                volume=[0.4 * Unit.ml],
-                flow_rate=[0.3 * Unit("ml/min")],
-                valves=[NamesValves.THREE],
-                pumps=[NamesPump.THREE]
-            ),
+            # job_flow_syringe_multiple(
+            #     volume=[0.4 * Unit.ml],
+            #     flow_rate=[0.3 * Unit("ml/min")],
+            #     valves=[NamesValves.THREE],
+            #     pumps=[NamesPump.THREE]
+            # ),
             # job_fill_syringe_multiple(
-            #     volume=[1 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min")],
+            #     volume=[5 * Unit.ml],
+            #     flow_rate=[0.8 * Unit("ml/min")],
             #     valves=[NamesValves.TWO],
             #     pumps=[NamesPump.TWO]
             # ),
@@ -405,12 +405,12 @@ def job_main() -> JobSequence:
             # ),
 
 
-            # job_fill_syringe_multiple(
-            #     volume=[3.5 * Unit.ml, 3.5 * Unit.ml, 3.5 * Unit.ml],
-            #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min"), 1 * Unit("ml/min")],
-            #     valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.FOUR],
-            #     pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.FOUR]
-            # ),
+            job_fill_syringe_multiple(
+                volume=[4 * Unit.ml, 1.5 * Unit.ml, 5 * Unit.ml],
+                flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min"), 0.8 * Unit("ml/min")],
+                valves=[NamesValves.ONE, NamesValves.TWO, NamesValves.THREE],
+                pumps=[NamesPump.ONE, NamesPump.TWO, NamesPump.THREE]
+            ),
             # job_undo_fill_syringe_multiple(
             #     volume=[3 * Unit.ml, 3 * Unit.ml, 0.5 * Unit.ml],
             #     flow_rate=[1 * Unit("ml/min"), 1 * Unit("ml/min"), 0.2 * Unit("ml/min")],
