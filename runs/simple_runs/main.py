@@ -321,12 +321,18 @@ def job_main() -> JobSequence:
             #     kwargs={"flow_rate": 0.13 * Unit("ml/min")},
             # ),
 
-            job_fill_syringe_multiple(
-                volume=[2 * Unit.ml],
-                flow_rate=[2 * Unit("ml/min")],
-                valves=[NamesValves.FOUR],
-                pumps=[NamesPump.FOUR]
+            job_flow_syringe_multiple(
+                volume=[0.4 * Unit.ml],
+                flow_rate=[0.3 * Unit("ml/min")],
+                valves=[NamesValves.THREE],
+                pumps=[NamesPump.THREE]
             ),
+            # job_fill_syringe_multiple(
+            #     volume=[1 * Unit.ml],
+            #     flow_rate=[1 * Unit("ml/min")],
+            #     valves=[NamesValves.TWO],
+            #     pumps=[NamesPump.TWO]
+            # ),
             # job_flow_syringe_multiple(
             #     volume=[0.2 * Unit.ml],
             #     flow_rate=[0.2 * Unit("ml/min")],
@@ -334,7 +340,7 @@ def job_main() -> JobSequence:
             #     pumps=[NamesPump.THREE]
             # ),
             # job_flow_syringe_multiple(
-            #     volume=[2 * Unit.ml],
+            #     volume=[6 * Unit.ml],
             #     flow_rate=[2 * Unit("ml/min")],
             #     valves=[NamesValves.THREE],
             #     pumps=[NamesPump.THREE]
@@ -444,7 +450,7 @@ def job_main() -> JobSequence:
 
             # # priming
             # Event(
-            #     resource=NamesValves.FOUR,
+            #     resource=NamesValves.ONE,
             #     callable_=ValveServo.write_move,
             #     duration=timedelta(seconds=1.5),
             #     kwargs={"position": "flow"}
