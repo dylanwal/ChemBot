@@ -1,9 +1,0 @@
-start: 1:30
-NMR first signal: 1:48 spectra 32
-IR first signal: 1:54 spectra 148
-
-
-phase2
-start 4:03
-the syringe pumps don't move for a min or two min
-the floronated starts first and creates a flouro plug that travals through all detectors
