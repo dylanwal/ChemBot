@@ -84,20 +84,20 @@ def job_flow_syringe_multiple(
 def job_air_purge_(volume: Quantity = 2 * Unit.ml, flow_rate: Quantity = 10 * Unit("ml/min")) -> JobSequence:
     return JobSequence(
         [
-            job_fill_syringe(volume, flow_rate, NamesValves.VALVE_BACK, NamesPump.PUMP_BACK),
+            job_fill_syringe(volume, flow_rate, NamesValves.BACK, NamesPump.BACK),
             Event(
-                resource=NamesValves.VALVE_FRONT,
+                resource=NamesValves.FRONT,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1),
                 kwargs={"position": "fill"}
             ),
             Event(
-                resource=NamesValves.VALVE_MIDDLE,
+                resource=NamesValves.MIDDLE,
                 callable_=ValveServo.write_move,
                 duration=timedelta(seconds=1),
                 kwargs={"position": "flow_air"}
             ),
-            job_flow(volume, flow_rate, NamesValves.VALVE_BACK, NamesPump.PUMP_BACK)
+            job_flow(volume, flow_rate, NamesValves.BACK, NamesPump.BACK)
         ]
     )
 
@@ -122,14 +122,14 @@ def fill_and_push(volume: list[Quantity], flow_rate: list[Quantity], valves: lis
 def job_air_purge() -> JobSequence:
     return JobSequence(
         [
-            job_air_purge_(),
+            job_air_purge_(0.3 * Unit.ml),
             # fill_and_push(
             #     volume=[0.4 * Unit.ml],
             #     flow_rate=[3 * Unit("ml/min")],
             #     valves=[NamesValves.VALVE_FRONT],
             #     pumps=[NamesPump.PUMP_FRONT]
             # ),
-            job_air_purge_(),
+            job_air_purge_(0.3 * Unit.ml),
         ]
     )
 

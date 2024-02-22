@@ -93,6 +93,7 @@ class ATIRRunner:
             parameters += f",NSR={scans}"
         if resolution is not None:
             parameters += f",RES={resolution}"
+        parameters += f",SNM=RAFT2_3"
         result = self.request("COMMAND_LINE MeasureSample (0,{" + parameters + "});")
         logger.debug("result: " + str(result))
         try:
@@ -119,7 +120,7 @@ class ATIRRunner:
 
 
 class ATIR(Sensor):
-    _method_name = "ATR_DI"
+    _method_name = "ATR_DI2"
     _method_path = str(pathlib.Path(__file__).parent)
 
     @property
@@ -141,10 +142,10 @@ class ATIR(Sensor):
     def _stop(self):
         pass
 
-    def write_measure(self, data_name: str = None, scans: int = 8) -> np.ndarray:
+    def write_measure(self, data_name: str = None, scans: int = 16) -> np.ndarray:
         rf = self._runner.measure_sample(self._method_path, self._method_name, scans)
         logger.warning(rf)
         return self._runner.get_results(rf)[:, 1]  # TODO: figure out what to do with the wavelength shape (1754,2)
 
-    def write_background(self, scans: int = 8):
+    def write_background(self, scans: int = 16):
         self._runner.run_background_scans(self._method_path, self._method_name, scans)

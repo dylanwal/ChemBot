@@ -10,3 +10,9 @@ volume = 0.525 ml
 36.1 sec @ 0.3 ml/min
 
 
+flow rates:
+* 2 min: 0.262 ml/min total flow rate
+* 4 min: 0.131 ml/min total flow rate
+* 8 min: 0.0655 ml/min total flow rate
+* 16 min: 0.03275 ml/min total flow rate
+* 32 min: 0.016375 ml/min total flow rate

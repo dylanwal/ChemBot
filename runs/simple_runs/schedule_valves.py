@@ -12,7 +12,8 @@ def job_rotate_through_all_positions(valve_name: str) -> JobSequence:
         [
             Event(
                 resource=valve_name,
-                callable_=ValveServo.write_move_next,
+                callable_=ValveServo.write_move,
+                kwargs={"position": 0},
                 duration=timedelta(seconds=3),
             ),
             Event(
@@ -28,6 +29,12 @@ def job_rotate_through_all_positions(valve_name: str) -> JobSequence:
             Event(
                 resource=valve_name,
                 callable_=ValveServo.write_move_next,
+                duration=timedelta(seconds=3),
+            ),
+            Event(
+                resource=valve_name,
+                callable_=ValveServo.write_move,
+                kwargs={"position": 0},
                 duration=timedelta(seconds=3),
             ),
         ]
@@ -37,7 +44,7 @@ def job_rotate_through_all_positions(valve_name: str) -> JobSequence:
 def main():
     job_submitter = JobSubmitter()
 
-    job = job_rotate_through_all_positions(NamesValves.VALVE_ANALYTICAL)
+    job = job_rotate_through_all_positions(NamesValves.FIVE)
     result = job_submitter.submit(job)
     print(result)
 

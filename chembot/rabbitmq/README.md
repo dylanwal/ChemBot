@@ -4,6 +4,7 @@
 3) Install RabbitMQ `choco install rabbitmq`
 4) Server starts up automatically on install
 
+
 ## RabbitMQ
     # Navigate to location of server files
     'cd C:\Program Files\RabbitMQ Server\rabbitmq_server-3.11.13\sbin'  # version may be different

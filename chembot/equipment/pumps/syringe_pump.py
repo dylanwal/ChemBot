@@ -37,7 +37,7 @@ class SyringeState:
         self._volume_in_syringe: Quantity | None = None
         self.volume_displace: Quantity | None = None
         self.target_volume: Quantity | None = None
-        self.flow_rate: Quantity | None = None
+        self.flow_rate: Quantity | None = 0 * Unit("ml/min")
         self.running_time: Quantity | None = None
         self.end_time: Quantity | None = None
         self.syringe = syringe
@@ -104,6 +104,9 @@ class SyringePump(Equipment, abc.ABC):
     def read_syringe(self) -> Syringe:
         """ get syringe """
         return self.syringe
+
+    def read_flow_rate(self) -> Quantity:
+        return self.pump_state.flow_rate
 
     def write_syringe(self, syringe: Syringe):
         """ set syringe """

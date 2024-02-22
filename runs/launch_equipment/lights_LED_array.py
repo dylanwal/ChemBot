@@ -41,13 +41,13 @@ blue = chembot.equipment.lights.LightPico(
     communication=NamesSerial.PICO1
 )
 
-violet = chembot.equipment.lights.LightPico(
-    name=NamesLEDColors.VIOLET,
-    color=425 * U.nm,
-    pin=5,
-    communication=NamesSerial.PICO1
-)
+# violet = chembot.equipment.lights.LightPico(
+#     name=NamesLEDColors.VIOLET,
+#     color=425 * U.nm,
+#     pin=5,
+#     communication=NamesSerial.PICO1
+# )
 
 with chembot.utils.EquipmentManager() as manager:
-    manager.add([red, mint, green, cyan, blue, violet])
+    manager.add([red, mint, green, cyan, blue])
     manager.activate()
