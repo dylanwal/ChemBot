@@ -3,6 +3,7 @@ import plotly.graph_objs as go
 from scipy.optimize import curve_fit
 
 
+
 def equation(t: np.ndarray, a: float, T1: float):
     return a * (1 - 2*np.exp(-t / T1))
 
